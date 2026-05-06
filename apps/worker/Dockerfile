@@ -1,8 +1,10 @@
 # Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
+# Force dev deps to be installed even if NODE_ENV=production leaks in from the host build env.
+ENV NODE_ENV=development
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
