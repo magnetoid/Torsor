@@ -94,6 +94,29 @@ func (m *Manager) ParseToken(tokenStr string) (*Claims, error) {
 	return claims, nil
 }
 
+// ErrSessionInvalid is returned by Authenticate when the backing session is gone.
+var ErrSessionInvalid = errors.New("session expired or revoked")
+
+// Authenticate validates a raw token string (signature + live session) and returns its
+// claims. Used by transports that cannot run the HTTP Require middleware, e.g. WebSocket
+// upgrades that carry the token in a query parameter.
+func (m *Manager) Authenticate(ctx context.Context, token string) (*Claims, error) {
+	claims, err := m.ParseToken(token)
+	if err != nil {
+		return nil, err
+	}
+	if claims.SessionID != "" {
+		valid, err := m.SessionValid(ctx, claims.SessionID)
+		if err != nil {
+			return nil, err
+		}
+		if !valid {
+			return nil, ErrSessionInvalid
+		}
+	}
+	return claims, nil
+}
+
 // SessionValid reports whether a session row exists and has not expired.
 func (m *Manager) SessionValid(ctx context.Context, sessionID string) (bool, error) {
 	var id string

@@ -8,6 +8,7 @@ package plugin
 
 import (
 	"context"
+	"io"
 
 	goplugin "github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -59,11 +60,22 @@ type CompleteResult struct {
 	TokensOut int32
 }
 
+// Chunk is one streamed piece of a completion.
+type Chunk struct {
+	TextDelta string
+	Done      bool
+	Model     string
+	TokensOut int32
+}
+
 // ModelProvider is the Go-facing capability interface. Both the host (client side) and
 // plugins (server side) program against this; gRPC is an implementation detail.
 type ModelProvider interface {
 	Info(ctx context.Context) (ModelInfo, error)
 	Complete(ctx context.Context, req CompleteRequest) (CompleteResult, error)
+	// CompleteStream streams the completion, invoking onChunk for each delta. Returning
+	// a non-nil error from onChunk (e.g. client disconnected) aborts the stream.
+	CompleteStream(ctx context.Context, req CompleteRequest, onChunk func(Chunk) error) error
 }
 
 // ModelProviderPlugin adapts a ModelProvider to hashicorp/go-plugin's gRPC plugin.
@@ -117,6 +129,35 @@ func (c *grpcClient) Complete(ctx context.Context, req CompleteRequest) (Complet
 	}, nil
 }
 
+func (c *grpcClient) CompleteStream(ctx context.Context, req CompleteRequest, onChunk func(Chunk) error) error {
+	stream, err := c.client.CompleteStream(ctx, &proto.CompleteRequest{
+		Prompt:      req.Prompt,
+		System:      req.System,
+		MaxTokens:   req.MaxTokens,
+		Temperature: req.Temperature,
+	})
+	if err != nil {
+		return err
+	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if cbErr := onChunk(Chunk{
+			TextDelta: chunk.GetTextDelta(),
+			Done:      chunk.GetDone(),
+			Model:     chunk.GetModel(),
+			TokensOut: chunk.GetTokensOut(),
+		}); cbErr != nil {
+			return cbErr
+		}
+	}
+}
+
 // grpcServer is the plugin-side adapter: a gRPC server backed by a ModelProvider impl.
 type grpcServer struct {
 	proto.UnimplementedModelProviderServer
@@ -152,4 +193,20 @@ func (s *grpcServer) Complete(ctx context.Context, req *proto.CompleteRequest) (
 		TokensIn:  res.TokensIn,
 		TokensOut: res.TokensOut,
 	}, nil
+}
+
+func (s *grpcServer) CompleteStream(req *proto.CompleteRequest, stream grpc.ServerStreamingServer[proto.CompleteChunk]) error {
+	return s.impl.CompleteStream(stream.Context(), CompleteRequest{
+		Prompt:      req.GetPrompt(),
+		System:      req.GetSystem(),
+		MaxTokens:   req.GetMaxTokens(),
+		Temperature: req.GetTemperature(),
+	}, func(c Chunk) error {
+		return stream.Send(&proto.CompleteChunk{
+			TextDelta: c.TextDelta,
+			Done:      c.Done,
+			Model:     c.Model,
+			TokensOut: c.TokensOut,
+		})
+	})
 }

@@ -11,9 +11,11 @@ option go_package = "github.com/magnetoid/torsor/control-plane/internal/plugin/p
 service ModelProvider {
   // Info returns static metadata used to register and display the provider.
   rpc Info(InfoRequest) returns (InfoResponse);
-  // Complete performs a single (non-streaming) completion. Streaming will be added
-  // alongside the WebSocket/SSE gateway.
+  // Complete performs a single (non-streaming) completion.
   rpc Complete(CompleteRequest) returns (CompleteResponse);
+  // CompleteStream performs a completion, streaming incremental token deltas. The final
+  // chunk has done=true and may carry usage totals.
+  rpc CompleteStream(CompleteRequest) returns (stream CompleteChunk);
 }
 
 message InfoRequest {}
@@ -37,4 +39,11 @@ message CompleteResponse {
   string model = 2;
   int32 tokens_in = 3;
   int32 tokens_out = 4;
+}
+
+message CompleteChunk {
+  string text_delta = 1; // incremental text for this chunk
+  bool done = 2;         // true on the final chunk
+  string model = 3;
+  int32 tokens_out = 4;  // running/total output tokens (set on done)
 }
