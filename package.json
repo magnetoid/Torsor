@@ -19,7 +19,6 @@
     "lint:worker": "npm run lint -w apps/worker"
   },
   "dependencies": {
-    "@google/genai": "^1.29.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

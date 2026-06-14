@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package torsor.plugin.v1;
+
+option go_package = "github.com/magnetoid/torsor/control-plane/internal/plugin/proto;proto";
+
+// ModelProvider is the first Torsor backend capability contract. Plugins implement it
+// out-of-process; the control plane talks to them over gRPC via hashicorp/go-plugin.
+// Other capabilities (WorkspaceRuntime, DeployTarget, VCSProvider, ...) follow the same
+// pattern.
+service ModelProvider {
+  // Info returns static metadata used to register and display the provider.
+  rpc Info(InfoRequest) returns (InfoResponse);
+  // Complete performs a single (non-streaming) completion. Streaming will be added
+  // alongside the WebSocket/SSE gateway.
+  rpc Complete(CompleteRequest) returns (CompleteResponse);
+}
+
+message InfoRequest {}
+
+message InfoResponse {
+  string name = 1;         // stable id, e.g. "ollama", "mock"
+  string display_name = 2; // human label, e.g. "Ollama (local)"
+  string version = 3;
+  string kind = 4;         // capability kind, always "model_provider" here
+}
+
+message CompleteRequest {
+  string prompt = 1;
+  string system = 2;
+  int32 max_tokens = 3;
+  double temperature = 4;
+}
+
+message CompleteResponse {
+  string text = 1;
+  string model = 2;
+  int32 tokens_in = 3;
+  int32 tokens_out = 4;
+}

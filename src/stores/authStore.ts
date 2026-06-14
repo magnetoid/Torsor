@@ -8,7 +8,7 @@ export interface User {
   name: string;
   email: string;
   avatarUrl: string | null;
-  role: 'user' | 'super_admin';
+  role: 'user' | 'admin' | 'super_admin';
   onboarded: boolean;
   createdAt: string;
 }
@@ -30,7 +30,7 @@ interface AuthState {
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   setOnboarded: (onboarded: boolean) => void;
 }
 
@@ -39,7 +39,7 @@ const normalizeUser = (user: any): User => ({
   name: user.name || user.username,
   email: user.email,
   avatarUrl: user.avatarUrl ?? null,
-  role: user.role === 'super_admin' ? 'super_admin' : 'user',
+  role: user.role === 'super_admin' || user.role === 'admin' ? user.role : 'user',
   onboarded: Boolean(user.onboarded),
   createdAt: user.createdAt,
 });
@@ -128,7 +128,13 @@ export const useAuthStore = create<AuthState>()(
           throw error;
         }
       },
-      logout: () => {
+      logout: async () => {
+        // Best-effort server-side revocation; clear locally regardless of the result.
+        try {
+          await apiRequest('/api/v1/auth/logout', { method: 'POST', auth: true });
+        } catch {
+          // ignore — token may already be invalid/expired
+        }
         setStoredToken(null);
         set({ user: null, token: null, isAuthenticated: false, error: null, initialized: true });
       },
@@ -137,10 +143,11 @@ export const useAuthStore = create<AuthState>()(
       })),
     }),
     {
-      name: 'tesseract-auth',
+      // Token is owned by localStorage ('torsor-auth-token' via lib/api); persist only
+      // identity so we don't keep two competing copies of the token.
+      name: 'torsor-auth',
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
         isAuthenticated: state.isAuthenticated,
       }),
     },
