@@ -27,6 +27,7 @@ type Config struct {
 	AuthRateLimit    int
 	APIRateLimit     int
 	JSONBodyLimit    int64
+	ModelPluginPaths []string // executables implementing the ModelProvider capability
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -53,6 +54,7 @@ func Load() Config {
 		AuthRateLimit:    envInt("AUTH_RATE_LIMIT", 20),
 		APIRateLimit:     envInt("API_RATE_LIMIT", 300),
 		JSONBodyLimit:    int64(envInt("JSON_BODY_LIMIT_BYTES", 2*1024*1024)),
+		ModelPluginPaths: csv(os.Getenv("TORSOR_MODEL_PLUGINS")),
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/magnetoid/torsor/control-plane/internal/config"
 	"github.com/magnetoid/torsor/control-plane/internal/db"
 	"github.com/magnetoid/torsor/control-plane/internal/migrations"
+	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 	"github.com/magnetoid/torsor/control-plane/internal/redisx"
 	"github.com/magnetoid/torsor/control-plane/internal/server"
 )
@@ -62,8 +63,21 @@ func main() {
 	retryForever(logger, "super-admin sync", func() error { return syncSuperAdmins(ctx, pool, cfg.SuperAdminEmails) })
 	retryForever(logger, "dev seed", func() error { return ensureDevSeed(ctx, pool, cfg) })
 
+	// Load capability plugins out-of-process (best-effort: a bad plugin must not stop
+	// the control plane from serving).
+	host := plugin.NewHost()
+	defer host.Close()
+	for _, path := range cfg.ModelPluginPaths {
+		info, err := host.LoadModelProvider(ctx, path)
+		if err != nil {
+			logger.Warn("model provider plugin failed to load", "path", path, "err", err)
+			continue
+		}
+		logger.Info("model provider plugin loaded", "name", info.Name, "version", info.Version)
+	}
+
 	am := auth.NewManager(pool, cfg.JWTSecret, cfg.JWTExpiry)
-	srv := server.New(cfg, pool, rc, am, logger)
+	srv := server.New(cfg, pool, rc, am, host, logger)
 
 	httpServer := &http.Server{
 		Addr:              ":" + strconv.Itoa(cfg.Port),

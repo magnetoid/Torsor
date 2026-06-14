@@ -34,6 +34,8 @@ GET    /api/v1/projects/{id}/files (auth)
 POST   /api/v1/projects/{id}/files (auth)
 GET    /api/v1/tasks              (auth)
 POST   /api/v1/tasks              (auth)
+GET    /api/v1/providers/models                   (auth)  # list loaded model plugins
+POST   /api/v1/providers/models/{name}/complete   (auth)  # invoke a model plugin
 ```
 
 ## Configuration
@@ -65,20 +67,61 @@ go build ./...   # compile
 go vet ./...     # static checks
 ```
 
+## Plugins (kernel + contributions)
+
+Backend capabilities run **out-of-process over gRPC** via hashicorp/go-plugin — the
+control-plane binary stays small and a crashing plugin can't take it down. The first
+capability is `ModelProvider`; `WorkspaceRuntime`, `DeployTarget`, `VCSProvider`, etc.
+follow the same shape.
+
+```
+internal/plugin/proto/model.proto   capability contract (gRPC)
+internal/plugin/model.go            Go interface + gRPC client/server adapters + handshake
+internal/plugin/host.go             host: launch/track plugins; Serve() helper for plugins
+cmd/mock-model                      reference ModelProvider plugin (deterministic, no deps)
+```
+
+Authoring a model provider plugin = implement `plugin.ModelProvider` and call
+`plugin.Serve(impl)`. Real providers (Ollama, Claude, OpenAI) follow `cmd/mock-model`.
+
+Load plugins by pointing `TORSOR_MODEL_PLUGINS` at one or more executables:
+
+```bash
+go build -o /tmp/mock-model ./cmd/mock-model
+TORSOR_MODEL_PLUGINS=/tmp/mock-model \
+DATABASE_URL=... REDIS_URL=... NODE_ENV=development go run ./cmd/server
+
+curl -H "authorization: Bearer $TOKEN" localhost:3001/api/v1/providers/models
+curl -X POST -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"prompt":"build a hero section"}' \
+  localhost:3001/api/v1/providers/models/mock/complete
+```
+
+Regenerate gRPC stubs after editing the proto:
+
+```bash
+protoc -I . --go_out=. --go_opt=module=github.com/magnetoid/torsor/control-plane \
+  --go-grpc_out=. --go-grpc_opt=module=github.com/magnetoid/torsor/control-plane \
+  internal/plugin/proto/model.proto
+```
+
 ## Layout
 
 ```
-cmd/server          entrypoint: config, startup retries, graceful shutdown
+cmd/server          entrypoint: config, startup retries, plugin load, graceful shutdown
+cmd/mock-model      reference ModelProvider plugin
 internal/config     env-driven configuration
 internal/db         pgx pool + health
 internal/redisx     redis client (job signaling, readiness)
 internal/migrations embedded SQL + idempotent runner
 internal/auth       bcrypt, JWT, session validation, middleware
-internal/server     chi router + handlers (auth, projects, files, tasks)
+internal/plugin     gRPC capability contracts + go-plugin host
+internal/server     chi router + handlers (auth, projects, files, tasks, providers)
 ```
 
 ## Not yet ported (intentional, next steps)
 
-- WebSocket/SSE gateway (Phase 1 remainder)
-- gRPC plugin host + capability interfaces (`WorkspaceRuntime`, `ModelProvider`, …)
+- WebSocket/SSE gateway + streaming completions (Phase 1 remainder)
+- more capability contracts: `WorkspaceRuntime` (unblocks Phase 2), `DeployTarget`, …
+- real model plugins (Ollama local-first, Claude/OpenAI BYO-key)
 - compose/nginx switch from `apps/api` to this service (deliberate cutover)

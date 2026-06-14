@@ -57,8 +57,10 @@ green for both frontend and API.
       live Postgres+Redis (signup/login/me, ownership isolation → 404, logout → 401
       revocation, file version bump, task enqueue + redis publish, super-admin promotion)
 - [ ] WebSocket/SSE gateway for streaming (foundation for terminals/logs/agent)
-- [ ] **Plugin host**: gRPC plugin loader (`go-plugin` model) + first capability
-      interfaces (`AuthProvider`, `ModelProvider` stubs) to prove the contract
+- [x] **Plugin host**: gRPC plugin loader (hashicorp/go-plugin) proven end-to-end with a
+      `ModelProvider` capability + an out-of-process reference plugin (`cmd/mock-model`).
+      HTTP → host → gRPC → plugin verified (list providers, complete, 404 unknown, 401
+      unauth). `WorkspaceRuntime`/`DeployTarget`/`VCSProvider` follow the same shape.
 - [ ] **Frontend contribution registry**: formalize tab/rail/panel/command/settings
       contributions; re-register existing first-party features through it
 - [ ] **Theme-token contract**: codify CSS-variable token pack format; ship 2 themes

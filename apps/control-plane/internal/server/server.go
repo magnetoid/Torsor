@@ -15,6 +15,7 @@ import (
 	"github.com/magnetoid/torsor/control-plane/internal/auth"
 	"github.com/magnetoid/torsor/control-plane/internal/config"
 	"github.com/magnetoid/torsor/control-plane/internal/db"
+	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 	"github.com/magnetoid/torsor/control-plane/internal/redisx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -24,11 +25,12 @@ type Server struct {
 	pool   *pgxpool.Pool
 	redis  *redisx.Client
 	auth   *auth.Manager
+	host   *plugin.Host
 	logger *slog.Logger
 }
 
-func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, logger *slog.Logger) *Server {
-	return &Server{cfg: cfg, pool: pool, redis: rc, auth: am, logger: logger}
+func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
+	return &Server{cfg: cfg, pool: pool, redis: rc, auth: am, host: host, logger: logger}
 }
 
 // Handler builds the chi router with all middleware and routes.
@@ -72,6 +74,10 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/tasks", s.handleListTasks)
 			r.Post("/tasks", s.handleCreateTask)
+
+			// Capability plugins (kernel + contributions).
+			r.Get("/providers/models", s.handleListModelProviders)
+			r.Post("/providers/models/{name}/complete", s.handleComplete)
 		})
 	})
 
