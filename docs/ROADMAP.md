@@ -47,20 +47,26 @@ green for both frontend and API.
 
 ---
 
-## Phase 1 — Go control plane + plugin kernel
+## Phase 1 — Go control plane + plugin kernel 🚧 (in progress)
 **Goal:** real backend as a single binary, with the contribution system in place first.
 
-- [ ] Scaffold Go control plane (replaces `apps/api`): config, structured logging,
-      Postgres pool, Redis, migrations runner, health/ready
-- [ ] Port existing routes 1:1 (auth signup/login/me, projects CRUD, files, tasks) —
-      reuse the existing schema
+- [x] Scaffold Go control plane at `apps/control-plane`: config, structured logging
+      (slog), pgx Postgres pool, Redis, embedded migrations runner, health/ready
+- [x] Port existing routes 1:1 (auth signup/login/me/**logout**, projects CRUD, files,
+      tasks) — reuses the existing schema; same JSON shapes; verified end-to-end against a
+      live Postgres+Redis (signup/login/me, ownership isolation → 404, logout → 401
+      revocation, file version bump, task enqueue + redis publish, super-admin promotion)
 - [ ] WebSocket/SSE gateway for streaming (foundation for terminals/logs/agent)
 - [ ] **Plugin host**: gRPC plugin loader (`go-plugin` model) + first capability
       interfaces (`AuthProvider`, `ModelProvider` stubs) to prove the contract
 - [ ] **Frontend contribution registry**: formalize tab/rail/panel/command/settings
       contributions; re-register existing first-party features through it
 - [ ] **Theme-token contract**: codify CSS-variable token pack format; ship 2 themes
-- [ ] Point the 2 real frontend stores (`authStore`, `projectStore`) at the Go API
+- [ ] Cut over: point the 2 real frontend stores (`authStore`, `projectStore`) +
+      compose/nginx at the Go service and retire `apps/api`
+
+> The Go service currently ships **in parallel** with `apps/api` (nothing depends on it
+> yet), so the cutover is deliberate and reversible. See `apps/control-plane/README.md`.
 
 **Done when:** the app runs end-to-end on the Go binary; the editor/terminal/git UI are
 registered as plugins; a second theme can be swapped at runtime.
