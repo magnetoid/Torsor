@@ -56,7 +56,7 @@ export function readBearerToken(req: Request): string | null {
   return authHeader.slice('Bearer '.length).trim();
 }
 
-export function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+export async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
   const token = readBearerToken(req);
 
   if (!token) {
@@ -64,13 +64,35 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
     return;
   }
 
+  let payload: { userId: string; email: string; sessionId?: string };
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { userId: string; email: string; sessionId?: string };
-    req.auth = payload;
-    next();
+    payload = jwt.verify(token, JWT_SECRET) as { userId: string; email: string; sessionId?: string };
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
+    return;
   }
+
+  // Enforce the server-side session so logout actually revokes access (the JWT alone
+  // would otherwise stay valid until natural expiry). Tokens we issue always carry a
+  // sessionId; reject if the backing session row is gone or expired.
+  if (payload.sessionId) {
+    try {
+      const result = await query<{ id: string }>(
+        'SELECT id FROM sessions WHERE id = $1 AND expires_at > NOW()',
+        [payload.sessionId],
+      );
+      if (!result.rows[0]) {
+        res.status(401).json({ error: 'Session expired or revoked' });
+        return;
+      }
+    } catch {
+      res.status(500).json({ error: 'Authentication check failed' });
+      return;
+    }
+  }
+
+  req.auth = payload;
+  next();
 }
 
 export async function sanitizeUserById(userId: string): Promise<ApiUser | null> {

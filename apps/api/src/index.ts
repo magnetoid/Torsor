@@ -278,6 +278,17 @@ app.post('/api/v1/auth/login', authLimiter, async (req, res, next) => {
   }
 });
 
+app.post('/api/v1/auth/logout', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    if (req.auth?.sessionId) {
+      await query('DELETE FROM sessions WHERE id = $1', [req.auth.sessionId]);
+    }
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/v1/auth/me', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await sanitizeUserById(req.auth!.userId);
@@ -552,8 +563,17 @@ async function start() {
     logger.info({ port }, 'torsor-api listening');
   });
 
+  // Periodically reap expired session rows so the table stays bounded.
+  const sessionCleanup = setInterval(() => {
+    query('DELETE FROM sessions WHERE expires_at <= NOW()').catch((err) => {
+      logger.warn({ err }, 'expired session cleanup failed');
+    });
+  }, 60 * 60 * 1000);
+  sessionCleanup.unref();
+
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'shutting down');
+    clearInterval(sessionCleanup);
     server.close();
     try { await disconnectRedis(); } catch (err) { logger.warn({ err }, 'redis disconnect failed'); }
     try { await closeDb(); } catch (err) { logger.warn({ err }, 'db close failed'); }

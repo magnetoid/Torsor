@@ -52,7 +52,7 @@ export const AdminRoute: React.FC<RouteProps> = ({ children }) => {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated || user?.role !== 'super_admin') {
+  if (!isAuthenticated || (user?.role !== 'super_admin' && user?.role !== 'admin')) {
     return <Navigate to="/" replace />;
   }
 

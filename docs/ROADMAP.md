@@ -17,25 +17,33 @@ modular via plugins, skinnable via themes, and bootstrapped from templates.
 
 ---
 
-## Phase 0 — Clean the foundation
-**Goal:** stop building on confusion. Low risk, do first.
+## Phase 0 — Clean the foundation ✅ (done)
+**Goal:** stop building on confusion. Low risk, done first.
 
-- [ ] Delete the orphaned `ArrayIDE` UI tree (`src/ArrayIDE.tsx`, `IDEShell.tsx`,
-      `AgentPanel.tsx`, `EditorArea.tsx`, root `TopBar.tsx`/`PreviewPanel.tsx`/
-      `BottomPanel.tsx`/`FileExplorerSidebar.tsx`/`DeployModal.tsx`/`AgentActivityPanel.tsx`/
-      `ModelConfigDialog.tsx`, `useAgentStore.ts`, `useAppStore.ts`)
-- [ ] Delete the 10 unused tab components in `src/components/tabs/` never wired into
-      `CenterWorkArea` (AgentSettings, ApiKeys, AuditLog, Billing, CLIReference, General,
-      MemberManagement, Members, Security, WorkspaceSettings)
-- [ ] Remove unused `@google/genai` dependency
-- [ ] Fix **session/logout**: either validate the `sessions` table in `requireAuth`
-      (enables real revocation + expiry cleanup) or drop the table; today it is write-only
-- [ ] Fix **role mismatch**: frontend collapses `admin` → `user`; `AdminRoute` only allows
-      `super_admin`. Align frontend role type + guards with backend `user|admin|super_admin`
-- [ ] Resolve persistence naming: token lives in both `torsor-auth-token` (localStorage)
-      and Zustand `tesseract-auth` — pick one source of truth
+- [x] Delete the orphaned `ArrayIDE` UI tree — 13 files: `ArrayIDE.tsx`, `IDEShell.tsx`,
+      `AgentPanel.tsx`, `BottomPanel.tsx`, `EditorArea.tsx`, `PreviewPanel.tsx`,
+      `AgentActivityPanel.tsx`, `FileExplorerSidebar.tsx`, `DeployModal.tsx`,
+      `ModelConfigDialog.tsx`, root `TopBar.tsx`, root `CommandPalette.tsx`, `useAgentStore.ts`
+- [x] Remove unused `@google/genai` dependency (and regenerate lockfile)
+- [x] Fix **session/logout**: `requireAuth` now validates the `sessions` row (exists +
+      not expired) → real revocation; added `POST /api/v1/auth/logout` + hourly expired-row
+      cleanup; frontend `logout()` calls the endpoint
+- [x] Fix **role mismatch**: frontend role type + `normalizeUser` + `AdminRoute` now honor
+      backend `user | admin | super_admin` (admins no longer collapsed to `user`)
+- [x] Resolve persistence naming: token is owned solely by localStorage
+      (`torsor-auth-token`); Zustand store renamed `tesseract-auth` → `torsor-auth` and no
+      longer persists a second copy of the token
 
-**Done when:** ~⅓ of dead frontend code is gone, auth bugs fixed, lint/build green.
+> **Correction to an earlier analysis:** `useAppStore.ts` is **kept** — it is a core store
+> for ~14 live files (CodeEditorTab, PreviewTab, FileTree, CodePanel, shared CommandPalette,
+> …), not dead code. Likewise the tab components `GeneralTab`, `MembersTab`, `BillingTab`,
+> `AgentSettingsTab`, `ApiKeysTab`, `SecurityTab`, `AuditLogTab`, `CLIReference`,
+> `MemberManagement`, `WorkspaceSettings` are **live** — wired via `SettingsPage`
+> (`/settings`) and `SettingsTab`, not orphaned. Both were verified by import-graph trace
+> before deleting.
+
+**Done:** dead `ArrayIDE` cluster removed, 4 auth/cleanliness fixes landed, `tsc --noEmit`
+green for both frontend and API.
 
 ---
 
