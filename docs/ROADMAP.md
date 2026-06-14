@@ -65,9 +65,13 @@ green for both frontend and API.
       `ModelProvider` capability + an out-of-process reference plugin (`cmd/mock-model`).
       HTTP → host → gRPC → plugin verified (list providers, complete, 404 unknown, 401
       unauth). `WorkspaceRuntime`/`DeployTarget`/`VCSProvider` follow the same shape.
-- [ ] **Frontend contribution registry**: formalize tab/rail/panel/command/settings
-      contributions; re-register existing first-party features through it
-- [ ] **Theme-token contract**: codify CSS-variable token pack format; ship 2 themes
+- [x] **Frontend contribution registry** (`src/kernel`): typed contribution contract for
+      tabs/commands/panels/rail/settings; the 17 first-party tabs now register through it
+      and `CenterWorkArea` renders from the registry (the hardcoded switch is gone).
+- [x] **Theme-token contract** (`src/kernel/theme.ts`): themes are typed token packs +
+      a registry + `applyTheme`. Built-in `dark`/`light` mirror `index.css` exactly (live
+      theme is now registry-driven) and a `midnight` skin demonstrates runtime swap via
+      `setThemeById`. Frontend `tsc` + `vite build` green.
 - [ ] Cut over: point the 2 real frontend stores (`authStore`, `projectStore`) +
       compose/nginx at the Go service and retire `apps/api`
 
