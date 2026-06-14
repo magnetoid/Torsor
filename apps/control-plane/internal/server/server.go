@@ -52,6 +52,10 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/", s.handleRoot)
 		r.Get("/config", s.handleConfig)
 
+		// WebSocket streaming authenticates from the access_token query param (browsers
+		// can't set headers on WebSocket), so it lives outside the Bearer-header group.
+		r.Get("/providers/models/{name}/complete/ws", s.handleCompleteWS)
+
 		// Auth-sensitive endpoints get an additional, stricter limiter.
 		r.Group(func(r chi.Router) {
 			r.Use(httprate.LimitByIP(s.cfg.AuthRateLimit, 15*time.Minute))
@@ -78,6 +82,7 @@ func (s *Server) Handler() http.Handler {
 			// Capability plugins (kernel + contributions).
 			r.Get("/providers/models", s.handleListModelProviders)
 			r.Post("/providers/models/{name}/complete", s.handleComplete)
+			r.Post("/providers/models/{name}/complete/stream", s.handleCompleteSSE)
 		})
 	})
 

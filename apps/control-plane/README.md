@@ -34,8 +34,10 @@ GET    /api/v1/projects/{id}/files (auth)
 POST   /api/v1/projects/{id}/files (auth)
 GET    /api/v1/tasks              (auth)
 POST   /api/v1/tasks              (auth)
-GET    /api/v1/providers/models                   (auth)  # list loaded model plugins
-POST   /api/v1/providers/models/{name}/complete   (auth)  # invoke a model plugin
+GET    /api/v1/providers/models                          (auth)  # list loaded model plugins
+POST   /api/v1/providers/models/{name}/complete          (auth)  # invoke (one-shot)
+POST   /api/v1/providers/models/{name}/complete/stream   (auth)  # stream via SSE
+GET    /api/v1/providers/models/{name}/complete/ws       (?access_token)  # stream via WebSocket
 ```
 
 ## Configuration
@@ -81,6 +83,12 @@ internal/plugin/host.go             host: launch/track plugins; Serve() helper f
 cmd/mock-model                      reference ModelProvider plugin (deterministic, no deps)
 ```
 
+The capability supports both one-shot (`Complete`) and streaming (`CompleteStream`, gRPC
+server-streaming) completions. Streaming is surfaced over **SSE** (Bearer header, suits
+the fetch-based frontend) and **WebSocket** (token via `access_token` query, since
+browsers can't set headers on a WebSocket). Both emit the same JSON chunk frames:
+`{"textDelta":"...","done":false,"model":"..."}` ending with `{"done":true,...}`.
+
 Authoring a model provider plugin = implement `plugin.ModelProvider` and call
 `plugin.Serve(impl)`. Real providers (Ollama, Claude, OpenAI) follow `cmd/mock-model`.
 
@@ -121,7 +129,7 @@ internal/server     chi router + handlers (auth, projects, files, tasks, provide
 
 ## Not yet ported (intentional, next steps)
 
-- WebSocket/SSE gateway + streaming completions (Phase 1 remainder)
 - more capability contracts: `WorkspaceRuntime` (unblocks Phase 2), `DeployTarget`, …
 - real model plugins (Ollama local-first, Claude/OpenAI BYO-key)
+- frontend contribution registry + theme-token contract
 - compose/nginx switch from `apps/api` to this service (deliberate cutover)

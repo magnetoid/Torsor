@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ModelProvider_Info_FullMethodName     = "/torsor.plugin.v1.ModelProvider/Info"
-	ModelProvider_Complete_FullMethodName = "/torsor.plugin.v1.ModelProvider/Complete"
+	ModelProvider_Info_FullMethodName           = "/torsor.plugin.v1.ModelProvider/Info"
+	ModelProvider_Complete_FullMethodName       = "/torsor.plugin.v1.ModelProvider/Complete"
+	ModelProvider_CompleteStream_FullMethodName = "/torsor.plugin.v1.ModelProvider/CompleteStream"
 )
 
 // ModelProviderClient is the client API for ModelProvider service.
@@ -34,9 +35,11 @@ const (
 type ModelProviderClient interface {
 	// Info returns static metadata used to register and display the provider.
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
-	// Complete performs a single (non-streaming) completion. Streaming will be added
-	// alongside the WebSocket/SSE gateway.
+	// Complete performs a single (non-streaming) completion.
 	Complete(ctx context.Context, in *CompleteRequest, opts ...grpc.CallOption) (*CompleteResponse, error)
+	// CompleteStream performs a completion, streaming incremental token deltas. The final
+	// chunk has done=true and may carry usage totals.
+	CompleteStream(ctx context.Context, in *CompleteRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CompleteChunk], error)
 }
 
 type modelProviderClient struct {
@@ -67,6 +70,25 @@ func (c *modelProviderClient) Complete(ctx context.Context, in *CompleteRequest,
 	return out, nil
 }
 
+func (c *modelProviderClient) CompleteStream(ctx context.Context, in *CompleteRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[CompleteChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ModelProvider_ServiceDesc.Streams[0], ModelProvider_CompleteStream_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[CompleteRequest, CompleteChunk]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ModelProvider_CompleteStreamClient = grpc.ServerStreamingClient[CompleteChunk]
+
 // ModelProviderServer is the server API for ModelProvider service.
 // All implementations must embed UnimplementedModelProviderServer
 // for forward compatibility.
@@ -78,9 +100,11 @@ func (c *modelProviderClient) Complete(ctx context.Context, in *CompleteRequest,
 type ModelProviderServer interface {
 	// Info returns static metadata used to register and display the provider.
 	Info(context.Context, *InfoRequest) (*InfoResponse, error)
-	// Complete performs a single (non-streaming) completion. Streaming will be added
-	// alongside the WebSocket/SSE gateway.
+	// Complete performs a single (non-streaming) completion.
 	Complete(context.Context, *CompleteRequest) (*CompleteResponse, error)
+	// CompleteStream performs a completion, streaming incremental token deltas. The final
+	// chunk has done=true and may carry usage totals.
+	CompleteStream(*CompleteRequest, grpc.ServerStreamingServer[CompleteChunk]) error
 	mustEmbedUnimplementedModelProviderServer()
 }
 
@@ -96,6 +120,9 @@ func (UnimplementedModelProviderServer) Info(context.Context, *InfoRequest) (*In
 }
 func (UnimplementedModelProviderServer) Complete(context.Context, *CompleteRequest) (*CompleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Complete not implemented")
+}
+func (UnimplementedModelProviderServer) CompleteStream(*CompleteRequest, grpc.ServerStreamingServer[CompleteChunk]) error {
+	return status.Errorf(codes.Unimplemented, "method CompleteStream not implemented")
 }
 func (UnimplementedModelProviderServer) mustEmbedUnimplementedModelProviderServer() {}
 func (UnimplementedModelProviderServer) testEmbeddedByValue()                       {}
@@ -154,6 +181,17 @@ func _ModelProvider_Complete_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ModelProvider_CompleteStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CompleteRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ModelProviderServer).CompleteStream(m, &grpc.GenericServerStream[CompleteRequest, CompleteChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ModelProvider_CompleteStreamServer = grpc.ServerStreamingServer[CompleteChunk]
+
 // ModelProvider_ServiceDesc is the grpc.ServiceDesc for ModelProvider service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -170,6 +208,12 @@ var ModelProvider_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ModelProvider_Complete_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "CompleteStream",
+			Handler:       _ModelProvider_CompleteStream_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "internal/plugin/proto/model.proto",
 }

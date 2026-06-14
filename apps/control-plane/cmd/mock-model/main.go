@@ -8,6 +8,7 @@ package main
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
@@ -31,6 +32,26 @@ func (provider) Complete(_ context.Context, req plugin.CompleteRequest) (plugin.
 		TokensIn:  int32(len(strings.Fields(req.Prompt))),
 		TokensOut: int32(len(strings.Fields(text))),
 	}, nil
+}
+
+func (provider) CompleteStream(ctx context.Context, req plugin.CompleteRequest, onChunk func(plugin.Chunk) error) error {
+	words := strings.Fields("[mock] " + strings.TrimSpace(req.Prompt))
+	for i, word := range words {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		delta := word
+		if i < len(words)-1 {
+			delta += " "
+		}
+		if err := onChunk(plugin.Chunk{TextDelta: delta, Model: "mock-1"}); err != nil {
+			return err
+		}
+		time.Sleep(20 * time.Millisecond) // simulate token cadence
+	}
+	return onChunk(plugin.Chunk{Done: true, Model: "mock-1", TokensOut: int32(len(words))})
 }
 
 func main() {

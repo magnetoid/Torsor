@@ -56,7 +56,11 @@ green for both frontend and API.
       tasks) — reuses the existing schema; same JSON shapes; verified end-to-end against a
       live Postgres+Redis (signup/login/me, ownership isolation → 404, logout → 401
       revocation, file version bump, task enqueue + redis publish, super-admin promotion)
-- [ ] WebSocket/SSE gateway for streaming (foundation for terminals/logs/agent)
+- [x] **WebSocket/SSE gateway**: streaming completions end-to-end (gRPC server-streaming
+      from the out-of-process plugin → host → SSE + WebSocket). SSE uses the Bearer header
+      (fetch-based frontend); WS authenticates via `access_token` query (browsers can't set
+      WS headers). Verified: 6 token deltas + done over both transports; WS rejects missing
+      token. Foundation for terminal/log/agent streaming.
 - [x] **Plugin host**: gRPC plugin loader (hashicorp/go-plugin) proven end-to-end with a
       `ModelProvider` capability + an out-of-process reference plugin (`cmd/mock-model`).
       HTTP → host → gRPC → plugin verified (list providers, complete, 404 unknown, 401
