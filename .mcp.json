@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "torsor-helper": {
+      "command": "torsor",
+      "args": [
+        "mcp",
+        "--root",
+        "/Users/magnetoid/Documents/trae_projects/torsor/Torsor"
+      ]
+    }
+  }
+}

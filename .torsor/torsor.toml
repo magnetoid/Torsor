@@ -1,0 +1,25 @@
+version = 1
+
+[budgets]
+bootstrap_tokens = 2000
+recall_tokens = 1500
+chars_per_token = 4
+
+[embeddings]
+provider = "fastembed"
+model = "BAAI/bge-small-en-v1.5"
+dim = 384
+
+[index]
+rrf_k = 60
+recency_weight = 0.1
+graph_boost = 0.1
+auto_index = true
+mmr_lambda = 0.7
+
+[index.importance_floors]
+CHARTER = 1.0
+ARCHITECTURE = 1.0
+MAP = 0.9
+ACTIVE = 0.85
+EPISODIC = 0.7
