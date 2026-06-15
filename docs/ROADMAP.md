@@ -154,7 +154,11 @@ with a local model and better with a BYO key.
 ---
 
 ## Cross-cutting (every phase)
-- [ ] Tests for new control-plane routes + runtime; E2E for the IDE happy path
+- [x] **CI** (`.github/workflows/ci.yml`): GitHub Actions runs frontend + apps/api +
+      apps/worker typechecks, the production build, and `go build`/`go vet`/`go test` for
+      the control plane on every push/PR. Seeded with unit tests for config, auth (JWT +
+      password), and role/slug helpers.
+- [ ] More tests: control-plane route/integration tests + E2E for the IDE happy path
 - [ ] Treat the contribution API as a versioned public contract — never break silently
 - [ ] Keep the install a single small server; new capabilities ship as optional plugins
 - [ ] Keep it free out of the box (local models, no required paid service)
