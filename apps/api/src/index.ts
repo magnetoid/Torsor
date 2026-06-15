@@ -115,6 +115,35 @@ function resolveRole(email: string, dbRole: UserRole | null | undefined): UserRo
   return dbRole ?? 'user';
 }
 
+const roleRank: Record<UserRole, number> = { user: 0, admin: 1, super_admin: 2 };
+
+interface AdminRequest extends AuthenticatedRequest {
+  role?: UserRole;
+}
+
+// requireRole gates a route on the caller's effective role (DB role + SUPER_ADMIN_EMAILS).
+// Must run after requireAuth. Returns 403 when the caller's rank is below the minimum.
+function requireRole(minimum: UserRole) {
+  return async (req: AdminRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const user = await sanitizeUserById(req.auth!.userId);
+      if (!user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+      const role = resolveRole(user.email, user.role);
+      if (roleRank[role] < roleRank[minimum]) {
+        res.status(403).json({ error: 'Forbidden: insufficient role' });
+        return;
+      }
+      req.role = role;
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
 async function syncSuperAdmins(): Promise<void> {
   if (superAdminEmails.length === 0) return;
   await query(
@@ -476,6 +505,79 @@ app.post('/api/v1/projects/:projectId/files', requireAuth, async (req: Authentic
   }
 });
 
+app.patch('/api/v1/projects/:projectId/files/:fileId', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const { filename, language } = req.body as { filename?: string; language?: string };
+    if (filename !== undefined && !filename.trim()) {
+      res.status(400).json({ error: 'filename cannot be empty' });
+      return;
+    }
+
+    const projectAccess = await query('SELECT id FROM projects WHERE id = $1 AND user_id = $2', [req.params.projectId, req.auth!.userId]);
+    if (!projectAccess.rows[0]) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const current = await query(
+      `SELECT id, project_id, filename, language, content, version, created_at, updated_at
+       FROM project_files
+       WHERE id = $1 AND project_id = $2`,
+      [req.params.fileId, req.params.projectId],
+    );
+    const file = current.rows[0];
+    if (!file) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
+
+    try {
+      const updated = await query(
+        `UPDATE project_files
+         SET filename = $3,
+             language = $4,
+             version = version + 1,
+             updated_at = NOW()
+         WHERE id = $1 AND project_id = $2
+         RETURNING id, project_id, filename, language, content, version, created_at, updated_at`,
+        [req.params.fileId, req.params.projectId, filename?.trim() ?? file.filename, language ?? file.language],
+      );
+      res.json(mapProjectFile(updated.rows[0]));
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') {
+        res.status(409).json({ error: 'A file with that name already exists' });
+        return;
+      }
+      throw err;
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/v1/projects/:projectId/files/:fileId', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const projectAccess = await query('SELECT id FROM projects WHERE id = $1 AND user_id = $2', [req.params.projectId, req.auth!.userId]);
+    if (!projectAccess.rows[0]) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const result = await query(
+      'DELETE FROM project_files WHERE id = $1 AND project_id = $2 RETURNING id',
+      [req.params.fileId, req.params.projectId],
+    );
+    if (!result.rows[0]) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
+
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/v1/tasks', requireAuth, async (req: AuthenticatedRequest, res, next) => {
   try {
     const result = await query(
@@ -523,6 +625,141 @@ app.post('/api/v1/tasks', requireAuth, async (req: AuthenticatedRequest, res, ne
     }
 
     res.status(201).json(task);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// --- Admin / super-admin platform dashboard ---
+
+app.get('/api/v1/admin/stats', requireAuth, requireRole('admin'), async (_req: AdminRequest, res, next) => {
+  try {
+    const [users, projects, files, sessions, tasks, newUsers7d, newProjects7d] = await Promise.all([
+      query<{ c: number }>('SELECT COUNT(*)::int AS c FROM users'),
+      query<{ c: number }>('SELECT COUNT(*)::int AS c FROM projects'),
+      query<{ c: number }>('SELECT COUNT(*)::int AS c FROM project_files'),
+      query<{ c: number }>('SELECT COUNT(*)::int AS c FROM sessions WHERE expires_at > NOW()'),
+      query<{ status: string; c: number }>('SELECT status, COUNT(*)::int AS c FROM ai_tasks GROUP BY status'),
+      query<{ c: number }>("SELECT COUNT(*)::int AS c FROM users WHERE created_at > NOW() - INTERVAL '7 days'"),
+      query<{ c: number }>("SELECT COUNT(*)::int AS c FROM projects WHERE created_at > NOW() - INTERVAL '7 days'"),
+    ]);
+
+    const tasksByStatus = Object.fromEntries(tasks.rows.map((row) => [row.status, row.c]));
+
+    res.json({
+      totals: {
+        users: users.rows[0].c,
+        projects: projects.rows[0].c,
+        files: files.rows[0].c,
+        activeSessions: sessions.rows[0].c,
+        tasks: tasks.rows.reduce((sum, row) => sum + row.c, 0),
+      },
+      tasksByStatus,
+      growth: {
+        newUsers7d: newUsers7d.rows[0].c,
+        newProjects7d: newProjects7d.rows[0].c,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/v1/admin/users', requireAuth, requireRole('admin'), async (req: AdminRequest, res, next) => {
+  try {
+    const search = (typeof req.query.search === 'string' ? req.query.search : '').trim().toLowerCase();
+    const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? '50'), 10) || 50, 1), 200);
+    const offset = Math.max(Number.parseInt(String(req.query.offset ?? '0'), 10) || 0, 0);
+
+    const filterParams: unknown[] = [];
+    let where = '';
+    if (search) {
+      filterParams.push(`%${search}%`);
+      where = 'WHERE LOWER(u.email) LIKE $1 OR LOWER(u.username) LIKE $1';
+    }
+
+    const listParams = [...filterParams, limit, offset];
+    const result = await query<{
+      id: string;
+      email: string;
+      username: string;
+      role: UserRole | null;
+      avatar_url: string | null;
+      created_at: string;
+      project_count: number;
+      last_active_at: string | null;
+    }>(
+      `SELECT u.id, u.email, u.username, u.role, u.avatar_url, u.created_at,
+              COUNT(p.id)::int AS project_count,
+              (SELECT MAX(s.created_at) FROM sessions s WHERE s.user_id = u.id) AS last_active_at
+       FROM users u
+       LEFT JOIN projects p ON p.user_id = u.id
+       ${where}
+       GROUP BY u.id
+       ORDER BY u.created_at DESC
+       LIMIT $${listParams.length - 1} OFFSET $${listParams.length}`,
+      listParams,
+    );
+
+    const totalResult = await query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM users u ${where}`,
+      filterParams,
+    );
+
+    res.json({
+      items: result.rows.map((row) => ({
+        id: row.id,
+        email: row.email,
+        username: row.username,
+        role: resolveRole(row.email, row.role),
+        avatarUrl: row.avatar_url,
+        projectCount: row.project_count,
+        lastActiveAt: row.last_active_at,
+        createdAt: row.created_at,
+      })),
+      total: totalResult.rows[0].c,
+      limit,
+      offset,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/v1/admin/users/:userId/role', requireAuth, requireRole('super_admin'), async (req: AdminRequest, res, next) => {
+  try {
+    const { role } = req.body as { role?: string };
+    const allowed: UserRole[] = ['user', 'admin', 'super_admin'];
+    if (!role || !allowed.includes(role as UserRole)) {
+      res.status(400).json({ error: 'role must be one of user, admin, super_admin' });
+      return;
+    }
+    // Guard against a super-admin accidentally locking themselves out.
+    if (req.params.userId === req.auth!.userId && role !== 'super_admin') {
+      res.status(400).json({ error: 'You cannot remove your own super_admin role' });
+      return;
+    }
+
+    const result = await query<{ id: string; email: string; username: string; role: UserRole; created_at: string }>(
+      `UPDATE users SET role = $2, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, email, username, role, created_at`,
+      [req.params.userId, role],
+    );
+
+    const user = result.rows[0];
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: resolveRole(user.email, user.role),
+      createdAt: user.created_at,
+    });
   } catch (error) {
     next(error);
   }
