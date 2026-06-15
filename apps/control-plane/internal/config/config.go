@@ -11,26 +11,28 @@ import (
 )
 
 type Config struct {
-	Env              string
-	Port             int
-	AppURL           string
-	APIURL           string
-	CORSOrigins      []string // empty => reflect request origin (matches cors origin:true)
-	DatabaseURL      string
-	DBPoolMax        int32
-	RedisURL         string
-	JWTSecret        string
-	JWTExpiry        time.Duration
-	DevSeedEmail     string
-	DevSeedPassword  string
-	SuperAdminEmails []string
-	AuthRateLimit    int
-	APIRateLimit     int
-	JSONBodyLimit    int64
-	ModelPluginPaths []string // executables implementing the ModelProvider capability
+	Env                   string
+	Port                  int
+	AppURL                string
+	APIURL                string
+	CORSOrigins           []string // empty => reflect request origin (matches cors origin:true)
+	DatabaseURL           string
+	DBPoolMax             int32
+	RedisURL              string
+	JWTSecret             string
+	JWTExpiry             time.Duration
+	DevSeedEmail          string
+	DevSeedPassword       string
+	SuperAdminEmails      []string
+	AuthRateLimit         int
+	APIRateLimit          int
+	JSONBodyLimit         int64
+	ModelPluginPaths      []string // executables implementing the ModelProvider capability
+	WorkspaceRuntimePaths []string // executables implementing the WorkspaceRuntime capability
+	DefaultRuntime        string   // runtime name used when a request doesn't specify one
 }
 
-func (c Config) IsProduction() bool { return c.Env == "production" }
+func (c Config) IsProduction() bool  { return c.Env == "production" }
 func (c Config) IsDevelopment() bool { return c.Env == "development" }
 
 // Load reads configuration from the process environment, applying the same defaults as
@@ -38,23 +40,25 @@ func (c Config) IsDevelopment() bool { return c.Env == "development" }
 func Load() Config {
 	port := envInt("PORT", envInt("API_PORT", 3001))
 	return Config{
-		Env:              envStr("NODE_ENV", "development"),
-		Port:             port,
-		AppURL:           envStr("APP_URL", "http://localhost:3000"),
-		APIURL:           envStr("VITE_API_URL", "http://localhost:"+strconv.Itoa(port)),
-		CORSOrigins:      csv(os.Getenv("CORS_ORIGIN")),
-		DatabaseURL:      os.Getenv("DATABASE_URL"),
-		DBPoolMax:        int32(envInt("DATABASE_POOL_MAX", 10)),
-		RedisURL:         envStr("REDIS_URL", "redis://localhost:6379"),
-		JWTSecret:        os.Getenv("JWT_SECRET"),
-		JWTExpiry:        parseExpiry(envStr("JWT_EXPIRES_IN", "7d"), 7*24*time.Hour),
-		DevSeedEmail:     envStr("DEV_SEED_EMAIL", "demo@torsor.local"),
-		DevSeedPassword:  envStr("DEV_SEED_PASSWORD", "demo12345"),
-		SuperAdminEmails: lowerAll(csv(os.Getenv("SUPER_ADMIN_EMAILS"))),
-		AuthRateLimit:    envInt("AUTH_RATE_LIMIT", 20),
-		APIRateLimit:     envInt("API_RATE_LIMIT", 300),
-		JSONBodyLimit:    int64(envInt("JSON_BODY_LIMIT_BYTES", 2*1024*1024)),
-		ModelPluginPaths: csv(os.Getenv("TORSOR_MODEL_PLUGINS")),
+		Env:                   envStr("NODE_ENV", "development"),
+		Port:                  port,
+		AppURL:                envStr("APP_URL", "http://localhost:3000"),
+		APIURL:                envStr("VITE_API_URL", "http://localhost:"+strconv.Itoa(port)),
+		CORSOrigins:           csv(os.Getenv("CORS_ORIGIN")),
+		DatabaseURL:           os.Getenv("DATABASE_URL"),
+		DBPoolMax:             int32(envInt("DATABASE_POOL_MAX", 10)),
+		RedisURL:              envStr("REDIS_URL", "redis://localhost:6379"),
+		JWTSecret:             os.Getenv("JWT_SECRET"),
+		JWTExpiry:             parseExpiry(envStr("JWT_EXPIRES_IN", "7d"), 7*24*time.Hour),
+		DevSeedEmail:          envStr("DEV_SEED_EMAIL", "demo@torsor.local"),
+		DevSeedPassword:       envStr("DEV_SEED_PASSWORD", "demo12345"),
+		SuperAdminEmails:      lowerAll(csv(os.Getenv("SUPER_ADMIN_EMAILS"))),
+		AuthRateLimit:         envInt("AUTH_RATE_LIMIT", 20),
+		APIRateLimit:          envInt("API_RATE_LIMIT", 300),
+		JSONBodyLimit:         int64(envInt("JSON_BODY_LIMIT_BYTES", 2*1024*1024)),
+		ModelPluginPaths:      csv(os.Getenv("TORSOR_MODEL_PLUGINS")),
+		WorkspaceRuntimePaths: csv(os.Getenv("TORSOR_WORKSPACE_RUNTIME_PLUGINS")),
+		DefaultRuntime:        os.Getenv("TORSOR_DEFAULT_RUNTIME"),
 	}
 }
 

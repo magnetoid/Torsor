@@ -12,12 +12,12 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/magnetoid/torsor/control-plane/internal/auth"
 	"github.com/magnetoid/torsor/control-plane/internal/config"
 	"github.com/magnetoid/torsor/control-plane/internal/db"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 	"github.com/magnetoid/torsor/control-plane/internal/redisx"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Server struct {
@@ -76,6 +76,18 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/files", s.handleListFiles)
 			r.Post("/projects/{projectID}/files", s.handleUpsertFile)
 
+			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
+			// the runtime workspace id is the project id, never a client-supplied value.
+			r.Post("/projects/{projectID}/workspace", s.handleCreateProjectWorkspace)
+			r.Get("/projects/{projectID}/workspace", s.handleGetProjectWorkspace)
+			r.Post("/projects/{projectID}/workspace/start", s.handleStartProjectWorkspace)
+			r.Post("/projects/{projectID}/workspace/stop", s.handleStopProjectWorkspace)
+			r.Post("/projects/{projectID}/workspace/destroy", s.handleDestroyProjectWorkspace)
+			r.Post("/projects/{projectID}/workspace/exec/stream", s.handleExecProjectWorkspace)
+			r.Get("/projects/{projectID}/workspace/files", s.handleListProjectWorkspaceFiles)
+			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
+			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
+
 			r.Get("/tasks", s.handleListTasks)
 			r.Post("/tasks", s.handleCreateTask)
 
@@ -83,6 +95,9 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/providers/models", s.handleListModelProviders)
 			r.Post("/providers/models/{name}/complete", s.handleComplete)
 			r.Post("/providers/models/{name}/complete/stream", s.handleCompleteSSE)
+
+			// Lists available workspace runtime plugins (metadata only — no workspace access).
+			r.Get("/runtimes", s.handleListWorkspaceRuntimes)
 		})
 	})
 

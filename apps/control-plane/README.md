@@ -127,9 +127,77 @@ internal/plugin     gRPC capability contracts + go-plugin host
 internal/server     chi router + handlers (auth, projects, files, tasks, providers)
 ```
 
+## WorkspaceRuntime capability (Phase 2 — the flagship)
+
+The second capability, `WorkspaceRuntime`, owns per-user cloud workspaces (containers
+today; Firecracker/K8s later). Same out-of-process gRPC plugin shape as `ModelProvider`:
+
+```
+internal/plugin/proto/runtime.proto   capability contract (lifecycle + exec stream + file ops)
+internal/plugin/runtime.go            Go interface + gRPC client/server adapters + ServeRuntime
+cmd/mock-runtime                      reference plugin (deterministic, in-memory, no Docker)
+internal/server/runtime_handlers.go   HTTP surface under /api/v1/runtimes
+cmd/docker-runtime                    real runtime: container-per-workspace via the docker CLI
+```
+
+Authoring a runtime plugin = implement `plugin.WorkspaceRuntime` and call
+`plugin.ServeRuntime(impl)`. Load runtimes by pointing `TORSOR_WORKSPACE_RUNTIME_PLUGINS`
+at one or more executables (CSV, same shape as `TORSOR_MODEL_PLUGINS`):
+
+```bash
+go build -o /tmp/mock-runtime ./cmd/mock-runtime
+TORSOR_WORKSPACE_RUNTIME_PLUGINS=/tmp/mock-runtime TORSOR_DEFAULT_RUNTIME=mock \
+DATABASE_URL=... REDIS_URL=... NODE_ENV=development go run ./cmd/server
+
+curl -H "authorization: Bearer $TOKEN" localhost:3001/api/v1/runtimes
+curl -X POST -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"image":"node:20"}' \
+  localhost:3001/api/v1/projects/$PROJECT_ID/workspace
+```
+
+Workspaces are **project-scoped and ownership-checked**: every operation verifies the
+caller owns the parent project, and the runtime workspace id is the project id (never a
+client-supplied value), so a user can't touch another user's workspace. The row is
+persisted in the `workspaces` table (`migrations/0003_workspaces.sql`); the runtime is
+chosen from the request, else `TORSOR_DEFAULT_RUNTIME`, else the sole loaded runtime.
+
+HTTP endpoints (all auth, all scoped to a project the caller owns):
+
+```
+GET    /api/v1/runtimes                                       list loaded runtime plugins (metadata only)
+POST   /api/v1/projects/{projectID}/workspace                 create/ensure  {image?,runtime?}
+GET    /api/v1/projects/{projectID}/workspace                 persisted row + live runtime status
+POST   /api/v1/projects/{projectID}/workspace/start
+POST   /api/v1/projects/{projectID}/workspace/stop            {timeoutSeconds}
+POST   /api/v1/projects/{projectID}/workspace/destroy
+POST   /api/v1/projects/{projectID}/workspace/exec/stream     SSE  {command:[],workingDir}
+GET    /api/v1/projects/{projectID}/workspace/files?path=     list
+GET    /api/v1/projects/{projectID}/workspace/file?path=      read  (content base64)
+POST   /api/v1/projects/{projectID}/workspace/file            write {path,content|contentBase64,createDirs}
+```
+
+The full round-trip (host → gRPC → plugin subprocess) is covered by
+`internal/plugin/runtime_host_test.go` (`go test ./internal/plugin/`).
+
+Run with the real Docker runtime instead of the mock (requires a Docker daemon):
+
+```bash
+go build -o /tmp/docker-runtime ./cmd/docker-runtime
+TORSOR_WORKSPACE_RUNTIME_PLUGINS=/tmp/docker-runtime TORSOR_DEFAULT_RUNTIME=docker \
+DATABASE_URL=... REDIS_URL=... NODE_ENV=development go run ./cmd/server
+# then: POST /api/v1/projects/$PROJECT_ID/workspace  {"image":"node:20"}
+```
+
+Workspace containers are bounded + hardened for untrusted code (env-configurable, with
+conservative defaults): `TORSOR_WS_MEMORY` (512m), `TORSOR_WS_CPUS` (1), `TORSOR_WS_PIDS`
+(256), `TORSOR_WS_NETWORK` (`bridge`; set `none` to cut egress), and `TORSOR_WS_HARDENED`
+(`true` → `--cap-drop ALL --security-opt no-new-privileges`). The full lifecycle against a
+live Docker daemon still needs to be exercised on a Docker host.
+
 ## Not yet ported (intentional, next steps)
 
-- more capability contracts: `WorkspaceRuntime` (unblocks Phase 2), `DeployTarget`, …
+- exercise the **Docker** runtime's full lifecycle against a live daemon on a Docker host
+- more capability contracts: `DeployTarget`, `VCSProvider`, …
 - real model plugins (Ollama local-first, Claude/OpenAI BYO-key)
 - frontend contribution registry + theme-token contract
 - compose/nginx switch from `apps/api` to this service (deliberate cutover)

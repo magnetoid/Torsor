@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package torsor.plugin.v1;
+
+option go_package = "github.com/magnetoid/torsor/control-plane/internal/plugin/proto;proto";
+
+// WorkspaceRuntime is the Torsor backend capability that owns per-user cloud
+// workspaces: an isolated, persistent environment (a container today; Firecracker or
+// Kubernetes later) where a project's files live and its commands run. It is the
+// foundation of the "code actually runs" experience — real file ops, a real PTY/exec,
+// and a dev server the gateway can proxy back as a live preview.
+//
+// Like ModelProvider, runtimes are out-of-process plugins spoken to over gRPC via
+// hashicorp/go-plugin, so the kernel stays small and a crashing runtime can't take the
+// control plane down. The contract is deliberately runtime-agnostic.
+service WorkspaceRuntime {
+  // Info returns static metadata used to register and display the runtime.
+  rpc Info(RuntimeInfoRequest) returns (RuntimeInfoResponse);
+
+  // Lifecycle: create provisions a workspace (e.g. a container + volume) from a spec;
+  // start/stop toggle it; destroy removes it and its resources; status reports state.
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (WorkspaceStatusResponse);
+  rpc StartWorkspace(WorkspaceRef) returns (WorkspaceStatusResponse);
+  rpc StopWorkspace(StopWorkspaceRequest) returns (WorkspaceStatusResponse);
+  rpc DestroyWorkspace(WorkspaceRef) returns (WorkspaceStatusResponse);
+  rpc StatusWorkspace(WorkspaceRef) returns (WorkspaceStatusResponse);
+
+  // Exec runs a command inside the workspace, streaming stdout/stderr; the final chunk
+  // has done=true and carries the exit code. This is the seam terminals are built on.
+  rpc Exec(ExecRequest) returns (stream ExecChunk);
+
+  // File ops operate on the workspace's filesystem (the source of truth once a workspace
+  // is live), distinct from the DB-backed project_files snapshot.
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+  rpc ReadFile(FileRef) returns (ReadFileResponse);
+  rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+}
+
+message RuntimeInfoRequest {}
+
+message RuntimeInfoResponse {
+  string name = 1;         // stable id, e.g. "docker", "mock"
+  string display_name = 2; // human label, e.g. "Docker (local)"
+  string version = 3;
+  string kind = 4;         // capability kind, always "workspace_runtime" here
+}
+
+// WorkspaceRef identifies an existing workspace.
+message WorkspaceRef {
+  string workspace_id = 1;
+}
+
+message CreateWorkspaceRequest {
+  string workspace_id = 1;            // caller-assigned stable id (e.g. the project id)
+  string image = 2;                   // base image / devcontainer reference
+  string working_dir = 3;             // default working directory inside the workspace
+  map<string, string> env = 4;        // environment variables
+}
+
+message StopWorkspaceRequest {
+  string workspace_id = 1;
+  int32 timeout_seconds = 2;          // grace period before force-stop
+}
+
+// WorkspaceStatusResponse is the common lifecycle reply.
+message WorkspaceStatusResponse {
+  string workspace_id = 1;
+  string container_id = 2;            // runtime-native handle (container id, vm id, ...)
+  string status = 3;                  // created | running | stopped | destroyed | unknown
+  string message = 4;                 // optional human-readable detail
+}
+
+message ExecRequest {
+  string workspace_id = 1;
+  repeated string command = 2;        // argv; e.g. ["npm", "run", "dev"]
+  string working_dir = 3;
+}
+
+message ExecChunk {
+  string stdout = 1;
+  string stderr = 2;
+  int32 exit_code = 3;                // meaningful when done=true
+  bool done = 4;
+}
+
+message ListFilesRequest {
+  string workspace_id = 1;
+  string path = 2;                    // directory to list (default: working dir)
+}
+
+message FileEntry {
+  string name = 1;
+  string path = 2;
+  bool is_dir = 3;
+  int64 size = 4;
+}
+
+message ListFilesResponse {
+  repeated FileEntry entries = 1;
+}
+
+message FileRef {
+  string workspace_id = 1;
+  string path = 2;
+}
+
+message ReadFileResponse {
+  bytes content = 1;
+}
+
+message WriteFileRequest {
+  string workspace_id = 1;
+  string path = 2;
+  bytes content = 3;
+  bool create_dirs = 4;               // mkdir -p the parent directories
+}
+
+message WriteFileResponse {
+  bool ok = 1;
+}

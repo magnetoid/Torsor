@@ -82,12 +82,22 @@ registered as plugins; a second theme can be swapped at runtime.
 ## Phase 2 — Workspace runtime MVP (the flagship feature)
 **Goal:** it stops being a mock — code runs in a real per-user cloud container.
 
-- [ ] `WorkspaceRuntime` gRPC interface + **Docker implementation** (first backend plugin)
-- [ ] Per-project container from a `devcontainer.json`; persistent volume; lifecycle
-      (create/start/stop/destroy) + resource quotas
+- [x] `WorkspaceRuntime` gRPC capability contract + host loader + reference plugin
+      (`cmd/mock-runtime`, in-memory). Lifecycle (create/start/stop/destroy/status),
+      streaming `Exec`, and file ops (list/read/write) proven end-to-end over gRPC
+      (`internal/plugin/runtime_host_test.go`). HTTP surface under `/api/v1/runtimes`.
+      Loaded via `TORSOR_WORKSPACE_RUNTIME_PLUGINS`.
+- [~] **Docker implementation** of `WorkspaceRuntime` (`cmd/docker-runtime`, shells out to
+      the `docker` CLI — container-per-workspace, exec streaming, file ops). Loads + handshakes
+      as a valid plugin (verified); full lifecycle against a live Docker daemon still to be
+      exercised on a Docker host.
+- [x] Workspace/lifecycle tables added to schema (`workspaces`, one per project, owned by a
+      user) + **project-scoped, ownership-checked** workspace API
+      (`/api/v1/projects/{id}/workspace*`) — runtime workspace id is the project id, never a
+      client value, so users can't act on others' workspaces.
+- [ ] Per-project container from a `devcontainer.json`; persistent volume; resource quotas
 - [ ] In-container workspace agent: file ops, PTY, process spawn over multiplexed conn
 - [ ] Wire the real **file tree** + **xterm terminal** to the live container
-- [ ] Workspace/lifecycle tables added to schema
 
 **Done when:** a user opens a project, sees real files, and runs real commands in a
 real terminal in their cloud workspace.

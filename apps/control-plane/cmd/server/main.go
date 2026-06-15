@@ -75,6 +75,14 @@ func main() {
 		}
 		logger.Info("model provider plugin loaded", "name", info.Name, "version", info.Version)
 	}
+	for _, path := range cfg.WorkspaceRuntimePaths {
+		info, err := host.LoadWorkspaceRuntime(ctx, path)
+		if err != nil {
+			logger.Warn("workspace runtime plugin failed to load", "path", path, "err", err)
+			continue
+		}
+		logger.Info("workspace runtime plugin loaded", "name", info.Name, "version", info.Version)
+	}
 
 	am := auth.NewManager(pool, cfg.JWTSecret, cfg.JWTExpiry)
 	srv := server.New(cfg, pool, rc, am, host, logger)
