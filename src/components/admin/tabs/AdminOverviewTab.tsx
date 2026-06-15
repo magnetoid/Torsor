@@ -1,17 +1,20 @@
-import React from 'react';
-import { 
-  Building2, 
-  Users, 
-  CreditCard, 
-  Activity, 
-  TrendingUp, 
-  ArrowUpRight, 
+import React, { useEffect } from 'react';
+import {
+  Building2,
+  Users,
+  CreditCard,
+  Activity,
+  TrendingUp,
+  ArrowUpRight,
   ArrowDownRight,
   Zap,
   Cpu,
   ShieldCheck,
-  AlertCircle
+  AlertCircle,
+  FileCode,
+  FolderGit2
 } from 'lucide-react';
+import { useAdminStore } from '../../../stores/adminStore';
 import { 
   LineChart, 
   Line, 
@@ -43,25 +46,37 @@ const RECENT_ACTIVITY = [
 ];
 
 export function AdminOverviewTab() {
+  const { stats, fetchStats } = useAdminStore();
+
+  useEffect(() => {
+    void fetchStats();
+  }, [fetchStats]);
+
+  const fmt = (n: number | undefined) => (n == null ? '—' : n.toLocaleString());
+  const newUsers = stats?.growth.newUsers7d;
+  const newProjects = stats?.growth.newProjects7d;
+
   return (
     <div className="space-y-8">
-      {/* Stats Cards */}
+      {/* Stats Cards — real platform totals from /api/v1/admin/stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Workspaces', value: '1,247', change: '+12%', icon: Building2, color: 'text-accent', bg: 'bg-accent/10' },
-          { label: 'Total Users', value: '3,891', change: '+8%', icon: Users, color: 'text-info', bg: 'bg-info/10' },
-          { label: 'MRR', value: '$12,450', change: '+15%', icon: CreditCard, color: 'text-success', bg: 'bg-success/10' },
-          { label: 'Active Projects', value: '4,210', change: '+22%', icon: Activity, color: 'text-warning', bg: 'bg-warning/10' },
+          { label: 'Total Users', value: fmt(stats?.totals.users), change: newUsers != null ? `+${newUsers} / 7d` : '', icon: Users, color: 'text-info', bg: 'bg-info/10' },
+          { label: 'Total Projects', value: fmt(stats?.totals.projects), change: newProjects != null ? `+${newProjects} / 7d` : '', icon: FolderGit2, color: 'text-accent', bg: 'bg-accent/10' },
+          { label: 'Total Files', value: fmt(stats?.totals.files), change: '', icon: FileCode, color: 'text-warning', bg: 'bg-warning/10' },
+          { label: 'Active Sessions', value: fmt(stats?.totals.activeSessions), change: '', icon: Activity, color: 'text-success', bg: 'bg-success/10' },
         ].map((stat, i) => (
           <div key={i} className="bg-surface border border-default rounded-2xl p-6 space-y-4 shadow-sm hover:shadow-md transition-all">
             <div className="flex items-center justify-between">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", stat.bg, stat.color)}>
                 <stat.icon size={20} />
               </div>
-              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-wider">
-                <ArrowUpRight size={10} />
-                {stat.change}
-              </div>
+              {stat.change && (
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-wider">
+                  <ArrowUpRight size={10} />
+                  {stat.change}
+                </div>
+              )}
             </div>
             <div>
               <div className="text-xs font-bold text-tertiary uppercase tracking-wider">{stat.label}</div>

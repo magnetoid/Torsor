@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MoreVertical, 
-  Eye, 
-  ShieldAlert, 
-  Trash2, 
-  Ban, 
-  Key, 
-  CreditCard, 
-  Mail, 
-  ChevronLeft, 
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Search,
+  Filter,
+  MoreVertical,
+  Eye,
+  ShieldAlert,
+  Trash2,
+  Ban,
+  Key,
+  CreditCard,
+  Mail,
+  ChevronLeft,
   ChevronRight,
   User,
   CheckCircle2,
@@ -21,25 +21,66 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '../../../lib/utils';
 import { toast } from 'sonner';
+import { useAdminStore, type UserRole } from '../../../stores/adminStore';
 
-const MOCK_USERS = [
-  { id: 'user-1', name: 'Marko Tiosavljevic', email: 'marko.tiosavljevic@gmail.com', workspaces: 2, plan: 'pro', lastActive: '2 mins ago', status: 'active', avatar: 'https://picsum.photos/seed/marko/200' },
-  { id: 'user-2', name: 'Jane Doe', email: 'jane@example.com', workspaces: 1, plan: 'team', lastActive: '15 mins ago', status: 'active', avatar: 'https://picsum.photos/seed/jane/200' },
-  { id: 'user-3', name: 'Bob Smith', email: 'bob@example.com', workspaces: 3, plan: 'free', lastActive: '2 days ago', status: 'active', avatar: 'https://picsum.photos/seed/bob/200' },
-  { id: 'user-4', name: 'Alice Johnson', email: 'alice@example.com', workspaces: 1, plan: 'enterprise', lastActive: '1 hour ago', status: 'suspended', avatar: 'https://picsum.photos/seed/alice/200' },
-  { id: 'user-5', name: 'Charlie Brown', email: 'charlie@example.com', workspaces: 5, plan: 'pro', lastActive: '5 mins ago', status: 'active', avatar: 'https://picsum.photos/seed/charlie/200' },
-];
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'never';
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+const ROLE_OPTIONS: UserRole[] = ['user', 'admin', 'super_admin'];
 
 export function AdminUsersTab() {
+  const { users: rawUsers, usersTotal, isLoadingUsers, error, fetchUsers, updateUserRole } = useAdminStore();
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [grantCreditsOpen, setGrantCreditsOpen] = useState(false);
   const [creditsAmount, setCreditsAmount] = useState('100000');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    void fetchUsers();
+  }, [fetchUsers]);
+
+  const users = useMemo(
+    () =>
+      rawUsers.map((u) => ({
+        id: u.id,
+        name: u.username,
+        email: u.email,
+        workspaces: u.projectCount,
+        role: u.role,
+        lastActive: formatRelative(u.lastActiveAt),
+        status: 'active' as const,
+        avatar: u.avatarUrl || `https://picsum.photos/seed/${u.id}/200`,
+      })),
+    [rawUsers],
+  );
+
+  const runSearch = () => {
+    void fetchUsers({ search: search.trim() || undefined });
+  };
+
+  const changeRole = async (userId: string, role: UserRole) => {
+    try {
+      await updateUserRole(userId, role);
+      toast.success(`Role updated to ${role}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update role');
+    }
+  };
 
   const toggleSelectAll = () => {
-    if (selectedUsers.length === MOCK_USERS.length) {
+    if (selectedUsers.length === users.length) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(MOCK_USERS.map(u => u.id));
+      setSelectedUsers(users.map(u => u.id));
     }
   };
 
@@ -63,9 +104,12 @@ export function AdminUsersTab() {
         <div className="flex-1 min-w-[300px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={16} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search users by name or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') runSearch(); }}
               className="w-full bg-surface border border-default rounded-xl pl-10 pr-4 py-2.5 text-sm text-primary outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -103,28 +147,28 @@ export function AdminUsersTab() {
           <thead>
             <tr className="border-b border-default bg-elevated/50">
               <th className="px-6 py-4 w-10">
-                <button 
+                <button
                   onClick={toggleSelectAll}
                   className={cn(
                     "w-4 h-4 rounded border transition-all flex items-center justify-center",
-                    selectedUsers.length === MOCK_USERS.length 
-                      ? "bg-accent border-accent text-white" 
+                    users.length > 0 && selectedUsers.length === users.length
+                      ? "bg-accent border-accent text-white"
                       : "border-default hover:border-accent"
                   )}
                 >
-                  {selectedUsers.length === MOCK_USERS.length && <CheckCircle2 size={12} />}
+                  {users.length > 0 && selectedUsers.length === users.length && <CheckCircle2 size={12} />}
                 </button>
               </th>
               <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">User</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Workspaces</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Plan</th>
+              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Projects</th>
+              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Role</th>
               <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Last Active</th>
               <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
               <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-default">
-            {MOCK_USERS.map((user) => (
+            {users.map((user) => (
               <tr 
                 key={user.id} 
                 className={cn(
@@ -163,12 +207,11 @@ export function AdminUsersTab() {
                 <td className="px-6 py-4">
                   <div className={cn(
                     "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
-                    user.plan === 'pro' ? "bg-accent/10 text-accent" :
-                    user.plan === 'team' ? "bg-info/10 text-info" :
-                    user.plan === 'enterprise' ? "bg-success/10 text-success" :
+                    user.role === 'super_admin' ? "bg-accent/10 text-accent" :
+                    user.role === 'admin' ? "bg-info/10 text-info" :
                     "bg-elevated text-tertiary"
                   )}>
-                    {user.plan}
+                    {user.role}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -203,13 +246,25 @@ export function AdminUsersTab() {
                           <Key size={14} />
                           Reset Password
                         </DropdownMenu.Item>
-                        <DropdownMenu.Item 
+                        <DropdownMenu.Item
                           onClick={() => { setSelectedUsers([user.id]); setGrantCreditsOpen(true); }}
                           className="flex items-center gap-2 px-3 py-2 text-xs text-secondary hover:text-accent hover:bg-accent/10 rounded-lg outline-none cursor-pointer"
                         >
                           <CreditCard size={14} />
                           Grant Credits
                         </DropdownMenu.Item>
+                        <DropdownMenu.Separator className="h-px bg-default my-1" />
+                        <DropdownMenu.Label className="px-3 py-1 text-[10px] font-bold text-tertiary uppercase tracking-wider">Set role</DropdownMenu.Label>
+                        {ROLE_OPTIONS.filter((role) => role !== user.role).map((role) => (
+                          <DropdownMenu.Item
+                            key={role}
+                            onClick={() => void changeRole(user.id, role)}
+                            className="flex items-center gap-2 px-3 py-2 text-xs text-secondary hover:text-primary hover:bg-accent/10 rounded-lg outline-none cursor-pointer"
+                          >
+                            <ShieldAlert size={14} />
+                            Make {role}
+                          </DropdownMenu.Item>
+                        ))}
                         <DropdownMenu.Separator className="h-px bg-default my-1" />
                         <DropdownMenu.Item className="flex items-center gap-2 px-3 py-2 text-xs text-error hover:bg-error/10 rounded-lg outline-none cursor-pointer">
                           <ShieldAlert size={14} />
@@ -232,7 +287,11 @@ export function AdminUsersTab() {
       {/* Pagination */}
       <div className="flex items-center justify-between px-2">
         <div className="text-xs text-secondary">
-          Showing <span className="font-bold text-primary">1-5</span> of <span className="font-bold text-primary">3,891</span> users
+          {isLoadingUsers
+            ? 'Loading users…'
+            : error
+            ? <span className="text-error">{error}</span>
+            : <>Showing <span className="font-bold text-primary">{users.length}</span> of <span className="font-bold text-primary">{usersTotal.toLocaleString()}</span> users</>}
         </div>
         <div className="flex items-center gap-2">
           <button className="p-2 hover:bg-elevated rounded-lg text-tertiary hover:text-primary transition-colors disabled:opacity-30" disabled>

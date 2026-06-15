@@ -48,6 +48,8 @@ interface ProjectState {
   fetchProject: (id: string) => Promise<Project | null>;
   fetchProjectFiles: (projectId: string) => Promise<ProjectFile[]>;
   saveProjectFile: (projectId: string, payload: Pick<ProjectFile, 'filename' | 'language' | 'content'>) => Promise<ProjectFile>;
+  renameProjectFile: (projectId: string, fileId: string, filename: string, language?: string | null) => Promise<ProjectFile>;
+  deleteProjectFile: (projectId: string, fileId: string) => Promise<void>;
   getProjectsByWorkspace: (workspaceId: string) => Project[];
   clearWorkspaceProjects: (_workspaceId: string) => void;
 }
@@ -190,6 +192,32 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       },
     }));
     return normalized;
+  },
+  renameProjectFile: async (projectId, fileId, filename, language) => {
+    const updated = await apiRequest<any>(`/api/v1/projects/${projectId}/files/${fileId}`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify({ filename, ...(language !== undefined ? { language } : {}) }),
+    });
+    const normalized = fromApiFile(updated);
+    set((state) => ({
+      filesByProject: {
+        ...state.filesByProject,
+        [projectId]: (state.filesByProject[projectId] || []).map((existing) =>
+          existing.id === fileId ? normalized : existing,
+        ),
+      },
+    }));
+    return normalized;
+  },
+  deleteProjectFile: async (projectId, fileId) => {
+    await apiRequest(`/api/v1/projects/${projectId}/files/${fileId}`, { method: 'DELETE', auth: true });
+    set((state) => ({
+      filesByProject: {
+        ...state.filesByProject,
+        [projectId]: (state.filesByProject[projectId] || []).filter((existing) => existing.id !== fileId),
+      },
+    }));
   },
   getProjectsByWorkspace: (_workspaceId) => {
     return get().projects.filter((p) => !p.isArchived);
