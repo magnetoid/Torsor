@@ -27,6 +27,12 @@ import (
 )
 
 func main() {
+	// `control-plane -health` is a self-contained HTTP probe of /health, so the distroless
+	// image (no shell/curl) can still define a container healthcheck.
+	if len(os.Args) > 1 && os.Args[1] == "-health" {
+		os.Exit(healthProbe())
+	}
+
 	cfg := config.Load()
 	logger := newLogger(cfg)
 
@@ -122,6 +128,26 @@ func main() {
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		logger.Warn("graceful shutdown failed", "err", err)
 	}
+}
+
+func healthProbe() int {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = os.Getenv("API_PORT")
+	}
+	if port == "" {
+		port = "3001"
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + port + "/health")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return 0
+	}
+	return 1
 }
 
 func newLogger(cfg config.Config) *slog.Logger {

@@ -1,0 +1,84 @@
+name: torsor-control-plane
+
+# Isolated validation stack for the Go control plane. Deploy as a SEPARATE Coolify app
+# (its own Postgres + Redis, no shared state with the live torsor stack, no domain on the
+# live frontend). It loads only the in-memory mock-runtime — NO Docker socket, so it is
+# safe to run on a shared host. Real container workspaces belong on a dedicated worker
+# host (see docs/ARCHITECTURE.md: "no host socket exposure"), not here.
+
+x-logging: &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  control-plane:
+    build:
+      context: ./apps/control-plane
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    <<: *default-logging
+    environment:
+      # development: no strong-JWT requirement, seeds a demo user — this is a throwaway
+      # validation instance, not the production API.
+      NODE_ENV: development
+      PORT: "3001"
+      DATABASE_URL: postgresql://postgres:${CP_POSTGRES_PASSWORD:-postgres}@cp-postgres:5432/torsor_cp
+      REDIS_URL: redis://cp-redis:6379
+      TORSOR_WORKSPACE_RUNTIME_PLUGINS: /app/mock-runtime
+      TORSOR_DEFAULT_RUNTIME: mock
+      LOG_LEVEL: info
+    expose:
+      - "3001"
+    depends_on:
+      cp-postgres:
+        condition: service_healthy
+      cp-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/app/control-plane", "-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 256m
+
+  cp-postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    <<: *default-logging
+    environment:
+      POSTGRES_DB: torsor_cp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${CP_POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - cp_postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    mem_limit: 512m
+
+  cp-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    <<: *default-logging
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    mem_limit: 192m
+
+volumes:
+  cp_postgres_data:
