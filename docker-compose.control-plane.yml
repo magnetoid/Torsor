@@ -32,6 +32,10 @@ services:
       LOG_LEVEL: info
     expose:
       - "3001"
+    # Loopback host bind so the Plesk nginx in front of this server can reverse-proxy a
+    # domain (e.g. cp.torsor.dev) to it — same pattern the frontend uses (127.0.0.1:18080).
+    ports:
+      - "127.0.0.1:${CP_HOST_PORT:-18091}:3001"
     depends_on:
       cp-postgres:
         condition: service_healthy
