@@ -2,64 +2,33 @@ import React from 'react';
 import { TabBar } from './TabBar';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { cn } from '../../lib/utils';
-import PreviewTab from '../tabs/PreviewTab';
-import CodeEditorTab from '../tabs/CodeEditorTab';
-import TerminalTab from '../tabs/TerminalTab';
-import DatabaseTab from '../tabs/DatabaseTab';
-import SecurityScanTab from '../tabs/SecurityScanTab';
-import IntegrationsTab from '../tabs/IntegrationsTab';
-import AgentSkillsTab from '../tabs/AgentSkillsTab';
-import SecretsTab from '../tabs/SecretsTab';
-import AppStorageTab from '../tabs/AppStorageTab';
-import AuthTab from '../tabs/AuthTab';
-import PublishingTab from '../tabs/PublishingTab';
-import ValidationTab from '../tabs/ValidationTab';
-import GitTab from '../tabs/GitTab';
-import WorkflowsTab from '../tabs/WorkflowsTab';
-import CanvasTab from '../tabs/CanvasTab';
-import AppTestingTab from '../tabs/AppTestingTab';
-import SettingsTab from '../tabs/SettingsTab';
+import { contributions } from '../../kernel';
 
 export function CenterWorkArea() {
-  const { 
-    centerTabs, 
-    activeTabId, 
-    secondaryTabId, 
-    splitDirection, 
-    splitRatio, 
-    setSplitRatio 
+  const {
+    centerTabs,
+    activeTabId,
+    secondaryTabId,
+    splitDirection,
+    splitRatio,
+    setSplitRatio
   } = useLayoutStore();
-  
+
   const activeTab = centerTabs.find(t => t.id === activeTabId);
   const secondaryTab = centerTabs.find(t => t.id === secondaryTabId);
 
   const renderTabContent = (tab: any) => {
     if (!tab) return null;
-    switch (tab.type) {
-      case 'preview': return <PreviewTab />;
-      case 'code': return <CodeEditorTab />;
-      case 'terminal': return <TerminalTab />;
-      case 'database': return <DatabaseTab />;
-      case 'security': return <SecurityScanTab />;
-      case 'integrations': return <IntegrationsTab />;
-      case 'skills': return <AgentSkillsTab />;
-      case 'secrets': return <SecretsTab />;
-      case 'storage': return <AppStorageTab />;
-      case 'auth': return <AuthTab />;
-      case 'publishing': return <PublishingTab />;
-      case 'validation': return <ValidationTab />;
-      case 'git': return <GitTab />;
-      case 'workflow': return <WorkflowsTab />;
-      case 'canvas': return <CanvasTab />;
-      case 'testing': return <AppTestingTab />;
-      case 'settings': return <SettingsTab />;
-      default:
-        return (
-          <div className="flex-1 flex items-center justify-center text-secondary">
-            {tab.label} Content (Coming Soon)
-          </div>
-        );
+    const contribution = contributions.getTab(tab.type);
+    if (contribution) {
+      const Component = contribution.component;
+      return <Component />;
     }
+    return (
+      <div className="flex-1 flex items-center justify-center text-secondary">
+        {tab.label} Content (Coming Soon)
+      </div>
+    );
   };
 
   const renderContent = () => {
