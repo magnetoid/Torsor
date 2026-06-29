@@ -72,8 +72,15 @@ green for both frontend and API.
       a registry + `applyTheme`. Built-in `dark`/`light` mirror `index.css` exactly (live
       theme is now registry-driven) and a `midnight` skin demonstrates runtime swap via
       `setThemeById`. Frontend `tsc` + `vite build` green.
-- [ ] Cut over: point the 2 real frontend stores (`authStore`, `projectStore`) +
-      compose/nginx at the Go service and retire `apps/api`
+- [~] Cut over to the Go service and retire `apps/api`:
+      - [x] **Route parity** — ported the endpoints `apps/api` gained in parallel: file
+        rename/delete (`PATCH`/`DELETE /projects/{id}/files/{fileId}`) and the admin
+        dashboard (`GET /admin/stats`, `GET /admin/users`, `PATCH /admin/users/{id}/role`
+        with effective-role `requireRole`). Verified end-to-end against live Postgres.
+      - [ ] Flip `docker-compose.yml` + `nginx.conf` from the `apps/api` build to the
+        control-plane image, then remove `apps/api` (held pending confirmation — the
+        parallel `docker-compose.control-plane.yml` validates the Go service in isolation
+        first).
 
 > The Go service currently ships **in parallel** with `apps/api` (nothing depends on it
 > yet), so the cutover is deliberate and reversible. See `apps/control-plane/README.md`.

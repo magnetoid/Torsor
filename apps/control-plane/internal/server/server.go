@@ -75,6 +75,8 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/projects/{projectID}", s.handleDeleteProject)
 			r.Get("/projects/{projectID}/files", s.handleListFiles)
 			r.Post("/projects/{projectID}/files", s.handleUpsertFile)
+			r.Patch("/projects/{projectID}/files/{fileID}", s.handleUpdateFile)
+			r.Delete("/projects/{projectID}/files/{fileID}", s.handleDeleteFile)
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
 			// the runtime workspace id is the project id, never a client-supplied value.
@@ -98,6 +100,11 @@ func (s *Server) Handler() http.Handler {
 
 			// Lists available workspace runtime plugins (metadata only — no workspace access).
 			r.Get("/runtimes", s.handleListWorkspaceRuntimes)
+
+			// Admin / super-admin platform dashboard (effective-role gated).
+			r.With(s.requireRole(auth.RoleAdmin)).Get("/admin/stats", s.handleAdminStats)
+			r.With(s.requireRole(auth.RoleAdmin)).Get("/admin/users", s.handleAdminUsers)
+			r.With(s.requireRole(auth.RoleSuperAdmin)).Patch("/admin/users/{userID}/role", s.handleAdminUpdateUserRole)
 		})
 	})
 

@@ -32,8 +32,13 @@ PATCH  /api/v1/projects/{id}      (auth)
 DELETE /api/v1/projects/{id}      (auth)
 GET    /api/v1/projects/{id}/files (auth)
 POST   /api/v1/projects/{id}/files (auth)
+PATCH  /api/v1/projects/{id}/files/{fileId} (auth)   # rename / change language
+DELETE /api/v1/projects/{id}/files/{fileId} (auth)
 GET    /api/v1/tasks              (auth)
 POST   /api/v1/tasks              (auth)
+GET    /api/v1/admin/stats        (admin)            # platform dashboard totals
+GET    /api/v1/admin/users        (admin)            # paginated user list + search
+PATCH  /api/v1/admin/users/{userId}/role (super_admin)
 GET    /api/v1/providers/models                          (auth)  # list loaded model plugins
 POST   /api/v1/providers/models/{name}/complete          (auth)  # invoke (one-shot)
 POST   /api/v1/providers/models/{name}/complete/stream   (auth)  # stream via SSE
