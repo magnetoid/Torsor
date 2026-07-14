@@ -56,6 +56,8 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/torsor_dev \
 
 Load gRPC model-provider plugins by pointing `TORSOR_MODEL_PLUGINS` at one or more executables (see [apps/control-plane/README.md](apps/control-plane/README.md); `cmd/mock-model` is the reference plugin). Regenerate gRPC stubs with `protoc` after editing `internal/plugin/proto/model.proto`.
 
+The second plugin capability is `WorkspaceRuntime` (Phase 2), which owns per-user cloud workspaces. Load runtime plugins with `TORSOR_WORKSPACE_RUNTIME_PLUGINS` (CSV, same shape as `TORSOR_MODEL_PLUGINS`) plus `TORSOR_DEFAULT_RUNTIME` to pick the default. Reference plugins: `cmd/mock-runtime` (deterministic, in-memory, no Docker — safe on shared hosts) and `cmd/docker-runtime` (real container-per-workspace via the docker CLI). The HTTP surface is `/api/v1/runtimes`, and the runtime workspace id **is** the project id (ownership-scoped, never guessable).
+
 ## Frontend architecture
 
 - **State: Zustand, ~22 stores in [src/stores/](src/stores/)** (`authStore`, `projectStore`, `chatStore`, `editorStore`, etc.), one slice per domain. There is also a separate `src/useAppStore.ts` — a core store used by ~14 IDE files (editor tabs, preview, file tree); it is **live, not dead code** despite the duplicate-looking name.
@@ -75,11 +77,13 @@ Load gRPC model-provider plugins by pointing `TORSOR_MODEL_PLUGINS` at one or mo
 
 ## Data model
 
-Postgres, UUID PKs, jsonb. Key tables (migrations in [apps/api/migrations/](apps/api/migrations/)): `users`, `projects`, `project_files` (versioned via upsert that bumps `version`), `ai_tasks` (the async queue), `sessions`, `secrets`, `audit_logs`. The worker reserves pending tasks with `FOR UPDATE SKIP LOCKED` so multiple workers don't double-claim.
+Postgres, UUID PKs, jsonb. Key tables (migrations `0001`–`0003` in [apps/api/migrations/](apps/api/migrations/)): `users`, `projects`, `project_files` (versioned via upsert that bumps `version`), `ai_tasks` (the async queue), `sessions`, `secrets`, `audit_logs`, and `workspaces` (one row per project — `project_id` is `UNIQUE` — owned by a user, records `runtime` / `container_id` / `image` / `status`; lets control-plane workspace ops be scoped to project ownership and survive restarts). The worker reserves pending tasks with `FOR UPDATE SKIP LOCKED` so multiple workers don't double-claim.
 
 ## Deployment notes
 
 `docker-compose.yml` is the **production/Coolify-safe base**: internal services use `expose` (no host port bindings) so they don't collide on shared hosts; only `frontend` should be routed externally. For local host ports, add a `docker-compose.override.yml` (example in [README_FULLSTACK.md](README_FULLSTACK.md)) — Compose loads it automatically in dev. The api applies migrations on startup. App domain is `app.torsor.dev`; **leave the `torsor.dev` landing site untouched**.
+
+`docker-compose.control-plane.yml` is a separate **isolated validation stack** for the Go control plane: its own Postgres + Redis, no shared state with the live stack, loading only the in-memory `mock-runtime` (no Docker socket, so it is safe on a shared host). Real container workspaces belong on a dedicated worker host, not here. It binds to loopback (`127.0.0.1`) so a Plesk/nginx reverse-proxy can front a domain like `cp.torsor.dev`.
 
 ## torsor-helper MCP
 
