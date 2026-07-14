@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Switch from '@radix-ui/react-switch';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { 
-  Plus, 
-  ArrowUp, 
-  Square, 
-  X, 
-  Zap, 
-  Scale, 
-  ZapOff,
+import {
+  Plus,
+  ArrowUp,
+  Square,
+  X,
+  Zap,
+  Cpu,
   Paperclip,
   Code2,
   Layout
@@ -19,19 +18,37 @@ import { useChatStore } from '../../stores/chatStore';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
-  const { 
-    sendMessage, 
-    isAgentWorking, 
-    selectedContext, 
+  const {
+    sendMessage,
+    stopAgent,
+    isAgentWorking,
+    selectedContext,
     removeContext,
     planning,
-    setPlanning
+    setPlanning,
+    providers,
+    selectedProvider,
+    setProvider,
+    loadProviders
   } = useChatStore();
-  
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Populate the model dropdown from the control plane's loaded provider plugins.
+  useEffect(() => {
+    loadProviders().catch(() => {
+      /* backend without providers (or apps/api) — dropdown shows the empty state */
+    });
+  }, [loadProviders]);
+
+  const activeProvider = providers.find((p) => p.name === selectedProvider);
+
   const handleSend = () => {
-    if (input.trim() && !isAgentWorking) {
+    if (isAgentWorking) {
+      stopAgent();
+      return;
+    }
+    if (input.trim()) {
       sendMessage(input);
       setInput('');
     }
@@ -102,28 +119,43 @@ export function ChatInput() {
           <div className="flex items-center gap-2">
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-secondary hover:text-primary hover:bg-elevated rounded transition-all">
+                <button
+                  aria-label="Select model provider"
+                  className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-secondary hover:text-primary hover:bg-elevated rounded transition-all"
+                >
                   <Zap size={12} className="text-accent" />
-                  <span>Turbo</span>
+                  <span className="max-w-[120px] truncate">
+                    {activeProvider?.displayName ?? selectedProvider ?? 'No model'}
+                  </span>
                 </button>
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
-                <DropdownMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-[100] min-w-[120px]">
-                  <DropdownMenu.Item className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-primary hover:bg-accent rounded cursor-pointer outline-none">
-                    <Zap size={12} className="text-accent" /> Turbo
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-primary hover:bg-accent rounded cursor-pointer outline-none">
-                    <Scale size={12} className="text-warning" /> Balanced
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-primary hover:bg-accent rounded cursor-pointer outline-none">
-                    <ZapOff size={12} className="text-error" /> Max Power
-                  </DropdownMenu.Item>
+                <DropdownMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-[100] min-w-[160px]">
+                  {providers.length === 0 && (
+                    <div className="px-2 py-1.5 text-[10px] text-secondary">
+                      No model providers loaded
+                    </div>
+                  )}
+                  {providers.map((provider) => (
+                    <DropdownMenu.Item
+                      key={provider.name}
+                      onSelect={() => setProvider(provider.name)}
+                      className={cn(
+                        'flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold rounded cursor-pointer outline-none hover:bg-accent',
+                        provider.name === selectedProvider ? 'text-accent hover:text-white' : 'text-primary'
+                      )}
+                    >
+                      <Cpu size={12} className="shrink-0" />
+                      <span className="truncate">{provider.displayName}</span>
+                    </DropdownMenu.Item>
+                  ))}
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
 
-            <button 
+            <button
               onClick={handleSend}
+              aria-label={isAgentWorking ? 'Stop agent' : 'Send message'}
               disabled={!input.trim() && !isAgentWorking}
               className={cn(
                 "w-7 h-7 rounded-full flex items-center justify-center transition-all",
