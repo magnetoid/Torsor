@@ -38,7 +38,8 @@ func (b completeBody) toRequest() plugin.CompleteRequest {
 // handleCompleteSSE streams a completion as Server-Sent Events. Runs under the authed
 // route group (Bearer header), so it suits the frontend's fetch-based API client.
 func (s *Server) handleCompleteSSE(w http.ResponseWriter, r *http.Request) {
-	provider, ok := s.host.ModelProvider(chi.URLParam(r, "name"))
+	providerName := chi.URLParam(r, "name")
+	provider, ok := s.host.ModelProvider(providerName)
 	if !ok {
 		writeError(w, http.StatusNotFound, "Model provider not found")
 		return
@@ -65,7 +66,12 @@ func (s *Server) handleCompleteSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no") // disable nginx proxy buffering
 	w.WriteHeader(http.StatusOK)
 
+	var usageModel string
+	var usageTokensOut int32
 	err := provider.CompleteStream(r.Context(), body.toRequest(), func(c plugin.Chunk) error {
+		if c.Done {
+			usageModel, usageTokensOut = c.Model, c.TokensOut
+		}
 		payload, _ := json.Marshal(streamChunk{
 			TextDelta: c.TextDelta,
 			Done:      c.Done,
@@ -78,6 +84,10 @@ func (s *Server) handleCompleteSSE(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 		return nil
 	})
+	if err == nil {
+		// Streamed chunks carry output tokens only; tokens_in stays 0 for streams.
+		s.recordUsage(userID(r), providerName, usageModel, 0, usageTokensOut)
+	}
 	if err != nil {
 		// Headers are already sent; surface the failure as a terminal SSE event.
 		payload, _ := json.Marshal(map[string]string{"error": err.Error()})
@@ -96,12 +106,14 @@ func (s *Server) handleCompleteWS(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "Authentication required")
 		return
 	}
-	if _, err := s.auth.Authenticate(r.Context(), token); err != nil {
+	claims, err := s.auth.Authenticate(r.Context(), token)
+	if err != nil {
 		writeError(w, http.StatusUnauthorized, "Invalid or expired token")
 		return
 	}
 
-	provider, ok := s.host.ModelProvider(chi.URLParam(r, "name"))
+	providerName := chi.URLParam(r, "name")
+	provider, ok := s.host.ModelProvider(providerName)
 	if !ok {
 		writeError(w, http.StatusNotFound, "Model provider not found")
 		return
@@ -120,7 +132,12 @@ func (s *Server) handleCompleteWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var usageModel string
+	var usageTokensOut int32
 	streamErr := provider.CompleteStream(r.Context(), body.toRequest(), func(c plugin.Chunk) error {
+		if c.Done {
+			usageModel, usageTokensOut = c.Model, c.TokensOut
+		}
 		return conn.WriteJSON(streamChunk{
 			TextDelta: c.TextDelta,
 			Done:      c.Done,
@@ -130,7 +147,10 @@ func (s *Server) handleCompleteWS(w http.ResponseWriter, r *http.Request) {
 	})
 	if streamErr != nil {
 		_ = conn.WriteJSON(map[string]string{"error": streamErr.Error()})
+		return
 	}
+	// Streamed chunks carry output tokens only; tokens_in stays 0 for streams.
+	s.recordUsage(claims.UserID, providerName, usageModel, 0, usageTokensOut)
 }
 
 func (s *Server) wsUpgrader() websocket.Upgrader {

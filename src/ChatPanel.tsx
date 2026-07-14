@@ -79,8 +79,10 @@ export default function ChatPanel() {
             </div>
           </div>
         ) : (
-          <div 
+          <div
             ref={scrollRef}
+            aria-live="polite"
+            aria-busy={isAgentWorking}
             className="flex-1 overflow-y-auto px-3 py-4 scrollbar-hide"
           >
             {messages.map((msg) => (

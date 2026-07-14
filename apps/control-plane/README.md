@@ -90,7 +90,20 @@ browsers can't set headers on a WebSocket). Both emit the same JSON chunk frames
 `{"textDelta":"...","done":false,"model":"..."}` ending with `{"done":true,...}`.
 
 Authoring a model provider plugin = implement `plugin.ModelProvider` and call
-`plugin.Serve(impl)`. Real providers (Ollama, Claude, OpenAI) follow `cmd/mock-model`.
+`plugin.Serve(impl)`. Three providers ship in-tree:
+
+- `cmd/mock-model` — deterministic reference plugin, no external service.
+- `cmd/ollama-model` — **the free default**: streams from a local Ollama server.
+  Config: `OLLAMA_HOST` (default `http://127.0.0.1:11434`), `OLLAMA_MODEL`
+  (default `llama3.2`). No API key required.
+- `cmd/anthropic-model` — BYO-key hosted provider via the official Anthropic Go SDK.
+  Config: `ANTHROPIC_API_KEY` (required — the plugin refuses to start without it),
+  `ANTHROPIC_MODEL` (default `claude-opus-4-8`). Opt-in, never required.
+
+Every completion (one-shot and streamed, SSE and WS) records a row in `usage_events`
+(`user_id`, `provider`, `model`, `tokens_in`, `tokens_out`) for cost tracking; recording
+is best-effort and never fails a request. Streamed completions record output tokens
+only.
 
 Load plugins by pointing `TORSOR_MODEL_PLUGINS` at one or more executables:
 

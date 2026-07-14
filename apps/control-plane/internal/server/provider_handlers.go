@@ -1,7 +1,9 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -35,6 +37,24 @@ func (s *Server) handleListModelProviders(w http.ResponseWriter, _ *http.Request
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// recordUsage persists a usage_events row for token/cost accounting (Phase 4
+// groundwork). Best-effort: failures are logged, never surfaced — usage accounting must
+// not break completions. Uses a fresh context because the request context is often
+// already canceled when a stream ends.
+func (s *Server) recordUsage(userID, providerName, model string, tokensIn, tokensOut int32) {
+	if userID == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, err := s.pool.Exec(ctx,
+		`INSERT INTO usage_events (user_id, provider, model, tokens_in, tokens_out)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		userID, providerName, model, tokensIn, tokensOut); err != nil {
+		s.logger.Warn("record usage event", "error", err, "provider", providerName)
+	}
 }
 
 // handleComplete invokes a named model provider plugin for a single completion.
@@ -71,6 +91,8 @@ func (s *Server) handleComplete(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+
+	s.recordUsage(userID(r), name, res.Model, res.TokensIn, res.TokensOut)
 
 	writeJSON(w, http.StatusOK, completionResponse{
 		Text:      res.Text,
