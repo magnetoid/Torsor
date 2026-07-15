@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ApiError, apiRequest, apiStream } from '../lib/api';
+import { ApiError, apiRequest, apiStream, apiAgentStream, type AgentEvent } from '../lib/api';
 import { useSettingsStore } from './settingsStore';
 
 export type ContextType = 'file' | 'code' | 'canvas';
@@ -58,6 +58,7 @@ interface ChatState {
 
   // Actions
   sendMessage: (content: string) => Promise<void>;
+  runAgent: (projectId: string, task: string) => Promise<void>;
   stopAgent: () => void;
   loadProviders: () => Promise<void>;
   setProvider: (name: string) => void;
@@ -198,6 +199,61 @@ export const useChatStore = create<ChatState>((set, get) => ({
             },
           ],
         }));
+      }
+    } finally {
+      abortController = null;
+      set({ isAgentWorking: false });
+    }
+  },
+
+  runAgent: async (projectId, task) => {
+    const trimmed = task.trim();
+    if (!trimmed || get().isAgentWorking) return;
+
+    const appendMessage = (msg: ChatMessageData) =>
+      set((state) => ({ messages: [...state.messages, msg] }));
+
+    appendMessage({ id: `msg-${Date.now()}`, type: 'user', content: trimmed, timestamp: Date.now() });
+    set((state) => ({
+      isAgentWorking: true,
+      currentThread: state.currentThread || { id: `thread-${Date.now()}`, title: trimmed.slice(0, 50) },
+    }));
+
+    if (get().providers.length === 0) {
+      try {
+        await get().loadProviders();
+      } catch {
+        /* handled by the no-provider path below */
+      }
+    }
+    const provider = get().selectedProvider ?? undefined;
+
+    // Map one agent step event to a chat message. thoughts + tool calls read as "work",
+    // tool results as terminal output, and the final answer as the agent's reply.
+    const onEvent = (e: AgentEvent) => {
+      const base = { id: `msg-agent-${e.step}-${e.kind}-${Date.now()}`, timestamp: Date.now() };
+      if (e.kind === 'thought' && e.text) {
+        appendMessage({ ...base, type: 'work', content: e.text });
+      } else if (e.kind === 'tool_call') {
+        const args = e.args ? Object.entries(e.args).map(([k, v]) => `${k}=${v.length > 60 ? v.slice(0, 60) + '…' : v}`).join(' ') : '';
+        appendMessage({ ...base, type: 'work', content: `${e.tool}(${args})`, metadata: { tool: e.tool } });
+      } else if (e.kind === 'tool_result') {
+        appendMessage({ ...base, type: 'terminal', content: e.result ?? '', metadata: { tool: e.tool } });
+      } else if (e.kind === 'final' && e.text) {
+        appendMessage({ ...base, type: 'agent', content: e.text });
+      } else if (e.kind === 'error' && e.text) {
+        appendMessage({ ...base, type: 'error', content: e.text });
+      }
+    };
+
+    abortController = new AbortController();
+    try {
+      await apiAgentStream(projectId, { task: trimmed, provider }, { auth: true, signal: abortController.signal, onEvent });
+    } catch (err) {
+      const aborted = err instanceof DOMException && err.name === 'AbortError';
+      if (!aborted) {
+        const detail = err instanceof ApiError || err instanceof Error ? err.message : 'Unknown error';
+        appendMessage({ id: `msg-error-${Date.now()}`, type: 'error', content: `Agent run failed: ${detail}`, timestamp: Date.now() });
       }
     } finally {
       abortController = null;
