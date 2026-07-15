@@ -177,7 +177,9 @@ export function HomeSidebar() {
           ))}
 
           <CollapsedTip show={collapsed} label="Notifications">
-            <NotificationBell className={cn(row, 'p-0 text-secondary')}>
+            {/* py-0 (not p-0): p-0 would also cancel the row's px-3, breaking the
+                left alignment against the NavLink rows above. */}
+            <NotificationBell className={cn(row, 'py-0 text-secondary hover:text-primary hover:bg-elevated')}>
               {!collapsed && <span className="text-sm font-medium truncate">Notifications</span>}
             </NotificationBell>
           </CollapsedTip>
