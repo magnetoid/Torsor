@@ -26,6 +26,12 @@ vi.mock('./settingsStore', () => ({
   },
 }));
 
+// useAppStore uses persist(localStorage), which isn't available in the node test env, and
+// runAgent calls its loadWorkspaceFiles to refresh the tree — mock it out.
+vi.mock('../useAppStore', () => ({
+  useAppStore: { getState: () => ({ loadWorkspaceFiles: vi.fn().mockResolvedValue(undefined) }) },
+}));
+
 import { useChatStore } from './chatStore';
 import { apiAgentStream, ApiError } from '../lib/api';
 

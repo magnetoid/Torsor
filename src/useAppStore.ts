@@ -20,6 +20,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useErrorStore } from './stores/errorStore';
+import { apiRequest } from './lib/api';
 
 // --- Types ---
 
@@ -174,6 +175,9 @@ interface AppState {
   files: FileNode[];
   openTabs: string[];
   activeTab: string | null;
+  /** Populate the file tree from a project's real workspace (WorkspaceRuntime). Makes
+   *  files the agent creates visible in the IDE. */
+  loadWorkspaceFiles: (projectId: string) => Promise<void>;
   openFile: (id: string) => void;
   closeTab: (id: string) => void;
   updateFileContent: (id: string, content: string) => void;
@@ -649,6 +653,37 @@ export const useAppStore = create<AppState>()(
       files: INITIAL_FILES,
       openTabs: [],
       activeTab: null,
+      loadWorkspaceFiles: async (projectId) => {
+        try {
+          const base = `/api/v1/projects/${projectId}/workspace/files`;
+          type Entry = { name: string; path: string; isDir: boolean };
+          const nodes: FileNode[] = [];
+          // Bounded BFS over the workspace directory tree; a node's id is its path and its
+          // parentId is the containing directory's path (null at the root).
+          const queue: string[] = [''];
+          let visited = 0;
+          while (queue.length > 0 && visited < 300) {
+            const dir = queue.shift() as string;
+            const q = dir ? `?path=${encodeURIComponent(dir)}` : '';
+            const data = await apiRequest<{ items: Entry[] }>(`${base}${q}`, { auth: true });
+            visited++;
+            for (const e of data.items ?? []) {
+              const ext = !e.isDir && e.name.includes('.') ? e.name.split('.').pop() : undefined;
+              nodes.push({
+                id: e.path,
+                name: e.name,
+                type: e.isDir ? 'folder' : 'file',
+                parentId: dir === '' ? null : dir,
+                extension: ext,
+              });
+              if (e.isDir) queue.push(e.path);
+            }
+          }
+          set({ files: nodes });
+        } catch {
+          // No workspace yet, or a backend without the runtime capability: leave files as-is.
+        }
+      },
       openFile: (id) => set((state) => {
         const isOpen = state.openTabs.includes(id);
         return {

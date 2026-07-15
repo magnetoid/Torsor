@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { ApiError, apiRequest, apiStream, apiAgentStream, type AgentEvent } from '../lib/api';
 import { useSettingsStore } from './settingsStore';
+import { useAppStore } from '../useAppStore';
 
 export type ContextType = 'file' | 'code' | 'canvas';
 
@@ -258,6 +259,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } finally {
       abortController = null;
       set({ isAgentWorking: false });
+      // Reflect any files the agent created/changed in the IDE tree.
+      try {
+        await useAppStore.getState().loadWorkspaceFiles(projectId);
+      } catch {
+        /* tree refresh is best-effort */
+      }
     }
   },
 
