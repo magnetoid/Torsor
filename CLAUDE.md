@@ -115,4 +115,5 @@ A project-specific `torsor-helper` MCP server is available (tools like `map_repo
 - forbid_pattern: `@google/genai` in `src/**/*.tsx` — Phase 0 removed @google/genai. Frontend model access goes through the backend ModelProvider, not a bundled SDK. (per ADR 0003: Theming via design tokens; no bundled model SDK in the frontend)
 - forbid_pattern: `@google/genai` in `src/**/*.ts` — Phase 0 removed @google/genai. Frontend model access goes through the backend ModelProvider, not a bundled SDK. (per ADR 0003: Theming via design tokens; no bundled model SDK in the frontend)
 - forbid_pattern: `#[0-9a-fA-F]{6}\b` in `src/components/**/*.tsx` — Use CSS-variable design tokens (bg-page, text-secondary, border-default, …), not raw hex — keeps theming/white-label drop-in. (per ADR 0003: Theming via design tokens; no bundled model SDK in the frontend)
+- forbid_pattern: `exec\.Command\("docker"` in `apps/control-plane/internal/**/*.go` — Container execution belongs in the WorkspaceRuntime plugin (cm…[truncated]
 <!-- /torsor:rules -->
