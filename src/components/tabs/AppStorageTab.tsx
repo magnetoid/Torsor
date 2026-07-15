@@ -38,7 +38,7 @@ const FileIcon = ({ type, className }: { type: FileType; className?: string }) =
     case 'image': return <FileImage className={cn("text-success", className)} />;
     case 'video': return <FileVideo className={cn("text-accent", className)} />;
     case 'document': return <FileText className={cn("text-warning", className)} />;
-    default: return <File className={cn("text-text-tertiary", className)} />;
+    default: return <File className={cn("text-tertiary", className)} />;
   }
 };
 
@@ -94,7 +94,7 @@ export default function AppStorageTab() {
 
   return (
     <div 
-      className="flex flex-col h-full bg-bg-page relative"
+      className="flex flex-col h-full bg-page relative"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -108,33 +108,33 @@ export default function AppStorageTab() {
       )}
 
       {/* Header */}
-      <header className="h-12 px-4 flex items-center justify-between border-b border-border-default bg-bg-surface shrink-0">
+      <header className="h-12 px-4 flex items-center justify-between border-b border-default bg-surface shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <HardDrive size={16} className="text-accent" />
-            <span className="text-xs font-bold text-text-primary">App Storage</span>
+            <span className="text-xs font-bold text-primary">App Storage</span>
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="w-32 h-1.5 bg-bg-elevated rounded-full overflow-hidden">
+            <div className="w-32 h-1.5 bg-elevated rounded-full overflow-hidden">
               <div 
                 className="h-full bg-accent transition-all duration-500" 
                 style={{ width: `${usagePercent}%` }} 
               />
             </div>
-            <span className="text-[10px] text-text-secondary font-medium">
+            <span className="text-[10px] text-secondary font-medium">
               {formatSize(usedCapacity)} / {formatSize(totalCapacity)}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex bg-bg-page p-0.5 rounded-lg border border-border-default">
+          <div className="flex bg-page p-0.5 rounded-lg border border-default">
             <button 
               onClick={() => setViewMode('grid')}
               className={cn(
                 "p-1 rounded-md transition-all",
-                viewMode === 'grid' ? "bg-bg-elevated text-text-primary" : "text-text-secondary hover:text-text-primary"
+                viewMode === 'grid' ? "bg-elevated text-primary" : "text-secondary hover:text-primary"
               )}
             >
               <Grid size={14} />
@@ -143,7 +143,7 @@ export default function AppStorageTab() {
               onClick={() => setViewMode('list')}
               className={cn(
                 "p-1 rounded-md transition-all",
-                viewMode === 'list' ? "bg-bg-elevated text-text-primary" : "text-text-secondary hover:text-text-primary"
+                viewMode === 'list' ? "bg-elevated text-primary" : "text-secondary hover:text-primary"
               )}
             >
               <List size={14} />
@@ -168,10 +168,10 @@ export default function AppStorageTab() {
       </header>
 
       {/* Breadcrumbs */}
-      <div className="h-8 px-4 flex items-center gap-2 border-b border-border-default bg-bg-page text-[10px] text-text-secondary">
-        <button className="hover:text-text-primary transition-colors">Root</button>
+      <div className="h-8 px-4 flex items-center gap-2 border-b border-default bg-page text-[10px] text-secondary">
+        <button className="hover:text-primary transition-colors">Root</button>
         <ChevronRight size={12} />
-        <span className="text-text-primary font-medium">All Files</span>
+        <span className="text-primary font-medium">All Files</span>
       </div>
 
       {/* Main Content Area */}
@@ -181,16 +181,16 @@ export default function AppStorageTab() {
           {/* Upload Progress Section */}
           {uploads.length > 0 && (
             <div className="mb-6 space-y-2">
-              <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-2">Uploading</h3>
+              <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-2">Uploading</h3>
               {uploads.map(upload => (
-                <div key={upload.id} className="bg-bg-surface border border-border-default rounded-lg p-3 flex items-center gap-4">
+                <div key={upload.id} className="bg-surface border border-default rounded-lg p-3 flex items-center gap-4">
                   <Loader2 size={16} className="text-accent animate-spin shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between mb-1">
-                      <span className="text-xs text-text-primary truncate">{upload.name}</span>
-                      <span className="text-[10px] text-text-secondary">{Math.round(upload.progress)}%</span>
+                      <span className="text-xs text-primary truncate">{upload.name}</span>
+                      <span className="text-[10px] text-secondary">{Math.round(upload.progress)}%</span>
                     </div>
-                    <Progress.Root className="h-1 bg-bg-elevated rounded-full overflow-hidden">
+                    <Progress.Root className="h-1 bg-elevated rounded-full overflow-hidden">
                       <Progress.Indicator 
                         className="h-full bg-accent transition-all duration-300" 
                         style={{ width: `${upload.progress}%` }} 
@@ -209,11 +209,11 @@ export default function AppStorageTab() {
                   key={file.id}
                   onClick={() => setSelectedFileId(file.id)}
                   className={cn(
-                    "group relative bg-bg-surface border rounded-xl overflow-hidden cursor-pointer transition-all hover:border-border-default",
-                    selectedFileId === file.id ? "border-accent ring-1 ring-accent/20" : "border-border-default"
+                    "group relative bg-surface border rounded-xl overflow-hidden cursor-pointer transition-all hover:border-default",
+                    selectedFileId === file.id ? "border-accent ring-1 ring-accent/20" : "border-default"
                   )}
                 >
-                  <div className="aspect-square bg-bg-page flex items-center justify-center relative">
+                  <div className="aspect-square bg-page flex items-center justify-center relative">
                     {file.type === 'image' && file.thumbnailUrl ? (
                       <img 
                         src={file.thumbnailUrl} 
@@ -229,21 +229,21 @@ export default function AppStorageTab() {
                       <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>
                           <button 
-                            className="p-1 bg-bg-elevated/80 backdrop-blur-sm rounded-md text-text-primary hover:bg-accent transition-colors"
+                            className="p-1 bg-elevated/80 backdrop-blur-sm rounded-md text-primary hover:bg-accent transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreVertical size={14} />
                           </button>
                         </DropdownMenu.Trigger>
                         <DropdownMenu.Portal>
-                          <DropdownMenu.Content className="bg-bg-elevated border border-border-default rounded-md p-1 shadow-xl z-50 min-w-[140px]">
+                          <DropdownMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[140px]">
                             <DropdownMenu.Item 
-                              className="flex items-center gap-2 px-2 py-1.5 text-xs text-text-primary hover:bg-accent rounded cursor-pointer outline-none"
+                              className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:bg-accent rounded cursor-pointer outline-none"
                               onClick={() => copyUrl(file.url)}
                             >
                               <Copy size={14} /> Copy URL
                             </DropdownMenu.Item>
-                            <DropdownMenu.Item className="flex items-center gap-2 px-2 py-1.5 text-xs text-text-primary hover:bg-accent rounded cursor-pointer outline-none">
+                            <DropdownMenu.Item className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:bg-accent rounded cursor-pointer outline-none">
                               <Edit2 size={14} /> Rename
                             </DropdownMenu.Item>
                             <DropdownMenu.Separator className="h-[1px] bg-border-default my-1" />
@@ -259,25 +259,25 @@ export default function AppStorageTab() {
                     </div>
                   </div>
                   <div className="p-2">
-                    <p className="text-[11px] font-medium text-text-primary truncate mb-0.5">{file.name}</p>
+                    <p className="text-[11px] font-medium text-primary truncate mb-0.5">{file.name}</p>
                     <div className="flex justify-between items-center">
-                      <span className="text-[9px] text-text-secondary">{formatSize(file.size)}</span>
-                      <span className="text-[9px] text-text-tertiary">{new Date(file.uploadedAt).toLocaleDateString()}</span>
+                      <span className="text-[9px] text-secondary">{formatSize(file.size)}</span>
+                      <span className="text-[9px] text-tertiary">{new Date(file.uploadedAt).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="bg-bg-surface border border-border-default rounded-xl overflow-hidden">
+            <div className="bg-surface border border-default rounded-xl overflow-hidden">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-border-default bg-bg-elevated/50">
-                    <th className="px-4 py-2 text-[10px] font-bold text-text-secondary uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-text-secondary uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-text-secondary uppercase tracking-wider">Size</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-text-secondary uppercase tracking-wider">Uploaded</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-text-secondary uppercase tracking-wider text-right">Actions</th>
+                  <tr className="border-b border-default bg-elevated/50">
+                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Size</th>
+                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Uploaded</th>
+                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -286,30 +286,30 @@ export default function AppStorageTab() {
                       key={file.id}
                       onClick={() => setSelectedFileId(file.id)}
                       className={cn(
-                        "border-b border-border-subtle hover:bg-bg-elevated/30 cursor-pointer transition-colors",
+                        "border-b border-subtle hover:bg-elevated/30 cursor-pointer transition-colors",
                         selectedFileId === file.id && "bg-accent/5"
                       )}
                     >
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-3">
                           <FileIcon type={file.type} className="w-4 h-4" />
-                          <span className="text-xs text-text-primary font-medium truncate max-w-[200px]">{file.name}</span>
+                          <span className="text-xs text-primary font-medium truncate max-w-[200px]">{file.name}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-2.5 text-[11px] text-text-secondary capitalize">{file.type}</td>
-                      <td className="px-4 py-2.5 text-[11px] text-text-secondary">{formatSize(file.size)}</td>
-                      <td className="px-4 py-2.5 text-[11px] text-text-secondary">{new Date(file.uploadedAt).toLocaleDateString()}</td>
+                      <td className="px-4 py-2.5 text-[11px] text-secondary capitalize">{file.type}</td>
+                      <td className="px-4 py-2.5 text-[11px] text-secondary">{formatSize(file.size)}</td>
+                      <td className="px-4 py-2.5 text-[11px] text-secondary">{new Date(file.uploadedAt).toLocaleDateString()}</td>
                       <td className="px-4 py-2.5 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button 
                             onClick={(e) => { e.stopPropagation(); copyUrl(file.url); }}
-                            className="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-md transition-all"
+                            className="p-1.5 text-secondary hover:text-primary hover:bg-elevated rounded-md transition-all"
                           >
                             <Copy size={14} />
                           </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); deleteFile(file.id); }}
-                            className="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all"
+                            className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -325,19 +325,19 @@ export default function AppStorageTab() {
 
         {/* Preview Panel */}
         {selectedFile && (
-          <div className="w-80 border-l border-border-default bg-bg-surface flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="h-10 px-4 flex items-center justify-between border-b border-border-default">
-              <span className="text-xs font-bold text-text-primary">File Preview</span>
+          <div className="w-80 border-l border-default bg-surface flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="h-10 px-4 flex items-center justify-between border-b border-default">
+              <span className="text-xs font-bold text-primary">File Preview</span>
               <button 
                 onClick={() => setSelectedFileId(null)}
-                className="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-elevated rounded-md transition-all"
+                className="p-1 text-secondary hover:text-primary hover:bg-elevated rounded-md transition-all"
               >
                 <X size={14} />
               </button>
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-              <div className="aspect-video bg-bg-page rounded-lg border border-border-default flex items-center justify-center overflow-hidden mb-4">
+              <div className="aspect-video bg-page rounded-lg border border-default flex items-center justify-center overflow-hidden mb-4">
                 {selectedFile.type === 'image' ? (
                   <img 
                     src={selectedFile.url} 
@@ -358,36 +358,36 @@ export default function AppStorageTab() {
 
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-2">Details</h4>
+                  <h4 className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-2">Details</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-text-secondary">Name</span>
-                      <span className="text-text-primary font-medium truncate max-w-[160px]">{selectedFile.name}</span>
+                      <span className="text-secondary">Name</span>
+                      <span className="text-primary font-medium truncate max-w-[160px]">{selectedFile.name}</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-text-secondary">Type</span>
-                      <span className="text-text-primary font-medium capitalize">{selectedFile.type}</span>
+                      <span className="text-secondary">Type</span>
+                      <span className="text-primary font-medium capitalize">{selectedFile.type}</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-text-secondary">Size</span>
-                      <span className="text-text-primary font-medium">{formatSize(selectedFile.size)}</span>
+                      <span className="text-secondary">Size</span>
+                      <span className="text-primary font-medium">{formatSize(selectedFile.size)}</span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-text-secondary">Uploaded</span>
-                      <span className="text-text-primary font-medium">{new Date(selectedFile.uploadedAt).toLocaleString()}</span>
+                      <span className="text-secondary">Uploaded</span>
+                      <span className="text-primary font-medium">{new Date(selectedFile.uploadedAt).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mb-2">CDN URL</h4>
+                  <h4 className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-2">CDN URL</h4>
                   <div className="flex gap-2">
-                    <div className="flex-1 bg-bg-page border border-border-default rounded-lg px-2 py-1.5 text-[10px] text-text-secondary font-mono truncate">
+                    <div className="flex-1 bg-page border border-default rounded-lg px-2 py-1.5 text-[10px] text-secondary font-mono truncate">
                       {selectedFile.url}
                     </div>
                     <button 
                       onClick={() => copyUrl(selectedFile.url)}
-                      className="p-1.5 bg-bg-elevated border border-border-default rounded-lg text-text-primary hover:bg-accent transition-colors"
+                      className="p-1.5 bg-elevated border border-default rounded-lg text-primary hover:bg-accent transition-colors"
                       title="Copy CDN URL"
                     >
                       <Copy size={14} />
@@ -396,7 +396,7 @@ export default function AppStorageTab() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-4">
-                  <button className="flex items-center justify-center gap-2 px-3 py-2 bg-bg-elevated border border-border-default rounded-lg text-xs font-bold text-text-primary hover:bg-bg-inset transition-all">
+                  <button className="flex items-center justify-center gap-2 px-3 py-2 bg-elevated border border-default rounded-lg text-xs font-bold text-primary hover:bg-inset transition-all">
                     <Download size={14} />
                     Download
                   </button>
@@ -404,7 +404,7 @@ export default function AppStorageTab() {
                     href={selectedFile.url} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-3 py-2 bg-bg-elevated border border-border-default rounded-lg text-xs font-bold text-text-primary hover:bg-bg-inset transition-all"
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-elevated border border-default rounded-lg text-xs font-bold text-primary hover:bg-inset transition-all"
                   >
                     <ExternalLink size={14} />
                     Open

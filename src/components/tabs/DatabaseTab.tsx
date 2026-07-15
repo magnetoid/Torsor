@@ -88,7 +88,7 @@ export default function DatabaseTab() {
           actionLabel="Connect Database"
           onAction={() => setIsConnected(true)}
         />
-        <p className="mt-6 text-[10px] text-text-tertiary uppercase tracking-widest font-bold">
+        <p className="mt-6 text-[10px] text-tertiary uppercase tracking-widest font-bold">
           Ask the agent to add a database to your project
         </p>
       </div>

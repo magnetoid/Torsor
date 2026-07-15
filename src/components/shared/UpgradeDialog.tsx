@@ -90,7 +90,7 @@ function PlanCard({ id, name, price, description, features, icon: Icon, isCurren
         className={cn(
           "w-full py-2 rounded-xl text-xs font-bold transition-all",
           isCurrent 
-            ? "bg-bg-elevated text-tertiary cursor-default border border-default" 
+            ? "bg-elevated text-tertiary cursor-default border border-default" 
             : id === 'enterprise'
               ? "bg-surface border border-default text-primary hover:bg-elevated"
               : "bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20"
