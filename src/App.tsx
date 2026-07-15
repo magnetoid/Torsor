@@ -9,6 +9,8 @@ import { AdminPage } from './pages/AdminPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { AuthPage } from './pages/AuthPage';
 import { ProjectWorkspace } from './pages/ProjectWorkspace';
+import { BillingPage } from './pages/BillingPage';
+import { ComingSoonPage } from './pages/ComingSoonPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/auth/ProtectedRoute';
@@ -111,8 +113,37 @@ export default function App() {
                   <ProjectWorkspace />
                 </ProtectedRoute>
               </ErrorBoundary>
-            } 
+            }
           />
+          <Route
+            path="/billing"
+            element={
+              <ErrorBoundary name="Billing">
+                <ProtectedRoute>
+                  <BillingPage />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          {/* Sidebar destinations not built yet — land on a real page, not a 404. */}
+          {([
+            ['/recent', 'Recent', 'Projects you have opened recently will show up here.'],
+            ['/starred', 'Starred', 'Star projects to pin them here for quick access.'],
+            ['/shared', 'Shared with me', 'Projects other people share with you will appear here.'],
+            ['/help', 'Help & Support', 'Documentation and support resources are on the way.'],
+          ] as const).map(([path, title, description]) => (
+            <Route
+              key={path}
+              path={path}
+              element={
+                <ErrorBoundary name={title}>
+                  <ProtectedRoute>
+                    <ComingSoonPage title={title} description={description} />
+                  </ProtectedRoute>
+                </ErrorBoundary>
+              }
+            />
+          ))}
           <Route 
             path="/settings" 
             element={

@@ -43,7 +43,7 @@ function SecretsCard({ onClose }: { onClose: () => void }) {
     <div className="bg-surface rounded-xl border border-default shadow-2xl overflow-hidden max-w-md mx-auto">
       <div className="px-4 py-3 border-b border-default flex items-center justify-between bg-elevated">
         <div className="flex items-center gap-2">
-          <Lock size={16} className="text-amber-400" />
+          <Lock size={16} className="text-warning" />
           <span className="text-sm font-bold text-primary">Secrets</span>
         </div>
         <button onClick={onClose} className="text-secondary hover:text-primary transition-colors">
@@ -70,7 +70,7 @@ function SecretsCard({ onClose }: { onClose: () => void }) {
                 </button>
                 <button 
                   onClick={() => removeSecret(secret.key)}
-                  className="p-1.5 text-secondary hover:text-red-400 transition-colors"
+                  className="p-1.5 text-secondary hover:text-error transition-colors"
                 >
                   <Trash2 size={14} />
                 </button>
@@ -127,7 +127,7 @@ function PackagesCard({ onClose }: { onClose: () => void }) {
     <div className="bg-surface rounded-xl border border-default shadow-2xl overflow-hidden max-w-md mx-auto">
       <div className="px-4 py-3 border-b border-default flex items-center justify-between bg-elevated">
         <div className="flex items-center gap-2">
-          <Package size={16} className="text-blue-400" />
+          <Package size={16} className="text-info" />
           <span className="text-sm font-bold text-primary">Packages</span>
         </div>
         <button onClick={onClose} className="text-secondary hover:text-primary transition-colors">
@@ -198,7 +198,7 @@ function ProjectConfigCard({ onClose }: { onClose: () => void }) {
     <div className="bg-surface rounded-xl border border-default shadow-2xl overflow-hidden max-w-md mx-auto">
       <div className="px-4 py-3 border-b border-default flex items-center justify-between bg-elevated">
         <div className="flex items-center gap-2">
-          <Settings size={16} className="text-emerald-400" />
+          <Settings size={16} className="text-success" />
           <span className="text-sm font-bold text-primary">Project Config</span>
         </div>
         <button onClick={onClose} className="text-secondary hover:text-primary transition-colors">
@@ -209,7 +209,7 @@ function ProjectConfigCard({ onClose }: { onClose: () => void }) {
       <div className="p-4 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <span className="text-xs text-secondary">Framework</span>
-          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded border border-emerald-500/20">
+          <span className="px-2 py-0.5 bg-success/10 text-success text-[10px] font-bold rounded border border-success/20">
             {config.framework}
           </span>
         </div>

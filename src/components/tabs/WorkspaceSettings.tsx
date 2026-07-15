@@ -150,7 +150,7 @@ export function WorkspaceSettings() {
               <p className="text-xs font-bold text-primary">Delete Workspace</p>
               <p className="text-[11px] text-secondary">Permanently delete this workspace and all its data. This cannot be undone.</p>
             </div>
-            <button className="px-4 py-2 bg-error hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all">
+            <button className="px-4 py-2 bg-error hover:bg-error text-white text-xs font-bold rounded-lg transition-all">
               Delete Forever
             </button>
           </div>

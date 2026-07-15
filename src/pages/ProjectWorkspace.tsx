@@ -42,14 +42,10 @@ export function ProjectWorkspace() {
     );
   }
 
-  const files = filesByProject[id || ''] || [];
-
+  // Single top bar: the project name/tabs/actions all live in AppShell's TopBar, so no
+  // extra header strip here.
   return (
     <div className="h-screen flex flex-col bg-page animate-in fade-in duration-slow">
-      <div className="px-4 py-2 border-b border-default bg-surface text-xs text-secondary flex items-center justify-between">
-        <span>{project.name}</span>
-        <span>{files.length} file{files.length === 1 ? '' : 's'} loaded from API</span>
-      </div>
       <AppShell />
     </div>
   );

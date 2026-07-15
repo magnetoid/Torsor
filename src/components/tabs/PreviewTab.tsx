@@ -96,10 +96,10 @@ export default function PreviewTab() {
     if (buildStatus === 'error') {
       return (
         <div className="flex-1 flex flex-col">
-          <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2 flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Build Failed</span>
-            <span className="text-xs text-red-400/80 truncate">Module not found: Can't resolve './components/AuthLanding'</span>
+          <div className="bg-error/10 border-b border-error/20 px-4 py-2 flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-error animate-pulse" />
+            <span className="text-xs font-bold text-error uppercase tracking-wider">Build Failed</span>
+            <span className="text-xs text-error/80 truncate">Module not found: Can't resolve './components/AuthLanding'</span>
           </div>
           <div className="flex-1 opacity-40 pointer-events-none grayscale">
              {/* Show last successful or empty */}

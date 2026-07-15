@@ -1,5 +1,4 @@
 import React from 'react';
-import { TabBar } from './TabBar';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { cn } from '../../lib/utils';
 import { contributions } from '../../kernel';
@@ -95,7 +94,7 @@ export function CenterWorkArea() {
 
   return (
     <main className="flex-1 bg-page flex flex-col min-w-0 overflow-hidden">
-      <TabBar />
+      {/* Tabs live in the unified TopBar (single top bar), not in a second strip here. */}
       <div className="flex-1 relative overflow-hidden">
         {renderContent()}
       </div>

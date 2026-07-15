@@ -45,6 +45,7 @@ const RailIcon = ({ icon: Icon, label, active, onClick, className }: RailIconPro
       <Tooltip.Trigger asChild>
         <button
           onClick={onClick}
+          aria-label={label}
           className={cn(
             "w-7 h-7 rounded-md flex items-center justify-center transition-all duration-200 group",
             active 

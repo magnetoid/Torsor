@@ -128,6 +128,23 @@ code, pre, kbd {
 
 /* Reusable micro-interactions ------------------------------------------------ */
 
+/* App-wide keyboard focus: most buttons/links in the app are raw elements without
+   per-component focus classes, which left keyboard users with no visible focus at all.
+   This is the safety net — components with their own focus-visible ring (Button, Input)
+   simply layer on top. Mouse clicks don't trigger :focus-visible, so pointer UX is
+   unchanged. */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="tab"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Consistent focus ring for any custom control that isn't the Button primitive.
    Keeps keyboard focus visible and on-brand without repeating the utility soup. */
 .focus-ring {

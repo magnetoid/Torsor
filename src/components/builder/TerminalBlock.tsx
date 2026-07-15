@@ -28,9 +28,9 @@ export function TerminalBlock({ command, output, exitCode, isStreaming }: Termin
 
   const getLineColor = (line: string) => {
     const lower = line.toLowerCase();
-    if (lower.includes('error') || lower.includes('failed')) return 'text-red-400';
-    if (lower.includes('warning')) return 'text-amber-400';
-    if (lower.includes('success') || lower.includes('ready in') || lower.includes('compiled')) return 'text-emerald-400';
+    if (lower.includes('error') || lower.includes('failed')) return 'text-error';
+    if (lower.includes('warning')) return 'text-warning';
+    if (lower.includes('success') || lower.includes('ready in') || lower.includes('compiled')) return 'text-success';
     return 'text-primary';
   };
 
@@ -42,7 +42,7 @@ export function TerminalBlock({ command, output, exitCode, isStreaming }: Termin
       <div className="h-8 bg-surface px-3 flex items-center justify-between border-b border-subtle">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex items-center gap-1.5">
-            <div className={cn("w-1.5 h-1.5 rounded-full", isStreaming ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+            <div className={cn("w-1.5 h-1.5 rounded-full", isStreaming ? "bg-warning animate-pulse" : "bg-success")} />
             <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Terminal</span>
           </div>
           <span className="text-xs font-mono text-primary truncate opacity-80">$ {command}</span>
@@ -52,7 +52,7 @@ export function TerminalBlock({ command, output, exitCode, isStreaming }: Termin
           {exitCode !== undefined && (
             <div className={cn(
               "flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter",
-              exitCode === 0 ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"
+              exitCode === 0 ? "text-success bg-success/10" : "text-error bg-error/10"
             )}>
               {exitCode === 0 ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
               Exit {exitCode}
@@ -72,7 +72,7 @@ export function TerminalBlock({ command, output, exitCode, isStreaming }: Termin
             className="p-1 text-secondary hover:text-primary transition-colors"
             title="Copy output"
           >
-            {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+            {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
           </button>
         </div>
       </div>

@@ -30,10 +30,10 @@ import * as ContextMenu from '@radix-ui/react-context-menu';
 const FileIcon = ({ name, extension }: { name: string; extension?: string }) => {
   switch (extension) {
     case 'tsx': return <FileCode size={14} className="text-accent-hover" />;
-    case 'ts': return <FileCode size={14} className="text-blue-400" />;
-    case 'css': return <FileType size={14} className="text-amber-400" />;
+    case 'ts': return <FileCode size={14} className="text-info" />;
+    case 'css': return <FileType size={14} className="text-warning" />;
     case 'json': return <FileJson size={14} className="text-gray-400" />;
-    case 'py': return <FileCode size={14} className="text-emerald-400" />;
+    case 'py': return <FileCode size={14} className="text-success" />;
     default: return <FileText size={14} className="text-zinc-500" />;
   }
 };
@@ -113,7 +113,7 @@ const FileTreeItem = ({ node, level, onSelect }: { node: FileNode; level: number
               <ContextMenu.Separator className="h-[1px] bg-default my-1" />
               <ContextMenu.Item 
                 onClick={handleDelete}
-                className="text-xs text-zinc-300 px-2 py-1.5 outline-none cursor-pointer hover:bg-red-500/20 hover:text-red-400 rounded-sm flex items-center gap-2"
+                className="text-xs text-zinc-300 px-2 py-1.5 outline-none cursor-pointer hover:bg-error/20 hover:text-error rounded-sm flex items-center gap-2"
               >
                 <Trash2 size={12} /> Delete
               </ContextMenu.Item>
@@ -173,7 +173,7 @@ const FileTreeItem = ({ node, level, onSelect }: { node: FileNode; level: number
           <ContextMenu.Separator className="h-[1px] bg-default my-1" />
           <ContextMenu.Item 
             onClick={handleDelete}
-            className="text-xs text-zinc-300 px-2 py-1.5 outline-none cursor-pointer hover:bg-red-500/20 hover:text-red-400 rounded-sm flex items-center gap-2"
+            className="text-xs text-zinc-300 px-2 py-1.5 outline-none cursor-pointer hover:bg-error/20 hover:text-error rounded-sm flex items-center gap-2"
           >
             <Trash2 size={12} /> Delete
           </ContextMenu.Item>
@@ -413,12 +413,12 @@ export const CodePanel: React.FC = () => {
           <div className="flex items-center gap-2">
             {activeFileId && unsavedChanges.includes(activeFileId) ? (
               <span className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <div className="w-1.5 h-1.5 rounded-full bg-warning" />
                 Unsaved changes
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <div className="w-1.5 h-1.5 rounded-full bg-success" />
                 Saved
               </span>
             )}

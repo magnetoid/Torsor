@@ -29,9 +29,9 @@ import * as Progress from '@radix-ui/react-progress';
 
 const StatusIcon = ({ status, size = 14 }: { status: string; size?: number }) => {
   switch (status) {
-    case 'passed': return <CheckCircle size={size} className="text-emerald-500" />;
-    case 'failed': return <XCircle size={size} className="text-red-500" />;
-    case 'skipped': return <AlertCircle size={size} className="text-amber-500" />;
+    case 'passed': return <CheckCircle size={size} className="text-success" />;
+    case 'failed': return <XCircle size={size} className="text-error" />;
+    case 'skipped': return <AlertCircle size={size} className="text-warning" />;
     case 'running': return <Loader2 size={size} className="text-violet-500 animate-spin" />;
     default: return <AlertCircle size={size} className="text-secondary" />;
   }
@@ -43,14 +43,14 @@ const CoverageBar = ({ value, color = 'emerald' }: { value: number; color?: stri
       <div 
         className={cn(
           "h-full rounded-full transition-all duration-500",
-          value >= 80 ? "bg-emerald-500" : value >= 60 ? "bg-amber-500" : "bg-red-500"
+          value >= 80 ? "bg-success" : value >= 60 ? "bg-warning" : "bg-error"
         )}
         style={{ width: `${value}%` }}
       />
     </div>
     <span className={cn(
       "text-[10px] font-bold w-8 text-right",
-      value >= 80 ? "text-emerald-400" : value >= 60 ? "text-amber-400" : "text-red-400"
+      value >= 80 ? "text-success" : value >= 60 ? "text-warning" : "text-error"
     )}>
       {value}%
     </span>
@@ -122,15 +122,15 @@ export default function ValidationTab() {
         <div className="px-4 py-3 border-b border-default bg-page flex items-center justify-between shrink-0">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <div className="w-2 h-2 rounded-full bg-success" />
               <span className="text-xs font-bold text-primary">{results.passed} Passed</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
+              <div className="w-2 h-2 rounded-full bg-error" />
               <span className="text-xs font-bold text-primary">{results.failed} Failed</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <div className="w-2 h-2 rounded-full bg-warning" />
               <span className="text-xs font-bold text-primary">{results.skipped} Skipped</span>
             </div>
             <div className="w-[1px] h-4 bg-default" />
@@ -227,7 +227,7 @@ export default function ValidationTab() {
                                 <StatusIcon status={test.status} size={12} />
                                 <span className={cn(
                                   "text-xs",
-                                  test.status === 'failed' ? "text-red-400 font-medium" : "text-primary"
+                                  test.status === 'failed' ? "text-error font-medium" : "text-primary"
                                 )}>
                                   {test.name}
                                 </span>
@@ -246,18 +246,18 @@ export default function ValidationTab() {
                             </div>
                             
                             {test.status === 'failed' && test.error && (
-                              <div className="ml-8 mr-4 mb-3 p-3 bg-red-500/5 border border-red-500/20 rounded-lg space-y-3">
-                                <div className="font-mono text-[11px] text-red-400 whitespace-pre-wrap">
+                              <div className="ml-8 mr-4 mb-3 p-3 bg-error/5 border border-error/20 rounded-lg space-y-3">
+                                <div className="font-mono text-[11px] text-error whitespace-pre-wrap">
                                   {test.error.message}
                                 </div>
                                 {test.error.stack && (
-                                  <div className="font-mono text-[10px] text-secondary whitespace-pre-wrap border-t border-red-500/10 pt-2">
+                                  <div className="font-mono text-[10px] text-secondary whitespace-pre-wrap border-t border-error/10 pt-2">
                                     {test.error.stack}
                                   </div>
                                 )}
                                 <button 
                                   onClick={() => fixTestWithAgent(test.id)}
-                                  className="flex items-center gap-2 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold rounded-md transition-all"
+                                  className="flex items-center gap-2 px-3 py-1.5 bg-error hover:bg-error text-white text-[10px] font-bold rounded-md transition-all"
                                 >
                                   <Sparkles size={12} />
                                   Fix with Agent
@@ -353,7 +353,7 @@ export default function ValidationTab() {
                       <pre>{ciConfig}</pre>
                     </div>
                     <div className="px-4 py-3 bg-elevated border-t border-default flex justify-end">
-                      <button className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-2">
+                      <button className="px-4 py-1.5 bg-success hover:bg-success text-white text-[11px] font-bold rounded-lg transition-all flex items-center gap-2">
                         <Check size={14} />
                         Apply Config
                       </button>

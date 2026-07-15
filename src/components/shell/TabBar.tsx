@@ -54,8 +54,10 @@ export function TabBar() {
     setSplit(direction);
   };
 
+  // Embedded in the unified TopBar (the app has a single top bar): fills the bar's
+  // center, inherits its height/background, and scrolls horizontally when crowded.
   return (
-    <div className="h-9 bg-surface border-b border-default flex items-center overflow-x-auto no-scrollbar shrink-0">
+    <div className="h-full flex-1 min-w-0 flex items-center overflow-x-auto no-scrollbar">
       <Reorder.Group 
         axis="x" 
         values={centerTabs} 

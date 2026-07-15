@@ -32,13 +32,13 @@ interface Integration {
 
 const INTEGRATIONS: Integration[] = [
   { id: 'github', name: 'GitHub', description: 'Sync code and manage pull requests.', icon: <Github size={24} />, connected: true, color: 'text-white' },
-  { id: 'supabase', name: 'Supabase', description: 'PostgreSQL database and authentication.', icon: <Database size={24} />, connected: true, color: 'text-emerald-400' },
-  { id: 'stripe', name: 'Stripe', description: 'Accept payments and manage subscriptions.', icon: <CreditCard size={24} />, connected: false, color: 'text-blue-400' },
+  { id: 'supabase', name: 'Supabase', description: 'PostgreSQL database and authentication.', icon: <Database size={24} />, connected: true, color: 'text-success' },
+  { id: 'stripe', name: 'Stripe', description: 'Accept payments and manage subscriptions.', icon: <CreditCard size={24} />, connected: false, color: 'text-info' },
   { id: 'vercel', name: 'Vercel', description: 'Deploy and host your web applications.', icon: <Cloud size={24} />, connected: false, color: 'text-white' },
-  { id: 'netlify', name: 'Netlify', description: 'Automated builds and serverless functions.', icon: <Globe size={24} />, connected: false, color: 'text-cyan-400' },
-  { id: 'sendgrid', name: 'SendGrid', description: 'Email delivery and marketing campaigns.', icon: <Mail size={24} />, connected: false, color: 'text-blue-500' },
-  { id: 'twilio', name: 'Twilio', description: 'SMS, voice, and messaging APIs.', icon: <MessageSquare size={24} />, connected: false, color: 'text-red-500' },
-  { id: 'firebase', name: 'Firebase', description: 'Google backend-as-a-service platform.', icon: <Flame size={24} />, connected: false, color: 'text-amber-500' },
+  { id: 'netlify', name: 'Netlify', description: 'Automated builds and serverless functions.', icon: <Globe size={24} />, connected: false, color: 'text-info' },
+  { id: 'sendgrid', name: 'SendGrid', description: 'Email delivery and marketing campaigns.', icon: <Mail size={24} />, connected: false, color: 'text-info' },
+  { id: 'twilio', name: 'Twilio', description: 'SMS, voice, and messaging APIs.', icon: <MessageSquare size={24} />, connected: false, color: 'text-error' },
+  { id: 'firebase', name: 'Firebase', description: 'Google backend-as-a-service platform.', icon: <Flame size={24} />, connected: false, color: 'text-warning' },
   { id: 'planetscale', name: 'PlanetScale', description: 'Serverless MySQL database platform.', icon: <Layers size={24} />, connected: false, color: 'text-white' },
   { id: 'resend', name: 'Resend', description: 'Modern email API for developers.', icon: <Zap size={24} />, connected: false, color: 'text-white' },
 ];

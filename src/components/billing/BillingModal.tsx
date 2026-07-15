@@ -88,7 +88,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
             {activeWorkspace.plan === 'free' && (
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                  <Zap size={16} className="text-amber-400" />
+                  <Zap size={16} className="text-warning" />
                   Upgrade to Pro
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -100,7 +100,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
                     <ul className="space-y-2 flex-1">
                       {['Unlimited projects', 'All models', '2M tokens', 'Custom domains'].map(f => (
                         <li key={f} className="flex items-center gap-2 text-[10px] text-secondary">
-                          <Check size={10} className="text-emerald-500" />
+                          <Check size={10} className="text-success" />
                           {f}
                         </li>
                       ))}
@@ -122,7 +122,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
                     <ul className="space-y-2 flex-1">
                       {['Everything in Pro', 'Team features', '10M tokens', 'BYOK, SSO'].map(f => (
                         <li key={f} className="flex items-center gap-2 text-[10px] text-secondary">
-                          <Check size={10} className="text-emerald-500" />
+                          <Check size={10} className="text-success" />
                           {f}
                         </li>
                       ))}
@@ -142,7 +142,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
             {/* Token Top-up */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                <Shield size={16} className="text-emerald-400" />
+                <Shield size={16} className="text-success" />
                 Buy more tokens
               </h3>
               <div className="grid grid-cols-3 gap-3">

@@ -137,14 +137,14 @@ export const OnboardingWizard: React.FC = () => {
             className={cn(
               "w-3 h-3 rounded-full transition-all duration-300",
               currentStep === step ? "bg-violet-500 ring-4 ring-violet-500/20" : 
-              currentStep > step ? "bg-emerald-500" : "bg-zinc-700"
+              currentStep > step ? "bg-success" : "bg-zinc-700"
             )}
           />
           {step < 4 && (
             <div 
               className={cn(
                 "w-12 h-[2px] rounded-full",
-                currentStep > step ? "bg-emerald-500" : "bg-zinc-700"
+                currentStep > step ? "bg-success" : "bg-zinc-700"
               )}
             />
           )}

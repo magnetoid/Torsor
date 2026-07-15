@@ -36,18 +36,18 @@ import * as Switch from '@radix-ui/react-switch';
 
 const FileStatusIcon = ({ status }: { status: GitFile['status'] }) => {
   switch (status) {
-    case 'added': return <FilePlus size={14} className="text-emerald-400" />;
-    case 'deleted': return <FileMinus size={14} className="text-red-400" />;
-    case 'modified': return <FileEdit size={14} className="text-amber-400" />;
-    case 'untracked': return <PlusCircle size={14} className="text-emerald-400" />;
+    case 'added': return <FilePlus size={14} className="text-success" />;
+    case 'deleted': return <FileMinus size={14} className="text-error" />;
+    case 'modified': return <FileEdit size={14} className="text-warning" />;
+    case 'untracked': return <PlusCircle size={14} className="text-success" />;
     default: return <FileCode size={14} className="text-secondary" />;
   }
 };
 
 const DiffIndicator = ({ additions, deletions }: { additions: number; deletions: number }) => (
   <div className="flex items-center gap-1.5 text-[10px] font-bold">
-    {additions > 0 && <span className="text-emerald-400">+{additions}</span>}
-    {deletions > 0 && <span className="text-red-400">-{deletions}</span>}
+    {additions > 0 && <span className="text-success">+{additions}</span>}
+    {deletions > 0 && <span className="text-error">-{deletions}</span>}
   </div>
 );
 

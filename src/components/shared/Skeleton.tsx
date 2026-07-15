@@ -6,11 +6,14 @@ interface SkeletonProps {
 }
 
 export const Skeleton: React.FC<SkeletonProps> = ({ className }) => {
+  // Shimmer sweep (keyframes in index.css) reads as more polished than a flat pulse.
   return (
     <div className={cn(
-      "bg-elevated animate-pulse rounded-md",
+      "relative overflow-hidden bg-elevated rounded-md",
       className
-    )} />
+    )}>
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.8s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-primary/5 to-transparent" />
+    </div>
   );
 };
 

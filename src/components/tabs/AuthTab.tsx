@@ -101,7 +101,7 @@ export default function AuthTab() {
             Enable Auth
           </button>
           <button className="w-full py-2.5 bg-surface hover:bg-elevated border border-default text-primary text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2">
-            <Sparkles size={16} className="text-amber-400" />
+            <Sparkles size={16} className="text-warning" />
             Set up with Agent
           </button>
         </div>
@@ -125,7 +125,7 @@ export default function AuthTab() {
             </div>
             <div className="w-[1px] h-3 bg-default" />
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-emerald-400">12</span>
+              <span className="text-[10px] font-bold text-success">12</span>
               <span className="text-[10px] text-secondary uppercase tracking-wider">Active Sessions</span>
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function AuthTab() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
-                        <div className={cn("w-1.5 h-1.5 rounded-full", user.status === 'active' ? "bg-emerald-500" : "bg-red-500")} />
+                        <div className={cn("w-1.5 h-1.5 rounded-full", user.status === 'active' ? "bg-success" : "bg-error")} />
                         <span className="text-[11px] text-primary capitalize">{user.status}</span>
                       </div>
                     </td>
@@ -253,7 +253,7 @@ export default function AuthTab() {
                             </DropdownMenu.Item>
                             <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
                             <DropdownMenu.Item 
-                              className="flex items-center gap-2 px-2 py-1.5 text-xs text-red-400 hover:bg-red-500 hover:text-white rounded cursor-pointer outline-none"
+                              className="flex items-center gap-2 px-2 py-1.5 text-xs text-error hover:bg-error hover:text-white rounded cursor-pointer outline-none"
                               onClick={() => deleteUser(user.id)}
                             >
                               <Trash2 size={14} /> Delete User

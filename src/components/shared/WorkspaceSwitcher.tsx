@@ -47,7 +47,8 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
           <button className={cn(
             "flex items-center transition-all rounded-xl group outline-none",
             collapsed
-              ? "justify-center w-full h-10 hover:bg-elevated"
+              // Compact fixed square — w-full here would greedily squeeze TopBar siblings.
+              ? "justify-center w-8 h-8 shrink-0 hover:bg-elevated"
               : "gap-3 px-3 py-2 hover:bg-elevated w-full"
           )}>
             <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white text-[10px] font-bold shadow-sm shrink-0 group-hover:scale-105 transition-transform">

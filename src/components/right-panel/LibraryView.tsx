@@ -12,14 +12,14 @@ interface LibraryItem {
 }
 
 const MOCK_LIBRARY: LibraryItem[] = [
-  { id: 'art-1', name: 'Start application', type: 'artifact', icon: <Zap size={14} className="text-emerald-400" />, badge: 'Artifact', description: 'Main entry point for the application' },
-  { id: 'art-2', name: 'Build project', type: 'artifact', icon: <Zap size={14} className="text-emerald-400" />, badge: 'Artifact', description: 'Compiles the project for production' },
+  { id: 'art-1', name: 'Start application', type: 'artifact', icon: <Zap size={14} className="text-success" />, badge: 'Artifact', description: 'Main entry point for the application' },
+  { id: 'art-2', name: 'Build project', type: 'artifact', icon: <Zap size={14} className="text-success" />, badge: 'Artifact', description: 'Compiles the project for production' },
   { id: 'temp-1', name: 'Auth Landing', type: 'template', icon: <Layout size={14} className="text-accent-hover" />, badge: 'Template', description: 'Modern authentication landing page' },
   { id: 'temp-2', name: 'Dashboard Grid', type: 'template', icon: <Layout size={14} className="text-accent-hover" />, badge: 'Template', description: 'Responsive dashboard layout grid' },
-  { id: 'pkg-1', name: 'lucide-react', type: 'package', icon: <Box size={14} className="text-blue-400" />, badge: 'v0.475.0', description: 'Beautiful & consistent icons' },
-  { id: 'pkg-2', name: 'framer-motion', type: 'package', icon: <Box size={14} className="text-blue-400" />, badge: 'v12.4.2', description: 'A production-ready motion library' },
-  { id: 'pkg-3', name: 'zustand', type: 'package', icon: <Box size={14} className="text-blue-400" />, badge: 'v5.0.3', description: 'A small, fast and scalable bearbones state-management solution' },
-  { id: 'pkg-4', name: 'radix-ui', type: 'package', icon: <Box size={14} className="text-blue-400" />, badge: 'v1.1.2', description: 'Unstyled, accessible components for building high-quality design systems' },
+  { id: 'pkg-1', name: 'lucide-react', type: 'package', icon: <Box size={14} className="text-info" />, badge: 'v0.475.0', description: 'Beautiful & consistent icons' },
+  { id: 'pkg-2', name: 'framer-motion', type: 'package', icon: <Box size={14} className="text-info" />, badge: 'v12.4.2', description: 'A production-ready motion library' },
+  { id: 'pkg-3', name: 'zustand', type: 'package', icon: <Box size={14} className="text-info" />, badge: 'v5.0.3', description: 'A small, fast and scalable bearbones state-management solution' },
+  { id: 'pkg-4', name: 'radix-ui', type: 'package', icon: <Box size={14} className="text-info" />, badge: 'v1.1.2', description: 'Unstyled, accessible components for building high-quality design systems' },
 ];
 
 export default function LibraryView() {

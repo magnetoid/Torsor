@@ -206,7 +206,7 @@ export default function SecretsTab() {
             >
               <div className={cn(
                 "w-2 h-2 rounded-full shrink-0",
-                secret.inUse ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-default"
+                secret.inUse ? "bg-success shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-default"
               )} />
               
               <div className="flex-1 min-w-0">
@@ -249,7 +249,7 @@ export default function SecretsTab() {
                       </DropdownMenu.Item>
                       <DropdownMenu.Item 
                         onClick={() => deleteSecret(secret.id)}
-                        className="flex items-center gap-2 px-2 py-1.5 text-xs text-red-400 hover:bg-red-500 hover:text-white rounded cursor-pointer outline-none"
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs text-error hover:bg-error hover:text-white rounded cursor-pointer outline-none"
                       >
                         <Trash2 size={14} /> Delete
                       </DropdownMenu.Item>

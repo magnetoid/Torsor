@@ -140,7 +140,7 @@ export function DatabasePanel() {
                           <td className="px-2 text-center">
                             <button 
                               onClick={() => deleteRow(activeTable.id, rowIndex)}
-                              className="p-1 text-secondary hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                              className="p-1 text-secondary hover:text-error opacity-0 group-hover:opacity-100 transition-all"
                             >
                               <Trash2 size={12} />
                             </button>
@@ -280,9 +280,9 @@ export function DatabasePanel() {
                             <span className="text-[10px] text-secondary bg-page px-1.5 py-0.5 rounded border border-subtle">{col.type}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            {col.isPK && <span className="text-[9px] font-black text-amber-400 bg-amber-500/10 px-1 rounded border border-amber-500/20">PK</span>}
-                            {col.isFK && <span className="text-[9px] font-black text-blue-400 bg-blue-500/10 px-1 rounded border border-blue-500/20">FK</span>}
-                            {col.isUnique && <span className="text-[9px] font-black text-emerald-400 bg-emerald-500/10 px-1 rounded border border-emerald-500/20">UNIQUE</span>}
+                            {col.isPK && <span className="text-[9px] font-black text-warning bg-warning/10 px-1 rounded border border-warning/20">PK</span>}
+                            {col.isFK && <span className="text-[9px] font-black text-info bg-info/10 px-1 rounded border border-info/20">FK</span>}
+                            {col.isUnique && <span className="text-[9px] font-black text-success bg-success/10 px-1 rounded border border-success/20">UNIQUE</span>}
                             {!col.isNullable && <span className="text-[9px] font-black text-zinc-500 bg-zinc-500/10 px-1 rounded border border-zinc-500/20">NOT NULL</span>}
                           </div>
                         </div>
