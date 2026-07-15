@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/magnetoid/torsor/control-plane/internal/agent"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
@@ -30,6 +32,58 @@ func (s *Server) pickModelProvider(name string) (plugin.ModelProvider, string, b
 	return nil, "", false
 }
 
+// loadOrCreateWorkspace returns the owned project's workspace + runtime, provisioning one
+// with the default runtime if the project has none yet. Writes the appropriate error and
+// returns ok=false on failure (not owned / no runtime / provision failure).
+func (s *Server) loadOrCreateWorkspace(w http.ResponseWriter, r *http.Request) (workspace, plugin.WorkspaceRuntime, bool) {
+	projectID, ok := s.requireOwnedProject(w, r)
+	if !ok {
+		return workspace{}, nil, false
+	}
+
+	ws, err := scanWorkspace(s.pool.QueryRow(r.Context(),
+		`SELECT `+workspaceCols+` FROM workspaces WHERE project_id = $1`, projectID))
+	if err == nil {
+		rt, _, ok := s.pickRuntime(ws.Runtime)
+		if !ok {
+			writeError(w, http.StatusServiceUnavailable, "Workspace runtime '"+ws.Runtime+"' is not available")
+			return workspace{}, nil, false
+		}
+		return ws, rt, true
+	}
+	if err != pgx.ErrNoRows {
+		s.fail(w, r, err)
+		return workspace{}, nil, false
+	}
+
+	// No workspace yet: provision one with the default runtime.
+	rt, runtimeName, ok := s.pickRuntime("")
+	if !ok {
+		writeError(w, http.StatusServiceUnavailable, "No workspace runtime available")
+		return workspace{}, nil, false
+	}
+	st, err := rt.CreateWorkspace(r.Context(), plugin.WorkspaceSpec{ID: projectID})
+	if err != nil {
+		s.fail(w, r, err)
+		return workspace{}, nil, false
+	}
+	var containerID *string
+	if st.ContainerID != "" {
+		containerID = &st.ContainerID
+	}
+	ws, err = scanWorkspace(s.pool.QueryRow(r.Context(),
+		`INSERT INTO workspaces (project_id, user_id, runtime, container_id, image, status)
+		 VALUES ($1, $2, $3, $4, NULL, $5)
+		 ON CONFLICT (project_id) DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()
+		 RETURNING `+workspaceCols,
+		projectID, userID(r), runtimeName, containerID, st.Status))
+	if err != nil {
+		s.fail(w, r, err)
+		return workspace{}, nil, false
+	}
+	return ws, rt, true
+}
+
 // handleAgentRunSSE runs the coding agent against an owned project's workspace and streams
 // each step (thought / tool_call / tool_result / final / error) as Server-Sent Events.
 //
@@ -53,8 +107,9 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enforces project ownership and requires a provisioned workspace.
-	ws, rt, ok := s.loadWorkspace(w, r)
+	// Enforces project ownership and provisions a workspace on first run so the agent
+	// "just works" from a project without a separate setup step.
+	ws, rt, ok := s.loadOrCreateWorkspace(w, r)
 	if !ok {
 		return
 	}
