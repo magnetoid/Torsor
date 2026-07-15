@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* Enter/exit + data-[state] motion utilities (animate-in, fade-in, zoom-in-95,
+   slide-in-from-*). Tailwind 4 has no built-in equivalent, so without this every
+   `animate-in …` class across the app is a silent no-op. */
+@import "tw-animate-css";
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/jetbrains-mono";
 
@@ -23,6 +27,21 @@
   /* Typography: self-hosted variable fonts (no CDN — keeps the app fully self-hostable). */
   --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Motion scale — one source of truth so micro-interactions feel uniform. Prefer
+     `duration-fast` for hovers/toggles, `duration-base` for panels/tooltips/menus,
+     `duration-slow` for entering content. Easings: `standard` for most UI, `spring`
+     for playful pops (dialogs, popovers). The `--transition-duration-*` namespace is
+     what Tailwind 4 maps to the `duration-*` utilities; `--ease-*` maps to `ease-*`. */
+  --transition-duration-fast: 120ms;
+  --transition-duration-base: 180ms;
+  --transition-duration-slow: 260ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  /* Make `standard` the app-wide default easing for bare `transition`/`transition-*`. */
+  --default-transition-timing-function: var(--ease-standard);
+  --default-transition-duration: 150ms;
 
   /* Radius scale, tightened hard: near-square, professional-SaaS surfaces. Every
      rounded-* utility in the app resolves through these (rounded-full stays circular
@@ -105,4 +124,48 @@ code, pre, kbd {
 
 .bg-accent-gradient {
   background: linear-gradient(to bottom right, var(--accent), var(--accent-hover));
+}
+
+/* Reusable micro-interactions ------------------------------------------------ */
+
+/* Consistent focus ring for any custom control that isn't the Button primitive.
+   Keeps keyboard focus visible and on-brand without repeating the utility soup. */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-page), 0 0 0 4px var(--accent);
+  border-radius: var(--radius-lg);
+}
+
+/* Subtle lift for interactive cards/list rows — pair with a color/border hover. */
+.hover-lift {
+  transition: transform var(--transition-duration-fast) var(--ease-standard),
+    box-shadow var(--transition-duration-base) var(--ease-standard),
+    border-color var(--transition-duration-base) var(--ease-standard);
+}
+.hover-lift:hover {
+  transform: translateY(-1px);
+}
+
+/* Press feedback — a touch of scale-down on active for tactile buttons/rows. */
+.press:active {
+  transform: scale(0.98);
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Honor the OS "reduce motion" setting — disable transitions/animations globally
+   (accessibility + prevents motion sickness). Keeps opacity changes instant. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

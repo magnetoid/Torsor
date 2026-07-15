@@ -60,7 +60,7 @@ export const NotificationPopover: React.FC = () => {
           </button>
           <button 
             onClick={clearAll}
-            className="text-[#6b6b7a] hover:text-red-400 transition-colors"
+            className="text-secondary hover:text-error transition-colors"
             title="Clear all"
           >
             <Trash2 size={14} />

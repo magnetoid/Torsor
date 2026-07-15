@@ -32,20 +32,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <Toast.Root 
             key={id} 
             className={cn(
-              "bg-[#1c1c20] border border-[#232328] rounded-xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-bottom-full duration-300",
-              type === 'error' ? "border-red-500/30" : "border-[#232328]"
+              "bg-elevated border rounded-xl p-4 shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-bottom-full fade-in duration-base",
+              type === 'error' ? "border-error/40" : type === 'success' ? "border-success/40" : "border-default"
             )}
             onOpenChange={(open) => {
               if (!open) setToasts((prev) => prev.filter((t) => t.id !== id));
             }}
           >
             <div className="flex flex-col gap-1">
-              <Toast.Title className="text-sm font-bold text-[#e8e8ed]">{title}</Toast.Title>
+              <Toast.Title className="text-sm font-bold text-primary">{title}</Toast.Title>
               {description && (
-                <Toast.Description className="text-xs text-[#6b6b7a]">{description}</Toast.Description>
+                <Toast.Description className="text-xs text-secondary">{description}</Toast.Description>
               )}
             </div>
-            <Toast.Close className="p-1 text-[#44444d] hover:text-[#e8e8ed] rounded transition-colors">
+            <Toast.Close className="p-1 text-tertiary hover:text-primary rounded transition-colors">
               <X size={14} />
             </Toast.Close>
           </Toast.Root>

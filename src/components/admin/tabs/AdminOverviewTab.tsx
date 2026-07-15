@@ -108,30 +108,30 @@ export function AdminOverviewTab() {
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={REVENUE_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#3E3E42" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis 
                   dataKey="date" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#8E8E93' }}
+                  tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#8E8E93' }}
+                  tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
                   dx={-10}
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#2B2B2E', border: '1px solid #3E3E42', borderRadius: '12px', fontSize: '12px' }}
-                  itemStyle={{ color: '#F0F0F2' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px' }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="mrr" 
-                  stroke="#7B6AEE" 
+                  stroke="var(--accent)" 
                   strokeWidth={3} 
-                  dot={{ r: 4, fill: '#7B6AEE', strokeWidth: 2, stroke: '#2B2B2E' }}
+                  dot={{ r: 4, fill: 'var(--accent)', strokeWidth: 2, stroke: 'var(--bg-elevated)' }}
                   activeDot={{ r: 6, strokeWidth: 0 }}
                 />
               </LineChart>

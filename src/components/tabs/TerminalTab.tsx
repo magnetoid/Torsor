@@ -26,18 +26,18 @@ export default function TerminalTab() {
       fontSize: 12,
       fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
       theme: {
-        background: '#1C1C1E', // --bg-page
-        foreground: '#F0F0F2', // --text-primary
-        cursor: '#7B6AEE',     // --accent
+        background: '#202023', // --bg-page
+        foreground: '#F6F6F8', // --text-primary
+        cursor: '#8577F2',     // --accent
         selectionBackground: 'rgba(123, 106, 238, 0.25)', // --accent-muted (adjusted for selection)
-        black: '#2B2B2E',      // --bg-surface
-        red: '#FF453A',        // --error
-        green: '#34C759',      // --success
-        yellow: '#FF9F0A',     // --warning
-        blue: '#5AC8FA',       // --info
-        magenta: '#7B6AEE',    // --accent
-        cyan: '#5AC8FA',       // --info
-        white: '#F0F0F2',      // --text-primary
+        black: '#303034',      // --bg-surface
+        red: '#FF5449',        // --error
+        green: '#3DD263',      // --success
+        yellow: '#FFA71F',     // --warning
+        blue: '#64CDFB',       // --info
+        magenta: '#8577F2',    // --accent
+        cyan: '#64CDFB',       // --info
+        white: '#F6F6F8',      // --text-primary
       },
       allowTransparency: true,
     });

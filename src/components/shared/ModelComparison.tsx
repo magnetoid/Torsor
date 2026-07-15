@@ -26,10 +26,10 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ models, onSele
   };
 
   return (
-    <div className="my-4 bg-[#141416] rounded-xl border border-[#2a2a30] overflow-hidden shadow-2xl">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2a2a30] bg-[#1c1c20]">
-        <Sword size={16} className="text-violet-400" />
-        <span className="text-sm font-bold text-[#e8e8ed]">Model Comparison</span>
+    <div className="my-4 bg-page rounded-xl border border-default overflow-hidden shadow-2xl">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-default bg-surface">
+        <Sword size={16} className="text-accent" />
+        <span className="text-sm font-bold text-primary">Model Comparison</span>
       </div>
       
       <div className="flex overflow-x-auto scrollbar-hide">
@@ -37,18 +37,18 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ models, onSele
           <div 
             key={model.name}
             className={cn(
-              "min-w-[280px] flex-1 border-r border-[#2a2a30] last:border-r-0 transition-all duration-300",
-              winner === model.name ? "bg-violet-500/5 ring-2 ring-inset ring-violet-500/50" : ""
+              "min-w-[280px] flex-1 border-r border-default last:border-r-0 transition-all duration-300",
+              winner === model.name ? "bg-accent-muted ring-2 ring-inset ring-accent/50" : ""
             )}
           >
             {/* Header */}
-            <div className="p-3 border-b border-[#2a2a30] flex items-center justify-between">
+            <div className="p-3 border-b border-default flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={cn("w-2 h-2 rounded-full", model.dotColor)} />
-                <span className="text-xs font-bold text-[#e8e8ed]">{model.name}</span>
+                <span className="text-xs font-bold text-primary">{model.name}</span>
               </div>
               {winner === model.name && (
-                <div className="bg-violet-500 text-white p-0.5 rounded-full">
+                <div className="bg-accent text-white p-0.5 rounded-full">
                   <Check size={12} />
                 </div>
               )}
@@ -57,44 +57,44 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ models, onSele
             {/* Content */}
             <div className="p-4 relative">
               <div className={cn(
-                "text-xs text-[#e8e8ed] font-mono leading-relaxed overflow-hidden transition-all duration-300",
+                "text-xs text-primary font-mono leading-relaxed overflow-hidden transition-all duration-300",
                 expanded[model.name] ? "max-h-[800px]" : "max-h-[200px]"
               )}>
                 {model.content}
                 {!expanded[model.name] && (
-                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#141416] to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-page to-transparent" />
                 )}
               </div>
               <button 
                 onClick={() => toggleExpand(model.name)}
-                className="mt-2 text-[10px] font-bold text-violet-400 hover:text-violet-300 uppercase tracking-wider"
+                className="mt-2 text-[10px] font-bold text-accent hover:text-accent-hover uppercase tracking-wider"
               >
                 {expanded[model.name] ? 'Show Less' : 'Show More'}
               </button>
             </div>
 
             {/* Metrics */}
-            <div className="px-4 py-3 bg-[#0d0d0f]/50 border-t border-[#2a2a30] space-y-2">
+            <div className="px-4 py-3 bg-inset/50 border-t border-default space-y-2">
               <div className="flex items-center justify-between text-[10px]">
-                <div className="flex items-center gap-1 text-[#6b6b7a]">
+                <div className="flex items-center gap-1 text-secondary">
                   <Clock size={10} />
                   <span>Time</span>
                 </div>
-                <span className="text-[#e8e8ed]">{model.metrics.time}</span>
+                <span className="text-primary">{model.metrics.time}</span>
               </div>
               <div className="flex items-center justify-between text-[10px]">
-                <div className="flex items-center gap-1 text-[#6b6b7a]">
+                <div className="flex items-center gap-1 text-secondary">
                   <Database size={10} />
                   <span>Tokens</span>
                 </div>
-                <span className="text-[#e8e8ed]">{model.metrics.tokens}</span>
+                <span className="text-primary">{model.metrics.tokens}</span>
               </div>
               <div className="flex items-center justify-between text-[10px]">
-                <div className="flex items-center gap-1 text-[#6b6b7a]">
+                <div className="flex items-center gap-1 text-secondary">
                   <DollarSign size={10} />
                   <span>Cost</span>
                 </div>
-                <span className="text-[#e8e8ed]">{model.metrics.cost}</span>
+                <span className="text-primary">{model.metrics.cost}</span>
               </div>
             </div>
 
@@ -106,10 +106,10 @@ export const ModelComparison: React.FC<ModelComparisonProps> = ({ models, onSele
                 className={cn(
                   "w-full py-2 rounded-lg text-xs font-bold transition-all",
                   winner === model.name 
-                    ? "bg-violet-500 text-white" 
+                    ? "bg-accent text-white" 
                     : winner !== null 
-                      ? "bg-[#1c1c20] text-[#6b6b7a] cursor-not-allowed"
-                      : "bg-[#1c1c20] text-[#e8e8ed] hover:bg-[#2a2a30]"
+                      ? "bg-surface text-secondary cursor-not-allowed"
+                      : "bg-surface text-primary hover:bg-elevated"
                 )}
               >
                 {winner === model.name ? 'Selected' : 'Use This'}

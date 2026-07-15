@@ -47,14 +47,14 @@ export default function CodeEditorTab() {
       inherit: true,
       rules: [],
       colors: {
-        'editor.background': '#1C1C1E',
-        'editor.lineHighlightBackground': '#2B2B2E',
-        'editorLineNumber.foreground': '#5A5A5E',
-        'editorLineNumber.activeForeground': '#F0F0F2',
-        'editorIndentGuide.background': '#3A3A3D',
-        'editor.selectionBackground': '#7B6AEE40',
-        'editorWidget.background': '#2B2B2E',
-        'editorWidget.border': '#3E3E42',
+        'editor.background': '#202023',
+        'editor.lineHighlightBackground': '#303034',
+        'editorLineNumber.foreground': '#6D6D74',
+        'editorLineNumber.activeForeground': '#F6F6F8',
+        'editorIndentGuide.background': '#3B3B41',
+        'editor.selectionBackground': '#8577F240',
+        'editorWidget.background': '#303034',
+        'editorWidget.border': '#48484E',
       }
     });
     monaco.editor.setTheme('torsor-dark');

@@ -8,7 +8,7 @@ export function HomePage() {
   return (
     <div className="flex bg-page min-h-screen">
       <HomeSidebar />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 animate-in fade-in slide-in-from-bottom-2 duration-slow">
         <HomeContent />
       </div>
     </div>

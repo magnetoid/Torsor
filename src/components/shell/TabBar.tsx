@@ -26,6 +26,7 @@ import {
   MonitorPlay
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { popoverMotion } from '../../lib/motion';
 import { useLayoutStore, Tab, TabType, TAB_CONFIG } from '../../stores/layoutStore';
 
 export function TabBar() {
@@ -101,7 +102,7 @@ export function TabBar() {
                     </button>
                   </ContextMenu.Trigger>
                   <ContextMenu.Portal>
-                    <ContextMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[160px] animate-in fade-in zoom-in-95 duration-100">
+                    <ContextMenu.Content className={cn("bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[160px]", popoverMotion)}>
                       <ContextMenu.Item 
                         onClick={() => handleSplit(tab.id, 'vertical')}
                         className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:bg-accent rounded cursor-pointer outline-none"
@@ -141,7 +142,7 @@ export function TabBar() {
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[160px] animate-in fade-in zoom-in-95 duration-100">
+          <DropdownMenu.Content className={cn("bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[160px]", popoverMotion)}>
             {[
               { type: 'preview', label: 'Preview', icon: Play },
               { type: 'code', label: 'Code Editor', icon: Code2 },

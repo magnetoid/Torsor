@@ -219,13 +219,13 @@ export const CodePanel: React.FC = () => {
         { token: 'number', foreground: 'f59e0b' },
       ],
       colors: {
-        'editor.background': '#1C1C1E',
-        'editor.foreground': '#F0F0F2',
-        'editor.lineHighlightBackground': '#2B2B2E',
-        'editorCursor.foreground': '#7B6AEE',
-        'editorIndentGuide.background': '#232326',
-        'editorLineNumber.foreground': '#5A5A5E',
-        'editor.selectionBackground': '#7B6AEE33',
+        'editor.background': '#202023',
+        'editor.foreground': '#F6F6F8',
+        'editor.lineHighlightBackground': '#303034',
+        'editorCursor.foreground': '#8577F2',
+        'editorIndentGuide.background': '#3B3B41',
+        'editorLineNumber.foreground': '#6D6D74',
+        'editor.selectionBackground': '#8577F233',
       }
     });
     monaco.editor.setTheme('tesseract-dark');

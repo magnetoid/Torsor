@@ -26,6 +26,7 @@ import {
   LucideIcon
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { tooltipMotion, popoverMotion } from '../../lib/motion';
 import { useLayoutStore, TabType } from '../../stores/layoutStore';
 
 import { useThemeStore } from '../../lib/theme';
@@ -56,9 +57,9 @@ const RailIcon = ({ icon: Icon, label, active, onClick, className }: RailIconPro
         </button>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content 
-          className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl z-[100]" 
-          side="right" 
+        <Tooltip.Content
+          className={cn("bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl z-[100]", tooltipMotion)}
+          side="right"
           sideOffset={8}
         >
           {label}
@@ -128,7 +129,7 @@ export function Rail({ className }: { className?: string }) {
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[120px]">
+          <DropdownMenu.Content className={cn("bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[120px]", popoverMotion)}>
             <DropdownMenu.Item className="flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold text-primary hover:bg-accent rounded cursor-pointer outline-none">
               <Plus size={12} /> Add Tool
             </DropdownMenu.Item>

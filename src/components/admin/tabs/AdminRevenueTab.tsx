@@ -29,9 +29,9 @@ import {
 import { cn } from '../../../lib/utils';
 
 const PLAN_DATA = [
-  { name: 'Pro', value: 450, color: '#7B6AEE' },
-  { name: 'Team', value: 120, color: '#5AC8FA' },
-  { name: 'Enterprise', value: 15, color: '#34C759' },
+  { name: 'Pro', value: 450, color: 'var(--accent)' },
+  { name: 'Team', value: 120, color: 'var(--info)' },
+  { name: 'Enterprise', value: 15, color: 'var(--success)' },
 ];
 
 const MONTHLY_REVENUE = [
@@ -109,8 +109,8 @@ export function AdminRevenueTab() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#2B2B2E', border: '1px solid #3E3E42', borderRadius: '12px', fontSize: '12px' }}
-                  itemStyle={{ color: '#F0F0F2' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px' }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
                 />
                 <Legend 
                   verticalAlign="middle" 
@@ -134,26 +134,26 @@ export function AdminRevenueTab() {
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={MONTHLY_REVENUE}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#3E3E42" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis 
                   dataKey="month" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#8E8E93' }}
+                  tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#8E8E93' }}
+                  tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
                   dx={-10}
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: '#2B2B2E', border: '1px solid #3E3E42', borderRadius: '12px', fontSize: '12px' }}
-                  itemStyle={{ color: '#F0F0F2' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px' }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
                   cursor={{ fill: 'rgba(123, 106, 238, 0.05)' }}
                 />
-                <Bar dataKey="revenue" fill="#7B6AEE" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revenue" fill="var(--accent)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
