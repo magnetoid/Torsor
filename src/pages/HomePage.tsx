@@ -1,19 +1,14 @@
 import React from 'react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { HomeContent } from '../components/home/HomeContent';
-import { useLayoutStore } from '../stores/layoutStore';
-import { cn } from '../lib/utils';
 
 export function HomePage() {
-  const { homeSidebarCollapsed } = useLayoutStore();
-
+  // HomeSidebar is a sticky, in-flow flex child, so the content is just flex-1 — no
+  // margin offset (a margin would double-count the sidebar's width).
   return (
     <div className="flex bg-page min-h-screen">
       <HomeSidebar />
-      <div className={cn(
-        "flex-1 transition-all duration-200 ease-in-out",
-        homeSidebarCollapsed ? "ml-[56px]" : "ml-[220px]"
-      )}>
+      <div className="flex-1 min-w-0">
         <HomeContent />
       </div>
     </div>

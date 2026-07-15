@@ -12,7 +12,6 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
-import { useLayoutStore } from '../stores/layoutStore';
 import { useActiveWorkspace } from '../stores/workspaceStore';
 import { cn } from '../lib/utils';
 
@@ -26,7 +25,6 @@ import { SecurityTab } from '../components/tabs/SecurityTab';
 import { AuditLogTab } from '../components/tabs/AuditLogTab';
 
 export function SettingsPage() {
-  const { homeSidebarCollapsed } = useLayoutStore();
   const activeWorkspace = useActiveWorkspace();
   
   const tabs = [
@@ -43,10 +41,7 @@ export function SettingsPage() {
     <div className="flex bg-page min-h-screen">
       <HomeSidebar />
       
-      <main className={cn(
-        "flex-1 overflow-y-auto h-screen transition-all duration-200 ease-in-out",
-        homeSidebarCollapsed ? "ml-[68px]" : "ml-[240px]"
-      )}>
+      <main className="flex-1 min-w-0 overflow-y-auto h-screen">
         <div className="max-w-5xl mx-auto px-6 py-8">
           {/* Breadcrumbs / Header */}
           <div className="flex items-center gap-2 text-xs font-bold text-tertiary uppercase tracking-wider mb-2">

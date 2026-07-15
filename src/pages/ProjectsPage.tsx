@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { useProjectStore } from '../stores/projectStore';
-import { useLayoutStore } from '../stores/layoutStore';
 import { cn } from '../lib/utils';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -43,7 +42,6 @@ const PROJECT_TYPES = [
 export function ProjectsPage() {
   const navigate = useNavigate();
   const { deleteProject, getProjectsByWorkspace, fetchProjects, createProject, isLoading, error } = useProjectStore();
-  const { homeSidebarCollapsed } = useLayoutStore();
 
   const { checkFeature } = usePlanGate();
   const projectGate = checkFeature('create_project');
@@ -87,10 +85,7 @@ export function ProjectsPage() {
     <div className="flex bg-page min-h-screen">
       <HomeSidebar />
 
-      <main className={cn(
-        'flex-1 overflow-y-auto h-screen transition-all duration-200 ease-in-out',
-        homeSidebarCollapsed ? 'ml-[68px]' : 'ml-[240px]',
-      )}>
+      <main className="flex-1 min-w-0 overflow-y-auto h-screen">
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between mb-8">
             <div>

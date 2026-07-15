@@ -95,7 +95,7 @@ export const useLayoutStore = create<LayoutState>()(
       splitRatio: 0.5,
       commandPaletteOpen: false,
       quickOpenOpen: false,
-      homeSidebarCollapsed: true,
+      homeSidebarCollapsed: false,
 
       toggleLeftPanel: () => set((state) => ({ leftPanelOpen: !state.leftPanelOpen })),
       toggleRightPanel: () => set((state) => ({ rightPanelOpen: !state.rightPanelOpen })),
@@ -159,6 +159,15 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: 'tesseract-layout-storage',
+      version: 1,
+      migrate: (persisted, version) => {
+        // v1: the home sidebar now defaults to expanded. Correct the old collapsed
+        // default for users who have the previous persisted value, once.
+        if (version < 1 && persisted && typeof persisted === 'object') {
+          (persisted as LayoutState).homeSidebarCollapsed = false;
+        }
+        return persisted as LayoutState;
+      },
     }
   )
 );

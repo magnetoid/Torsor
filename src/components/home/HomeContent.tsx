@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { useProjectStore } from '../../stores/projectStore';
-import { useLayoutStore } from '../../stores/layoutStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
 import { cn } from '../../lib/utils';
@@ -54,7 +53,6 @@ const EXAMPLE_PROMPTS = [
 export function HomeContent() {
   const navigate = useNavigate();
   const { createProject, fetchProjects, getProjectsByWorkspace } = useProjectStore();
-  const { homeSidebarCollapsed } = useLayoutStore();
   const { getActiveWorkspace } = useWorkspaceStore();
   const activeWorkspace = getActiveWorkspace();
   const workspaceProjects = getProjectsByWorkspace(activeWorkspace?.id || '');
