@@ -223,6 +223,72 @@ async function consumeSSE(
   }
 }
 
+/** One streamed chunk of workspace command output (mirrors plugin.ExecChunk). */
+export interface ExecChunk {
+  stdout?: string;
+  stderr?: string;
+  exitCode?: number;
+  done: boolean;
+}
+
+interface ExecStreamOptions {
+  signal?: AbortSignal;
+  workingDir?: string;
+  onChunk: (chunk: ExecChunk) => void;
+}
+
+// apiExecStream runs a command inside a project's workspace container and consumes the
+// SSE output stream. POST /api/v1/projects/{projectId}/workspace/exec/stream.
+// Ownership-enforced server-side; requires a provisioned workspace.
+export async function apiExecStream(
+  projectId: string,
+  command: string[],
+  options: ExecStreamOptions
+): Promise<void> {
+  const { signal, workingDir, onChunk } = options;
+  const token = getStoredToken();
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${encodeURIComponent(projectId)}/workspace/exec/stream`,
+    {
+      method: 'POST',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ command, workingDir }),
+    }
+  );
+
+  if (!response.ok || !response.body) {
+    let payload: ApiErrorShape | null = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    throw new ApiError(payload?.message || payload?.error || `Exec failed with status ${response.status}`, response.status);
+  }
+
+  await consumeSSE(response, (eventName, data) => {
+    if (eventName === 'error') {
+      let message = 'Exec stream error';
+      try {
+        message = (JSON.parse(data) as { error?: string }).error || message;
+      } catch {
+        /* keep default */
+      }
+      throw new ApiError(message, 502);
+    }
+    try {
+      onChunk(JSON.parse(data) as ExecChunk);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Ignore unparseable frames (keep-alive comments).
+    }
+  });
+}
+
 /** One step event from the coding agent loop (mirrors internal/agent.Event). */
 export interface AgentEvent {
   kind: 'thought' | 'tool_call' | 'tool_result' | 'final' | 'error';

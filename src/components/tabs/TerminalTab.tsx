@@ -4,6 +4,13 @@ import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import { Plus, X, Terminal as TerminalIcon, Play, Square, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { apiExecStream, ApiError } from '../../lib/api';
+import { useProjectStore } from '../../stores/projectStore';
+
+const PROMPT = '\x1b[1;34mworkspace\x1b[0m$ ';
+
+/** xterm needs CRLF; container output is LF. */
+const toCRLF = (s: string) => s.replace(/\r?\n/g, '\r\n');
 
 interface TerminalInstance {
   id: string;
@@ -47,24 +54,85 @@ export default function TerminalTab() {
     term.open(container);
     fitAddon.fit();
 
-    term.writeln('\x1b[1;35mTorsor Terminal v1.0.0\x1b[0m');
-    term.writeln('Type \x1b[1;32mhelp\x1b[0m to see available commands.\r\n');
-    term.write('\x1b[1;34muser@torsor\x1b[0m:\x1b[1;32m~/project\x1b[0m$ ');
+    term.writeln('\x1b[1;35mTorsor Terminal\x1b[0m — commands run inside this project\'s workspace container.');
+    term.writeln('Built-ins: \x1b[1;32mclear\x1b[0m. Press \x1b[1;32mCtrl+C\x1b[0m to cancel a running command.\r\n');
+    term.write(PROMPT);
 
     let currentLine = '';
+    let running = false;
+    let abort: AbortController | null = null;
+
+    // Runs the line inside the project's workspace via the exec SSE stream. The prompt
+    // is written when the stream finishes (commands are async, unlike the old mock).
+    const runCommand = async (cmd: string) => {
+      const trimmed = cmd.trim();
+      if (!trimmed) {
+        term.write(PROMPT);
+        return;
+      }
+      if (trimmed === 'clear') {
+        term.clear();
+        term.write(PROMPT);
+        return;
+      }
+
+      const projectId = useProjectStore.getState().activeProjectId;
+      if (!projectId) {
+        term.writeln('\x1b[1;33mNo active project — open a project to run commands in its workspace.\x1b[0m');
+        term.write(PROMPT);
+        return;
+      }
+
+      running = true;
+      abort = new AbortController();
+      let sawExit: number | undefined;
+      try {
+        await apiExecStream(projectId, ['/bin/sh', '-c', trimmed], {
+          signal: abort.signal,
+          onChunk: (c) => {
+            if (c.stdout) term.write(toCRLF(c.stdout));
+            if (c.stderr) term.write(`\x1b[31m${toCRLF(c.stderr)}\x1b[0m`);
+            if (c.done) sawExit = c.exitCode;
+          },
+        });
+        if (sawExit !== undefined && sawExit !== 0) {
+          term.writeln(`\x1b[1;31mexit ${sawExit}\x1b[0m`);
+        }
+      } catch (err) {
+        if (abort.signal.aborted) {
+          term.writeln('\x1b[1;33m^C\x1b[0m');
+        } else if (err instanceof ApiError && (err.status === 404 || err.status === 503)) {
+          term.writeln('\x1b[1;33mNo workspace for this project yet — deploy an image or ask the agent to start one.\x1b[0m');
+        } else {
+          term.writeln(`\x1b[1;31m${err instanceof Error ? err.message : 'Command failed'}\x1b[0m`);
+        }
+      } finally {
+        running = false;
+        abort = null;
+        term.write(PROMPT);
+      }
+    };
 
     term.onData(data => {
       const code = data.charCodeAt(0);
+      if (running) {
+        // Only Ctrl+C is meaningful while a command streams.
+        if (code === 3) abort?.abort();
+        return;
+      }
       if (code === 13) { // Enter
         term.write('\r\n');
-        handleCommand(currentLine, term);
+        const line = currentLine;
         currentLine = '';
-        term.write('\x1b[1;34muser@torsor\x1b[0m:\x1b[1;32m~/project\x1b[0m$ ');
+        void runCommand(line);
       } else if (code === 127) { // Backspace
         if (currentLine.length > 0) {
           currentLine = currentLine.slice(0, -1);
           term.write('\b \b');
         }
+      } else if (code === 3) { // Ctrl+C at the prompt: discard the current line
+        currentLine = '';
+        term.write('^C\r\n' + PROMPT);
       } else if (code < 32) {
         // Ignore other control characters
       } else {
@@ -74,66 +142,6 @@ export default function TerminalTab() {
     });
 
     return { term, fitAddon };
-  };
-
-  const handleCommand = (cmd: string, term: XTerm) => {
-    const trimmed = cmd.trim();
-    if (!trimmed) return;
-
-    const [command, ...args] = trimmed.split(' ');
-
-    switch (command) {
-      case 'help':
-        term.writeln('Available commands: ls, cd, npm, git, clear, echo, help');
-        break;
-      case 'ls':
-        term.writeln('src/  public/  package.json  vite.config.ts  tsconfig.json');
-        break;
-      case 'cd':
-        term.writeln(`Changed directory to ${args[0] || '~'}`);
-        break;
-      case 'clear':
-        term.clear();
-        break;
-      case 'echo':
-        term.writeln(args.join(' '));
-        break;
-      case 'git':
-        if (args[0] === 'status') {
-          term.writeln('On branch \x1b[1;32mmain\x1b[0m');
-          term.writeln('Your branch is up to date with \'origin/main\'.');
-          term.writeln('\r\nnothing to commit, working tree clean');
-        } else {
-          term.writeln(`git ${args[0]} is not implemented in this mock.`);
-        }
-        break;
-      case 'npm':
-        if (args[0] === 'run' && args[1] === 'dev') {
-          term.writeln('\r\n\x1b[1;32m> torsor-app@0.1.0 dev\x1b[0m');
-          term.writeln('\x1b[1;32m> vite\x1b[0m\r\n');
-          term.writeln('  \x1b[1;35mVITE v6.0.0\x1b[0m  ready in \x1b[1;33m124 ms\x1b[0m\r\n');
-          term.writeln('  \x1b[1;32m➜\x1b[0m  \x1b[1;37mLocal:\x1b[0m   \x1b[1;34mhttp://localhost:3000/\x1b[0m');
-          term.writeln('  \x1b[1;32m➜\x1b[0m  \x1b[1;37mNetwork:\x1b[0m \x1b[1;30muse --host to expose\x1b[0m\r\n');
-          term.writeln('\x1b[1;30m[vite] hot updated: /src/App.tsx\x1b[0m');
-        } else if (args[0] === 'install') {
-          term.writeln('Installing dependencies...');
-          let progress = 0;
-          const interval = setInterval(() => {
-            progress += 10;
-            term.write(`\r[${'='.repeat(progress / 5)}${' '.repeat(20 - progress / 5)}] ${progress}%`);
-            if (progress >= 100) {
-              clearInterval(interval);
-              term.writeln('\r\n\x1b[1;32madded 42 packages in 2s\x1b[0m');
-              term.write('\x1b[1;34muser@torsor\x1b[0m:\x1b[1;32m~/project\x1b[0m$ ');
-            }
-          }, 200);
-        } else {
-          term.writeln(`npm ${args[0]} is not implemented in this mock.`);
-        }
-        break;
-      default:
-        term.writeln(`\x1b[1;31mCommand not found: ${command}\x1b[0m`);
-    }
   };
 
   useEffect(() => {
