@@ -178,6 +178,8 @@ interface AppState {
   /** Populate the file tree from a project's real workspace (WorkspaceRuntime). Makes
    *  files the agent creates visible in the IDE. */
   loadWorkspaceFiles: (projectId: string) => Promise<void>;
+  /** Fetch a workspace file's real content into its tree node (id === workspace path). */
+  loadFileContent: (projectId: string, fileId: string) => Promise<void>;
   openFile: (id: string) => void;
   closeTab: (id: string) => void;
   updateFileContent: (id: string, content: string) => void;
@@ -682,6 +684,21 @@ export const useAppStore = create<AppState>()(
           set({ files: nodes });
         } catch {
           // No workspace yet, or a backend without the runtime capability: leave files as-is.
+        }
+      },
+      loadFileContent: async (projectId, fileId) => {
+        try {
+          const data = await apiRequest<{ contentBase64?: string }>(
+            `/api/v1/projects/${projectId}/workspace/file?path=${encodeURIComponent(fileId)}`,
+            { auth: true }
+          );
+          const b64 = data.contentBase64 ?? '';
+          const bin = atob(b64);
+          const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+          const content = new TextDecoder().decode(bytes);
+          set((state) => ({ files: state.files.map((f) => (f.id === fileId ? { ...f, content } : f)) }));
+        } catch {
+          // Best-effort: leave the node without content if the read fails.
         }
       },
       openFile: (id) => set((state) => {

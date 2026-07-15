@@ -23,14 +23,16 @@ import {
 import { useAppStore, FileNode } from '../../useAppStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { cn } from '../../lib/utils';
 import { EmptyState } from '../shared/EmptyState';
 import { Folder as FolderIcon } from 'lucide-react';
 
 export default function FileTree() {
-  const { files, createFile, deleteFile, renameFile, duplicateFile } = useAppStore();
+  const { files, createFile, deleteFile, renameFile, duplicateFile, loadFileContent } = useAppStore();
   const { openFile } = useEditorStore();
   const { openTab } = useLayoutStore();
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
 
   const toggleFolder = (id: string) => {
@@ -43,6 +45,11 @@ export default function FileTree() {
     if (file.type === 'file') {
       openFile(file.id);
       openTab('code');
+      // Lazily pull the file's real content from the workspace on first open (the tree is
+      // loaded without contents). The file id is its workspace path.
+      if (activeProjectId && !file.content) {
+        void loadFileContent(activeProjectId, file.id);
+      }
     } else {
       toggleFolder(file.id);
     }
