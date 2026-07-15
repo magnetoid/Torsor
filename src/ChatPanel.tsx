@@ -9,6 +9,7 @@ import {
   Square
 } from 'lucide-react';
 import { useChatStore } from './stores/chatStore';
+import { useProjectStore } from './stores/projectStore';
 import { ChatMessage } from './components/chat/ChatMessage';
 import { ChatInput } from './components/chat/ChatInput';
 import { EmptyState } from './components/shared/EmptyState';
@@ -23,8 +24,15 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPanel() {
-  const { messages, currentThread, isAgentWorking, sendMessage } = useChatStore();
+  const { messages, currentThread, isAgentWorking, sendMessage, runAgent } = useChatStore();
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Inside a project, a suggestion runs the coding agent; on the plain chat it completes.
+  const submit = (text: string) => {
+    if (activeProjectId) runAgent(activeProjectId, text);
+    else sendMessage(text);
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -70,7 +78,7 @@ export default function ChatPanel() {
               {SUGGESTIONS.map((suggestion) => (
                 <button
                   key={suggestion}
-                  onClick={() => sendMessage(suggestion)}
+                  onClick={() => submit(suggestion)}
                   className="bg-surface border border-default rounded-lg px-3 py-1.5 text-xs text-secondary hover:border-tertiary hover:text-primary transition-all"
                 >
                   {suggestion}

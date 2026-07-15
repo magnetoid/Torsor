@@ -15,11 +15,13 @@ import {
 import TextareaAutosize from 'react-textarea-autosize';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
+import { useProjectStore } from '../../stores/projectStore';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
   const {
     sendMessage,
+    runAgent,
     stopAgent,
     isAgentWorking,
     selectedContext,
@@ -31,6 +33,7 @@ export function ChatInput() {
     setProvider,
     loadProviders
   } = useChatStore();
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -49,7 +52,12 @@ export function ChatInput() {
       return;
     }
     if (input.trim()) {
-      sendMessage(input);
+      // Inside a project → run the coding agent against its workspace; elsewhere → plain chat.
+      if (activeProjectId) {
+        runAgent(activeProjectId, input);
+      } else {
+        sendMessage(input);
+      }
       setInput('');
     }
   };

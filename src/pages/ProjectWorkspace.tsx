@@ -5,7 +5,7 @@ import { useProjectStore } from '../stores/projectStore';
 
 export function ProjectWorkspace() {
   const { id } = useParams<{ id: string }>();
-  const { projects, fetchProject, fetchProjectFiles, isLoading, filesByProject } = useProjectStore();
+  const { projects, fetchProject, fetchProjectFiles, isLoading, filesByProject, setActiveProject } = useProjectStore();
 
   const project = useMemo(() => projects.find((p) => p.id === id), [projects, id]);
 
@@ -13,7 +13,11 @@ export function ProjectWorkspace() {
     if (!id) return;
     void fetchProject(id);
     void fetchProjectFiles(id);
-  }, [id, fetchProject, fetchProjectFiles]);
+    // Mark this project active so the chat runs the coding agent against it; clear on
+    // leave so chat elsewhere stays plain completion.
+    setActiveProject(id);
+    return () => setActiveProject(null);
+  }, [id, fetchProject, fetchProjectFiles, setActiveProject]);
 
   if (isLoading && !project) {
     return <div className="flex items-center justify-center h-screen bg-page text-secondary">Loading project…</div>;

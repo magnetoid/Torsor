@@ -36,6 +36,10 @@ interface ProjectState {
   projects: Project[];
   filesByProject: Record<string, ProjectFile[]>;
   currentProject: Project | null;
+  /** The project whose IDE is currently open; drives whether chat runs the agent. Set by
+   *  ProjectWorkspace on mount, cleared on unmount so plain chat elsewhere isn't agentic. */
+  activeProjectId: string | null;
+  setActiveProject: (id: string | null) => void;
   isLoading: boolean;
   error: string | null;
   fetchProjects: () => Promise<void>;
@@ -86,6 +90,8 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   projects: [],
   filesByProject: {},
   currentProject: null,
+  activeProjectId: null,
+  setActiveProject: (id) => set({ activeProjectId: id }),
   isLoading: false,
   error: null,
   fetchProjects: async () => {
