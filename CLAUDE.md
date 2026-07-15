@@ -42,7 +42,7 @@ docker compose up --build
 docker compose --profile tools up --build   # + adminer DB UI on :8080
 ```
 
-There is **no test runner configured** — `npm test` does not exist; "tests/CI are still light" per the README. Do not claim tests pass; there are none to run.
+Tests are **light but no longer absent**. The frontend now has **vitest** (`npm test` → `vitest run`, `npm run test:watch`); coverage is a starting smoke set (e.g. `src/stores/chatStore.test.ts`), not comprehensive — don't claim broad frontend coverage. The Go control plane has real unit tests (`go test ./...`, incl. `internal/agent`, `internal/server`, `docker-runtime`). `apps/api` / `apps/worker` still have no tests. Run what exists; don't claim suites that aren't there.
 
 ### Go control plane
 

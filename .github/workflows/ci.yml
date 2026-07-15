@@ -23,6 +23,7 @@ jobs:
       - run: npm ci
       # lint = tsc --noEmit for frontend, apps/api and apps/worker
       - run: npm run lint
+      - run: npm test
       - run: npm run build
 
   control-plane:
