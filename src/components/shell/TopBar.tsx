@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { 
-  Play, 
-  Search, 
-  MessageSquare, 
-  Share2, 
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import {
+  Play,
+  Search,
+  MessageSquare,
+  Share2,
   MoreHorizontal,
   ChevronRight,
   ChevronDown,
@@ -14,9 +15,12 @@ import {
   Settings,
   Shield,
   Zap,
-  Lock
+  Lock,
+  User as UserIcon,
+  LogOut
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { popoverMotion } from '../../lib/motion';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
@@ -26,8 +30,17 @@ import { UpgradeDialog } from '../shared/UpgradeDialog';
 
 export function TopBar() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const { toggleLeftPanel } = useLayoutStore();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      navigate('/login');
+    }
+  };
   const { getActiveWorkspace } = useWorkspaceStore();
   const activeWorkspace = getActiveWorkspace();
   
@@ -165,13 +178,91 @@ export function TopBar() {
           <Search size={16} />
         </button>
 
-        <div className="w-6 h-6 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center overflow-hidden cursor-pointer">
-          <img 
-            src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.name || 'User'}`} 
-            alt="User" 
-            className="w-full h-full object-cover" 
-          />
-        </div>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              className="w-6 h-6 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center overflow-hidden cursor-pointer outline-none transition-all hover:border-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface data-[state=open]:ring-2 data-[state=open]:ring-accent/60"
+              aria-label="User menu"
+            >
+              <img
+                src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}`}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={8}
+              className={cn(
+                "bg-elevated border border-default rounded-lg p-1 shadow-2xl z-[100] min-w-[220px]",
+                popoverMotion
+              )}
+            >
+              {/* Identity header */}
+              <div className="flex items-center gap-2.5 px-2.5 py-2">
+                <div className="w-8 h-8 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center overflow-hidden shrink-0">
+                  <img
+                    src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}`}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-semibold text-primary truncate">{user?.name || 'User'}</p>
+                    {isAdmin && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-accent bg-accent-muted px-1.5 py-0.5 rounded">
+                        {user?.role === 'super_admin' ? 'Super' : 'Admin'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-secondary truncate">{user?.email}</p>
+                </div>
+              </div>
+
+              <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
+
+              <DropdownMenu.Item
+                onSelect={() => navigate('/settings')}
+                className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
+              >
+                <UserIcon size={15} className="shrink-0" />
+                Account
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                onSelect={() => navigate('/settings')}
+                className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
+              >
+                <Settings size={15} className="shrink-0" />
+                Settings
+              </DropdownMenu.Item>
+
+              {isAdmin && (
+                <>
+                  <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
+                  <DropdownMenu.Item
+                    onSelect={() => navigate('/admin')}
+                    className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-accent rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-accent-muted"
+                  >
+                    <Shield size={15} className="shrink-0" />
+                    Admin Panel
+                  </DropdownMenu.Item>
+                </>
+              )}
+
+              <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
+              <DropdownMenu.Item
+                onSelect={handleLogout}
+                className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-error rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-error/10 data-[highlighted]:text-error"
+              >
+                <LogOut size={15} className="shrink-0" />
+                Sign out
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
 
       <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
