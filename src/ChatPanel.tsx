@@ -71,7 +71,7 @@ export default function ChatPanel() {
                 <button
                   key={suggestion}
                   onClick={() => sendMessage(suggestion)}
-                  className="bg-surface border border-default rounded-full px-3 py-1.5 text-xs text-secondary hover:border-tertiary hover:text-primary transition-all"
+                  className="bg-surface border border-default rounded-lg px-3 py-1.5 text-xs text-secondary hover:border-tertiary hover:text-primary transition-all"
                 >
                   {suggestion}
                 </button>

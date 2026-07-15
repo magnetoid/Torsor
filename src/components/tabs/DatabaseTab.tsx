@@ -321,7 +321,7 @@ export default function DatabaseTab() {
                   onChange={(v) => setSqlQuery(v || '')}
                   options={{
                     fontSize: 12,
-                    fontFamily: 'JetBrains Mono, monospace',
+                    fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
                     minimap: { enabled: false },
                     scrollBeyondLastLine: false,
                     lineNumbers: 'on',

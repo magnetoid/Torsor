@@ -204,7 +204,7 @@ export default function CodeEditorTab() {
           onMount={handleEditorMount}
           options={{
             fontSize: 13,
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
             minimap: { enabled: false },
             lineNumbers: 'on',
             scrollBeyondLastLine: false,

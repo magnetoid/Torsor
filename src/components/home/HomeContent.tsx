@@ -239,7 +239,7 @@ export function HomeContent() {
                 <button 
                   key={p}
                   onClick={() => setPrompt(p)}
-                  className="bg-surface border border-default rounded-full px-4 py-1.5 text-sm text-secondary hover:text-primary hover:border-accent/30 transition-all"
+                  className="bg-surface border border-default rounded-lg px-4 py-1.5 text-sm text-secondary hover:text-primary hover:border-accent/30 transition-all"
                 >
                   {p}
                 </button>

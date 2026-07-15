@@ -24,7 +24,7 @@ export default function TerminalTab() {
     const term = new XTerm({
       cursorBlink: true,
       fontSize: 12,
-      fontFamily: 'JetBrains Mono, monospace',
+      fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
       theme: {
         background: '#1C1C1E', // --bg-page
         foreground: '#F0F0F2', // --text-primary

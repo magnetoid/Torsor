@@ -143,7 +143,7 @@ export default function SecretsTab() {
             options={{
               minimap: { enabled: false },
               fontSize: 13,
-              fontFamily: 'JetBrains Mono',
+              fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
               lineNumbers: 'on',
               scrollBeyondLastLine: false,
               automaticLayout: true,

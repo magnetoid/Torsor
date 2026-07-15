@@ -134,7 +134,7 @@ export default function PreviewTab() {
     <div className="flex flex-col h-full bg-page overflow-hidden">
       {/* TOOLBAR */}
       <header className="h-9 bg-surface border-b border-default flex items-center px-2 gap-1 shrink-0 z-10">
-        <div className="bg-elevated rounded-full px-2 py-0.5 text-[10px] font-bold text-tertiary uppercase tracking-wider cursor-not-allowed opacity-50">
+        <div className="bg-elevated rounded-md px-2 py-0.5 text-[10px] font-bold text-tertiary uppercase tracking-wider cursor-not-allowed opacity-50">
           Canvas
         </div>
         
@@ -155,7 +155,7 @@ export default function PreviewTab() {
           </button>
         </div>
 
-        <div className="flex-1 flex items-center bg-inset rounded-full px-3 py-1 gap-2 border border-default/50">
+        <div className="flex-1 flex items-center bg-inset rounded-lg px-3 py-1 gap-2 border border-default/50">
           <span className="text-[10px] text-tertiary font-mono">localhost:3000 /</span>
           <input 
             type="text" 

@@ -69,7 +69,7 @@ export function ChatInput() {
           {selectedContext.map((item) => (
             <div 
               key={item.id}
-              className="flex items-center gap-1.5 bg-accent/10 border border-accent/20 rounded-full px-2 py-0.5 text-[10px] font-bold text-accent"
+              className="flex items-center gap-1.5 bg-accent/10 border border-accent/20 rounded-md px-2 py-0.5 text-[10px] font-bold text-accent"
             >
               {item.type === 'file' && <Paperclip size={10} />}
               {item.type === 'code' && <Code2 size={10} />}
@@ -158,7 +158,7 @@ export function ChatInput() {
               aria-label={isAgentWorking ? 'Stop agent' : 'Send message'}
               disabled={!input.trim() && !isAgentWorking}
               className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center transition-all",
+                "w-7 h-7 rounded-lg flex items-center justify-center transition-all",
                 isAgentWorking 
                   ? "bg-error/10 text-error hover:bg-error/20" 
                   : input.trim() 

@@ -383,7 +383,7 @@ export const CodePanel: React.FC = () => {
               onChange={handleEditorChange}
               options={{
                 fontSize: 13,
-                fontFamily: 'JetBrains Mono',
+                fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 lineNumbers: 'on',
