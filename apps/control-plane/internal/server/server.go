@@ -88,6 +88,10 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
 
+			// The coding agent loop: streams thought/tool/result/final steps as SSE while
+			// the model edits files and runs commands in the owned project's workspace.
+			r.Post("/projects/{projectID}/agent/stream", s.handleAgentRunSSE)
+
 			r.Get("/tasks", s.handleListTasks)
 			r.Post("/tasks", s.handleCreateTask)
 
