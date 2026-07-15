@@ -34,6 +34,25 @@ service WorkspaceRuntime {
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
   rpc ReadFile(FileRef) returns (ReadFileResponse);
   rpc WriteFile(WriteFileRequest) returns (WriteFileResponse);
+
+  // --- Snapshot / branch roadmap (reserved) ---
+  // Snapshot-and-fork is the 2026 workspace battleground: every serious sandbox
+  // (E2B, Fly Sprites, Morph, CodeSandbox) forks running state so an agent can explore
+  // parallel fix attempts and cheaply roll back. These RPCs reserve that surface in the
+  // contract now so adopting it later is not a breaking wire change. Runtimes that don't
+  // support it leave these Unimplemented (the plugin bridge embeds the Unimplemented
+  // server, so declaring them here is backward-compatible for every existing plugin).
+
+  // SnapshotWorkspace captures the workspace's current state (filesystem, and for VM
+  // runtimes its memory) as a restorable point, returning a runtime-native snapshot id.
+  rpc SnapshotWorkspace(SnapshotRequest) returns (SnapshotResponse);
+
+  // RestoreWorkspace resets a workspace in place back to a previously taken snapshot.
+  rpc RestoreWorkspace(RestoreRequest) returns (WorkspaceStatusResponse);
+
+  // ForkWorkspace provisions a new workspace from a source workspace/snapshot so an agent
+  // can branch without disturbing the original. new_workspace_id is caller-assigned.
+  rpc ForkWorkspace(ForkRequest) returns (WorkspaceStatusResponse);
 }
 
 message RuntimeInfoRequest {}
@@ -117,4 +136,28 @@ message WriteFileRequest {
 
 message WriteFileResponse {
   bool ok = 1;
+}
+
+// --- Snapshot / branch roadmap messages (reserved; see the RPCs above) ---
+
+message SnapshotRequest {
+  string workspace_id = 1;
+  string label = 2;              // optional human label for the snapshot
+}
+
+message SnapshotResponse {
+  string workspace_id = 1;
+  string snapshot_id = 2;        // runtime-native handle to pass to Restore/Fork
+  string message = 3;            // optional human-readable detail
+}
+
+message RestoreRequest {
+  string workspace_id = 1;
+  string snapshot_id = 2;
+}
+
+message ForkRequest {
+  string source_workspace_id = 1;
+  string snapshot_id = 2;        // optional; empty = fork from the live state
+  string new_workspace_id = 3;   // caller-assigned id for the forked workspace
 }

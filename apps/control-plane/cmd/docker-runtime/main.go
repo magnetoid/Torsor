@@ -65,6 +65,11 @@ type limits struct {
 	pids     string // --pids-limit, e.g. "256"
 	network  string // --network, e.g. "bridge" (allow egress) or "none" (lock down)
 	hardened bool   // --cap-drop ALL + --security-opt no-new-privileges
+	// allowlist restricts which base images a workspace may run. The image is caller-
+	// supplied, so without this an operator could be asked to pull/run an arbitrary
+	// image. Empty = allow any (documented, single-tenant default); when set (CSV in
+	// TORSOR_WS_IMAGE_ALLOWLIST) only listed images are permitted.
+	allowlist []string
 }
 
 func envOr(key, def string) string {
@@ -76,18 +81,60 @@ func envOr(key, def string) string {
 
 func limitsFromEnv() limits {
 	return limits{
-		memory:   envOr("TORSOR_WS_MEMORY", "512m"),
-		cpus:     envOr("TORSOR_WS_CPUS", "1"),
-		pids:     envOr("TORSOR_WS_PIDS", "256"),
-		network:  envOr("TORSOR_WS_NETWORK", "bridge"),
-		hardened: envOr("TORSOR_WS_HARDENED", "true") != "false",
+		memory:    envOr("TORSOR_WS_MEMORY", "512m"),
+		cpus:      envOr("TORSOR_WS_CPUS", "1"),
+		pids:      envOr("TORSOR_WS_PIDS", "256"),
+		network:   envOr("TORSOR_WS_NETWORK", "bridge"),
+		hardened:  envOr("TORSOR_WS_HARDENED", "true") != "false",
+		allowlist: parseAllowlist(envOr("TORSOR_WS_IMAGE_ALLOWLIST", "")),
 	}
 }
 
+// parseAllowlist splits a CSV image allowlist, trimming blanks.
+func parseAllowlist(csv string) []string {
+	var out []string
+	for _, p := range strings.Split(csv, ",") {
+		if s := strings.TrimSpace(p); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// resolveImage validates the caller-supplied image and applies the allowlist. It returns
+// the image to run (falling back to alpine:3 when none is given) or an error if the image
+// is malformed or not permitted. Keeping this separate makes it unit-testable and ensures
+// every workspace create runs the same gate.
+func resolveImage(requested string, allowlist []string) (string, error) {
+	image := strings.TrimSpace(requested)
+	if image == "" {
+		image = "alpine:3"
+	}
+	// Reject shell/argv metacharacters and whitespace: the image becomes a positional
+	// docker arg, and a well-formed reference never contains these.
+	if strings.ContainsAny(image, " \t\n\r;|&$`'\"\\<>()") {
+		return "", fmt.Errorf("invalid image reference %q", requested)
+	}
+	if len(allowlist) == 0 {
+		return image, nil // no allowlist configured: permissive single-tenant default
+	}
+	for _, allowed := range allowlist {
+		if image == allowed {
+			return image, nil
+		}
+	}
+	return "", fmt.Errorf("image %q is not in TORSOR_WS_IMAGE_ALLOWLIST", image)
+}
+
 // buildCreateArgs assembles the `docker create ...` argv for a workspace, applying
-// resource limits and security hardening. Extracted (and env iterated in sorted order) so
-// it is deterministic and unit-testable without a Docker daemon.
-func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) []string {
+// resource limits, security hardening, and the image gate (validation + allowlist).
+// Extracted (and env iterated in sorted order) so it is deterministic and unit-testable
+// without a Docker daemon. Returns an error if the requested image is rejected.
+func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) ([]string, error) {
+	image, err := resolveImage(spec.Image, lim.allowlist)
+	if err != nil {
+		return nil, err
+	}
 	args := []string{"create", "--name", name}
 	if spec.WorkingDir != "" {
 		args = append(args, "-w", spec.WorkingDir)
@@ -115,13 +162,9 @@ func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) []strin
 	if lim.hardened {
 		args = append(args, "--cap-drop", "ALL", "--security-opt", "no-new-privileges")
 	}
-	image := spec.Image
-	if image == "" {
-		image = "alpine:3"
-	}
 	// Keep the container alive so we can exec into it across requests.
 	args = append(args, image, "tail", "-f", "/dev/null")
-	return args
+	return args, nil
 }
 
 type runtime struct {
@@ -158,7 +201,11 @@ func run(ctx context.Context, stdin []byte, args ...string) (string, error) {
 
 func (r runtime) CreateWorkspace(ctx context.Context, spec plugin.WorkspaceSpec) (plugin.WorkspaceStatus, error) {
 	name := containerName(spec.ID)
-	out, err := run(ctx, nil, buildCreateArgs(name, spec, r.lim)...)
+	args, err := buildCreateArgs(name, spec, r.lim)
+	if err != nil {
+		return plugin.WorkspaceStatus{WorkspaceID: spec.ID, Status: "unknown"}, err
+	}
+	out, err := run(ctx, nil, args...)
 	if err != nil {
 		return plugin.WorkspaceStatus{WorkspaceID: spec.ID, Status: "unknown"}, err
 	}

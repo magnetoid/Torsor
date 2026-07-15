@@ -859,6 +859,230 @@ func (x *WriteFileResponse) GetOk() bool {
 	return false
 }
 
+type SnapshotRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"` // optional human label for the snapshot
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnapshotRequest) Reset() {
+	*x = SnapshotRequest{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnapshotRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnapshotRequest) ProtoMessage() {}
+
+func (x *SnapshotRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnapshotRequest.ProtoReflect.Descriptor instead.
+func (*SnapshotRequest) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SnapshotRequest) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+func (x *SnapshotRequest) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+type SnapshotResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	SnapshotId    string                 `protobuf:"bytes,2,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"` // runtime-native handle to pass to Restore/Fork
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                         // optional human-readable detail
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SnapshotResponse) Reset() {
+	*x = SnapshotResponse{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SnapshotResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SnapshotResponse) ProtoMessage() {}
+
+func (x *SnapshotResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SnapshotResponse.ProtoReflect.Descriptor instead.
+func (*SnapshotResponse) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SnapshotResponse) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+func (x *SnapshotResponse) GetSnapshotId() string {
+	if x != nil {
+		return x.SnapshotId
+	}
+	return ""
+}
+
+func (x *SnapshotResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type RestoreRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	SnapshotId    string                 `protobuf:"bytes,2,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RestoreRequest) Reset() {
+	*x = RestoreRequest{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RestoreRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RestoreRequest) ProtoMessage() {}
+
+func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
+func (*RestoreRequest) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RestoreRequest) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+func (x *RestoreRequest) GetSnapshotId() string {
+	if x != nil {
+		return x.SnapshotId
+	}
+	return ""
+}
+
+type ForkRequest struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	SourceWorkspaceId string                 `protobuf:"bytes,1,opt,name=source_workspace_id,json=sourceWorkspaceId,proto3" json:"source_workspace_id,omitempty"`
+	SnapshotId        string                 `protobuf:"bytes,2,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`               // optional; empty = fork from the live state
+	NewWorkspaceId    string                 `protobuf:"bytes,3,opt,name=new_workspace_id,json=newWorkspaceId,proto3" json:"new_workspace_id,omitempty"` // caller-assigned id for the forked workspace
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ForkRequest) Reset() {
+	*x = ForkRequest{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForkRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForkRequest) ProtoMessage() {}
+
+func (x *ForkRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForkRequest.ProtoReflect.Descriptor instead.
+func (*ForkRequest) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ForkRequest) GetSourceWorkspaceId() string {
+	if x != nil {
+		return x.SourceWorkspaceId
+	}
+	return ""
+}
+
+func (x *ForkRequest) GetSnapshotId() string {
+	if x != nil {
+		return x.SnapshotId
+	}
+	return ""
+}
+
+func (x *ForkRequest) GetNewWorkspaceId() string {
+	if x != nil {
+		return x.NewWorkspaceId
+	}
+	return ""
+}
+
 var File_internal_plugin_proto_runtime_proto protoreflect.FileDescriptor
 
 const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
@@ -921,7 +1145,24 @@ const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
 	"\vcreate_dirs\x18\x04 \x01(\bR\n" +
 	"createDirs\"#\n" +
 	"\x11WriteFileResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok2\x8a\a\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"J\n" +
+	"\x0fSnapshotRequest\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\"p\n" +
+	"\x10SnapshotResponse\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x1f\n" +
+	"\vsnapshot_id\x18\x02 \x01(\tR\n" +
+	"snapshotId\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"T\n" +
+	"\x0eRestoreRequest\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x1f\n" +
+	"\vsnapshot_id\x18\x02 \x01(\tR\n" +
+	"snapshotId\"\x88\x01\n" +
+	"\vForkRequest\x12.\n" +
+	"\x13source_workspace_id\x18\x01 \x01(\tR\x11sourceWorkspaceId\x12\x1f\n" +
+	"\vsnapshot_id\x18\x02 \x01(\tR\n" +
+	"snapshotId\x12(\n" +
+	"\x10new_workspace_id\x18\x03 \x01(\tR\x0enewWorkspaceId2\xa2\t\n" +
 	"\x10WorkspaceRuntime\x12S\n" +
 	"\x04Info\x12$.torsor.plugin.v1.RuntimeInfoRequest\x1a%.torsor.plugin.v1.RuntimeInfoResponse\x12f\n" +
 	"\x0fCreateWorkspace\x12(.torsor.plugin.v1.CreateWorkspaceRequest\x1a).torsor.plugin.v1.WorkspaceStatusResponse\x12[\n" +
@@ -932,7 +1173,10 @@ const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
 	"\x04Exec\x12\x1d.torsor.plugin.v1.ExecRequest\x1a\x1b.torsor.plugin.v1.ExecChunk0\x01\x12T\n" +
 	"\tListFiles\x12\".torsor.plugin.v1.ListFilesRequest\x1a#.torsor.plugin.v1.ListFilesResponse\x12I\n" +
 	"\bReadFile\x12\x19.torsor.plugin.v1.FileRef\x1a\".torsor.plugin.v1.ReadFileResponse\x12T\n" +
-	"\tWriteFile\x12\".torsor.plugin.v1.WriteFileRequest\x1a#.torsor.plugin.v1.WriteFileResponseBGZEgithub.com/magnetoid/torsor/control-plane/internal/plugin/proto;protob\x06proto3"
+	"\tWriteFile\x12\".torsor.plugin.v1.WriteFileRequest\x1a#.torsor.plugin.v1.WriteFileResponse\x12Z\n" +
+	"\x11SnapshotWorkspace\x12!.torsor.plugin.v1.SnapshotRequest\x1a\".torsor.plugin.v1.SnapshotResponse\x12_\n" +
+	"\x10RestoreWorkspace\x12 .torsor.plugin.v1.RestoreRequest\x1a).torsor.plugin.v1.WorkspaceStatusResponse\x12Y\n" +
+	"\rForkWorkspace\x12\x1d.torsor.plugin.v1.ForkRequest\x1a).torsor.plugin.v1.WorkspaceStatusResponseBGZEgithub.com/magnetoid/torsor/control-plane/internal/plugin/proto;protob\x06proto3"
 
 var (
 	file_internal_plugin_proto_runtime_proto_rawDescOnce sync.Once
@@ -946,7 +1190,7 @@ func file_internal_plugin_proto_runtime_proto_rawDescGZIP() []byte {
 	return file_internal_plugin_proto_runtime_proto_rawDescData
 }
 
-var file_internal_plugin_proto_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_internal_plugin_proto_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_internal_plugin_proto_runtime_proto_goTypes = []any{
 	(*RuntimeInfoRequest)(nil),      // 0: torsor.plugin.v1.RuntimeInfoRequest
 	(*RuntimeInfoResponse)(nil),     // 1: torsor.plugin.v1.RuntimeInfoResponse
@@ -963,10 +1207,14 @@ var file_internal_plugin_proto_runtime_proto_goTypes = []any{
 	(*ReadFileResponse)(nil),        // 12: torsor.plugin.v1.ReadFileResponse
 	(*WriteFileRequest)(nil),        // 13: torsor.plugin.v1.WriteFileRequest
 	(*WriteFileResponse)(nil),       // 14: torsor.plugin.v1.WriteFileResponse
-	nil,                             // 15: torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
+	(*SnapshotRequest)(nil),         // 15: torsor.plugin.v1.SnapshotRequest
+	(*SnapshotResponse)(nil),        // 16: torsor.plugin.v1.SnapshotResponse
+	(*RestoreRequest)(nil),          // 17: torsor.plugin.v1.RestoreRequest
+	(*ForkRequest)(nil),             // 18: torsor.plugin.v1.ForkRequest
+	nil,                             // 19: torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
 }
 var file_internal_plugin_proto_runtime_proto_depIdxs = []int32{
-	15, // 0: torsor.plugin.v1.CreateWorkspaceRequest.env:type_name -> torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
+	19, // 0: torsor.plugin.v1.CreateWorkspaceRequest.env:type_name -> torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
 	9,  // 1: torsor.plugin.v1.ListFilesResponse.entries:type_name -> torsor.plugin.v1.FileEntry
 	0,  // 2: torsor.plugin.v1.WorkspaceRuntime.Info:input_type -> torsor.plugin.v1.RuntimeInfoRequest
 	3,  // 3: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:input_type -> torsor.plugin.v1.CreateWorkspaceRequest
@@ -978,18 +1226,24 @@ var file_internal_plugin_proto_runtime_proto_depIdxs = []int32{
 	8,  // 9: torsor.plugin.v1.WorkspaceRuntime.ListFiles:input_type -> torsor.plugin.v1.ListFilesRequest
 	11, // 10: torsor.plugin.v1.WorkspaceRuntime.ReadFile:input_type -> torsor.plugin.v1.FileRef
 	13, // 11: torsor.plugin.v1.WorkspaceRuntime.WriteFile:input_type -> torsor.plugin.v1.WriteFileRequest
-	1,  // 12: torsor.plugin.v1.WorkspaceRuntime.Info:output_type -> torsor.plugin.v1.RuntimeInfoResponse
-	5,  // 13: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 14: torsor.plugin.v1.WorkspaceRuntime.StartWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 15: torsor.plugin.v1.WorkspaceRuntime.StopWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 16: torsor.plugin.v1.WorkspaceRuntime.DestroyWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 17: torsor.plugin.v1.WorkspaceRuntime.StatusWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	7,  // 18: torsor.plugin.v1.WorkspaceRuntime.Exec:output_type -> torsor.plugin.v1.ExecChunk
-	10, // 19: torsor.plugin.v1.WorkspaceRuntime.ListFiles:output_type -> torsor.plugin.v1.ListFilesResponse
-	12, // 20: torsor.plugin.v1.WorkspaceRuntime.ReadFile:output_type -> torsor.plugin.v1.ReadFileResponse
-	14, // 21: torsor.plugin.v1.WorkspaceRuntime.WriteFile:output_type -> torsor.plugin.v1.WriteFileResponse
-	12, // [12:22] is the sub-list for method output_type
-	2,  // [2:12] is the sub-list for method input_type
+	15, // 12: torsor.plugin.v1.WorkspaceRuntime.SnapshotWorkspace:input_type -> torsor.plugin.v1.SnapshotRequest
+	17, // 13: torsor.plugin.v1.WorkspaceRuntime.RestoreWorkspace:input_type -> torsor.plugin.v1.RestoreRequest
+	18, // 14: torsor.plugin.v1.WorkspaceRuntime.ForkWorkspace:input_type -> torsor.plugin.v1.ForkRequest
+	1,  // 15: torsor.plugin.v1.WorkspaceRuntime.Info:output_type -> torsor.plugin.v1.RuntimeInfoResponse
+	5,  // 16: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 17: torsor.plugin.v1.WorkspaceRuntime.StartWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 18: torsor.plugin.v1.WorkspaceRuntime.StopWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 19: torsor.plugin.v1.WorkspaceRuntime.DestroyWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 20: torsor.plugin.v1.WorkspaceRuntime.StatusWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	7,  // 21: torsor.plugin.v1.WorkspaceRuntime.Exec:output_type -> torsor.plugin.v1.ExecChunk
+	10, // 22: torsor.plugin.v1.WorkspaceRuntime.ListFiles:output_type -> torsor.plugin.v1.ListFilesResponse
+	12, // 23: torsor.plugin.v1.WorkspaceRuntime.ReadFile:output_type -> torsor.plugin.v1.ReadFileResponse
+	14, // 24: torsor.plugin.v1.WorkspaceRuntime.WriteFile:output_type -> torsor.plugin.v1.WriteFileResponse
+	16, // 25: torsor.plugin.v1.WorkspaceRuntime.SnapshotWorkspace:output_type -> torsor.plugin.v1.SnapshotResponse
+	5,  // 26: torsor.plugin.v1.WorkspaceRuntime.RestoreWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 27: torsor.plugin.v1.WorkspaceRuntime.ForkWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	15, // [15:28] is the sub-list for method output_type
+	2,  // [2:15] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -1006,7 +1260,7 @@ func file_internal_plugin_proto_runtime_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_plugin_proto_runtime_proto_rawDesc), len(file_internal_plugin_proto_runtime_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

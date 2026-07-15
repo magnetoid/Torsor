@@ -11,7 +11,10 @@ func argString(args []string) string { return " " + strings.Join(args, " ") + " 
 
 func TestBuildCreateArgsAppliesLimitsAndHardening(t *testing.T) {
 	lim := limits{memory: "512m", cpus: "1", pids: "256", network: "bridge", hardened: true}
-	args := buildCreateArgs("torsor-p1", plugin.WorkspaceSpec{ID: "p1", Image: "node:20", WorkingDir: "/app"}, lim)
+	args, err := buildCreateArgs("torsor-p1", plugin.WorkspaceSpec{ID: "p1", Image: "node:20", WorkingDir: "/app"}, lim)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	s := argString(args)
 
 	for _, want := range []string{
@@ -31,7 +34,10 @@ func TestBuildCreateArgsAppliesLimitsAndHardening(t *testing.T) {
 }
 
 func TestBuildCreateArgsEnvSortedAndDefaultImage(t *testing.T) {
-	args := buildCreateArgs("c", plugin.WorkspaceSpec{ID: "x", Env: map[string]string{"B": "2", "A": "1"}}, limits{})
+	args, err := buildCreateArgs("c", plugin.WorkspaceSpec{ID: "x", Env: map[string]string{"B": "2", "A": "1"}}, limits{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	s := argString(args)
 	// Env iterated in sorted key order for determinism.
 	if strings.Index(s, "-e A=1") > strings.Index(s, "-e B=2") {
@@ -44,6 +50,41 @@ func TestBuildCreateArgsEnvSortedAndDefaultImage(t *testing.T) {
 	// No hardening flags when limits are zero-valued.
 	if strings.Contains(s, "--cap-drop") {
 		t.Errorf("did not expect hardening flags with zero limits: %s", s)
+	}
+}
+
+func TestResolveImageAllowlistAndValidation(t *testing.T) {
+	// No allowlist: any well-formed image passes; empty falls back to alpine:3.
+	if img, err := resolveImage("node:20", nil); err != nil || img != "node:20" {
+		t.Errorf("permissive resolveImage(node:20) = %q, %v", img, err)
+	}
+	if img, err := resolveImage("", nil); err != nil || img != "alpine:3" {
+		t.Errorf("resolveImage(\"\") = %q, %v; want alpine:3", img, err)
+	}
+	// Malformed references are rejected regardless of allowlist.
+	for _, bad := range []string{"node:20; rm -rf /", "a b", "img$(whoami)", "x`id`"} {
+		if _, err := resolveImage(bad, nil); err == nil {
+			t.Errorf("resolveImage(%q) should have been rejected", bad)
+		}
+	}
+	// Allowlist set: only listed images pass.
+	allow := []string{"node:20", "python:3.12"}
+	if _, err := resolveImage("node:20", allow); err != nil {
+		t.Errorf("allowlisted image rejected: %v", err)
+	}
+	if _, err := resolveImage("ubuntu:latest", allow); err == nil {
+		t.Errorf("non-allowlisted image ubuntu:latest should be rejected")
+	}
+	// With an allowlist, the empty->alpine:3 fallback must itself be allowlisted.
+	if _, err := resolveImage("", allow); err == nil {
+		t.Errorf("default alpine:3 should be rejected when not in the allowlist")
+	}
+}
+
+func TestBuildCreateArgsRejectsDisallowedImage(t *testing.T) {
+	lim := limits{allowlist: []string{"node:20"}}
+	if _, err := buildCreateArgs("c", plugin.WorkspaceSpec{ID: "x", Image: "evil:latest"}, lim); err == nil {
+		t.Errorf("buildCreateArgs should reject a non-allowlisted image")
 	}
 }
 

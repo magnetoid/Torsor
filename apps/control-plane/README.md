@@ -204,7 +204,10 @@ DATABASE_URL=... REDIS_URL=... NODE_ENV=development go run ./cmd/server
 Workspace containers are bounded + hardened for untrusted code (env-configurable, with
 conservative defaults): `TORSOR_WS_MEMORY` (512m), `TORSOR_WS_CPUS` (1), `TORSOR_WS_PIDS`
 (256), `TORSOR_WS_NETWORK` (`bridge`; set `none` to cut egress), and `TORSOR_WS_HARDENED`
-(`true` → `--cap-drop ALL --security-opt no-new-privileges`). The full lifecycle against a
+(`true` → `--cap-drop ALL --security-opt no-new-privileges`). The base image is caller-
+supplied and always validated (malformed references are rejected); set
+`TORSOR_WS_IMAGE_ALLOWLIST` (CSV, e.g. `node:20,python:3.12`) to permit only listed images
+— strongly recommended for any multi-tenant or shared host. The full lifecycle against a
 live Docker daemon still needs to be exercised on a Docker host.
 
 ## Not yet ported (intentional, next steps)

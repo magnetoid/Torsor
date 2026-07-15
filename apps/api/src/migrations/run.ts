@@ -3,6 +3,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Pool } from 'pg';
 
+import { logger } from '../logger.js';
+
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.resolve(moduleDir, '../../migrations');
 
@@ -29,7 +31,7 @@ export async function runMigrations(pool: Pool): Promise<void> {
       await client.query(sql);
       await client.query('INSERT INTO schema_migrations (filename) VALUES ($1)', [file]);
       await client.query('COMMIT');
-      console.log(`[api] migration applied: ${file}`);
+      logger.info({ file }, 'migration applied');
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

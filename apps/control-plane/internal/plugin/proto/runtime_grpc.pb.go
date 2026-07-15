@@ -19,16 +19,19 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	WorkspaceRuntime_Info_FullMethodName             = "/torsor.plugin.v1.WorkspaceRuntime/Info"
-	WorkspaceRuntime_CreateWorkspace_FullMethodName  = "/torsor.plugin.v1.WorkspaceRuntime/CreateWorkspace"
-	WorkspaceRuntime_StartWorkspace_FullMethodName   = "/torsor.plugin.v1.WorkspaceRuntime/StartWorkspace"
-	WorkspaceRuntime_StopWorkspace_FullMethodName    = "/torsor.plugin.v1.WorkspaceRuntime/StopWorkspace"
-	WorkspaceRuntime_DestroyWorkspace_FullMethodName = "/torsor.plugin.v1.WorkspaceRuntime/DestroyWorkspace"
-	WorkspaceRuntime_StatusWorkspace_FullMethodName  = "/torsor.plugin.v1.WorkspaceRuntime/StatusWorkspace"
-	WorkspaceRuntime_Exec_FullMethodName             = "/torsor.plugin.v1.WorkspaceRuntime/Exec"
-	WorkspaceRuntime_ListFiles_FullMethodName        = "/torsor.plugin.v1.WorkspaceRuntime/ListFiles"
-	WorkspaceRuntime_ReadFile_FullMethodName         = "/torsor.plugin.v1.WorkspaceRuntime/ReadFile"
-	WorkspaceRuntime_WriteFile_FullMethodName        = "/torsor.plugin.v1.WorkspaceRuntime/WriteFile"
+	WorkspaceRuntime_Info_FullMethodName              = "/torsor.plugin.v1.WorkspaceRuntime/Info"
+	WorkspaceRuntime_CreateWorkspace_FullMethodName   = "/torsor.plugin.v1.WorkspaceRuntime/CreateWorkspace"
+	WorkspaceRuntime_StartWorkspace_FullMethodName    = "/torsor.plugin.v1.WorkspaceRuntime/StartWorkspace"
+	WorkspaceRuntime_StopWorkspace_FullMethodName     = "/torsor.plugin.v1.WorkspaceRuntime/StopWorkspace"
+	WorkspaceRuntime_DestroyWorkspace_FullMethodName  = "/torsor.plugin.v1.WorkspaceRuntime/DestroyWorkspace"
+	WorkspaceRuntime_StatusWorkspace_FullMethodName   = "/torsor.plugin.v1.WorkspaceRuntime/StatusWorkspace"
+	WorkspaceRuntime_Exec_FullMethodName              = "/torsor.plugin.v1.WorkspaceRuntime/Exec"
+	WorkspaceRuntime_ListFiles_FullMethodName         = "/torsor.plugin.v1.WorkspaceRuntime/ListFiles"
+	WorkspaceRuntime_ReadFile_FullMethodName          = "/torsor.plugin.v1.WorkspaceRuntime/ReadFile"
+	WorkspaceRuntime_WriteFile_FullMethodName         = "/torsor.plugin.v1.WorkspaceRuntime/WriteFile"
+	WorkspaceRuntime_SnapshotWorkspace_FullMethodName = "/torsor.plugin.v1.WorkspaceRuntime/SnapshotWorkspace"
+	WorkspaceRuntime_RestoreWorkspace_FullMethodName  = "/torsor.plugin.v1.WorkspaceRuntime/RestoreWorkspace"
+	WorkspaceRuntime_ForkWorkspace_FullMethodName     = "/torsor.plugin.v1.WorkspaceRuntime/ForkWorkspace"
 )
 
 // WorkspaceRuntimeClient is the client API for WorkspaceRuntime service.
@@ -62,6 +65,14 @@ type WorkspaceRuntimeClient interface {
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
 	ReadFile(ctx context.Context, in *FileRef, opts ...grpc.CallOption) (*ReadFileResponse, error)
 	WriteFile(ctx context.Context, in *WriteFileRequest, opts ...grpc.CallOption) (*WriteFileResponse, error)
+	// SnapshotWorkspace captures the workspace's current state (filesystem, and for VM
+	// runtimes its memory) as a restorable point, returning a runtime-native snapshot id.
+	SnapshotWorkspace(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*SnapshotResponse, error)
+	// RestoreWorkspace resets a workspace in place back to a previously taken snapshot.
+	RestoreWorkspace(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*WorkspaceStatusResponse, error)
+	// ForkWorkspace provisions a new workspace from a source workspace/snapshot so an agent
+	// can branch without disturbing the original. new_workspace_id is caller-assigned.
+	ForkWorkspace(ctx context.Context, in *ForkRequest, opts ...grpc.CallOption) (*WorkspaceStatusResponse, error)
 }
 
 type workspaceRuntimeClient struct {
@@ -181,6 +192,36 @@ func (c *workspaceRuntimeClient) WriteFile(ctx context.Context, in *WriteFileReq
 	return out, nil
 }
 
+func (c *workspaceRuntimeClient) SnapshotWorkspace(ctx context.Context, in *SnapshotRequest, opts ...grpc.CallOption) (*SnapshotResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SnapshotResponse)
+	err := c.cc.Invoke(ctx, WorkspaceRuntime_SnapshotWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workspaceRuntimeClient) RestoreWorkspace(ctx context.Context, in *RestoreRequest, opts ...grpc.CallOption) (*WorkspaceStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkspaceStatusResponse)
+	err := c.cc.Invoke(ctx, WorkspaceRuntime_RestoreWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workspaceRuntimeClient) ForkWorkspace(ctx context.Context, in *ForkRequest, opts ...grpc.CallOption) (*WorkspaceStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkspaceStatusResponse)
+	err := c.cc.Invoke(ctx, WorkspaceRuntime_ForkWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkspaceRuntimeServer is the server API for WorkspaceRuntime service.
 // All implementations must embed UnimplementedWorkspaceRuntimeServer
 // for forward compatibility.
@@ -212,6 +253,14 @@ type WorkspaceRuntimeServer interface {
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
 	ReadFile(context.Context, *FileRef) (*ReadFileResponse, error)
 	WriteFile(context.Context, *WriteFileRequest) (*WriteFileResponse, error)
+	// SnapshotWorkspace captures the workspace's current state (filesystem, and for VM
+	// runtimes its memory) as a restorable point, returning a runtime-native snapshot id.
+	SnapshotWorkspace(context.Context, *SnapshotRequest) (*SnapshotResponse, error)
+	// RestoreWorkspace resets a workspace in place back to a previously taken snapshot.
+	RestoreWorkspace(context.Context, *RestoreRequest) (*WorkspaceStatusResponse, error)
+	// ForkWorkspace provisions a new workspace from a source workspace/snapshot so an agent
+	// can branch without disturbing the original. new_workspace_id is caller-assigned.
+	ForkWorkspace(context.Context, *ForkRequest) (*WorkspaceStatusResponse, error)
 	mustEmbedUnimplementedWorkspaceRuntimeServer()
 }
 
@@ -251,6 +300,15 @@ func (UnimplementedWorkspaceRuntimeServer) ReadFile(context.Context, *FileRef) (
 }
 func (UnimplementedWorkspaceRuntimeServer) WriteFile(context.Context, *WriteFileRequest) (*WriteFileResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method WriteFile not implemented")
+}
+func (UnimplementedWorkspaceRuntimeServer) SnapshotWorkspace(context.Context, *SnapshotRequest) (*SnapshotResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SnapshotWorkspace not implemented")
+}
+func (UnimplementedWorkspaceRuntimeServer) RestoreWorkspace(context.Context, *RestoreRequest) (*WorkspaceStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RestoreWorkspace not implemented")
+}
+func (UnimplementedWorkspaceRuntimeServer) ForkWorkspace(context.Context, *ForkRequest) (*WorkspaceStatusResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ForkWorkspace not implemented")
 }
 func (UnimplementedWorkspaceRuntimeServer) mustEmbedUnimplementedWorkspaceRuntimeServer() {}
 func (UnimplementedWorkspaceRuntimeServer) testEmbeddedByValue()                          {}
@@ -446,6 +504,60 @@ func _WorkspaceRuntime_WriteFile_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkspaceRuntime_SnapshotWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SnapshotRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkspaceRuntimeServer).SnapshotWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkspaceRuntime_SnapshotWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkspaceRuntimeServer).SnapshotWorkspace(ctx, req.(*SnapshotRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkspaceRuntime_RestoreWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RestoreRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkspaceRuntimeServer).RestoreWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkspaceRuntime_RestoreWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkspaceRuntimeServer).RestoreWorkspace(ctx, req.(*RestoreRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkspaceRuntime_ForkWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ForkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkspaceRuntimeServer).ForkWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkspaceRuntime_ForkWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkspaceRuntimeServer).ForkWorkspace(ctx, req.(*ForkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkspaceRuntime_ServiceDesc is the grpc.ServiceDesc for WorkspaceRuntime service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -488,6 +600,18 @@ var WorkspaceRuntime_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "WriteFile",
 			Handler:    _WorkspaceRuntime_WriteFile_Handler,
+		},
+		{
+			MethodName: "SnapshotWorkspace",
+			Handler:    _WorkspaceRuntime_SnapshotWorkspace_Handler,
+		},
+		{
+			MethodName: "RestoreWorkspace",
+			Handler:    _WorkspaceRuntime_RestoreWorkspace_Handler,
+		},
+		{
+			MethodName: "ForkWorkspace",
+			Handler:    _WorkspaceRuntime_ForkWorkspace_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

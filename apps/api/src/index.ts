@@ -4,24 +4,17 @@ import dotenv from 'dotenv';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
-import { pino } from 'pino';
 import { pinoHttp } from 'pino-http';
 
 import { hashPassword, requireAuth, sanitizeUserById, signAccessToken, verifyPassword, type AuthenticatedRequest, type UserRole } from './auth.js';
 import { close as closeDb, checkHealth as checkDatabaseHealth, pool, query } from './db.js';
+import { logger } from './logger.js';
 import { runMigrations } from './migrations/run.js';
 import { healthCheck as checkRedisHealth, connect as connectRedis, disconnect as disconnectRedis, getRedisClient } from './redis.js';
 
 dotenv.config();
 
 const isProduction = process.env.NODE_ENV === 'production';
-
-const logger = pino({
-  level: process.env.LOG_LEVEL ?? (isProduction ? 'info' : 'debug'),
-  transport: isProduction
-    ? undefined
-    : { target: 'pino-pretty', options: { colorize: true, translateTime: 'SYS:HH:MM:ss' } },
-});
 
 const app = express();
 const port = Number.parseInt(process.env.PORT ?? process.env.API_PORT ?? '3001', 10);
