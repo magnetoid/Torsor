@@ -24,7 +24,8 @@ func (m *scriptedModel) Complete(_ context.Context, req plugin.CompleteRequest) 
 	}
 	r := m.responses[m.call]
 	m.call++
-	return plugin.CompleteResult{Text: r}, nil
+	// Fixed per-call token counts so tests can assert usage is summed across the loop.
+	return plugin.CompleteResult{Text: r, Model: "scripted-1", TokensIn: 10, TokensOut: 5}, nil
 }
 
 // memWorkspace is an in-memory Workspace: a flat file map plus a scripted exec result.
@@ -89,12 +90,19 @@ func TestRunHappyPath(t *testing.T) {
 	ws.execOut = "hi\n"
 
 	var events []Event
-	final, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "make a hello script", collect(&events))
+	result, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "make a hello script", collect(&events))
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
 	}
-	if !strings.Contains(final, "Created app.js") {
-		t.Errorf("unexpected final: %q", final)
+	if !strings.Contains(result.Final, "Created app.js") {
+		t.Errorf("unexpected final: %q", result.Final)
+	}
+	// Usage is summed across the 4 model calls (10 in / 5 out each).
+	if result.TokensIn != 40 || result.TokensOut != 20 {
+		t.Errorf("token totals = %d in / %d out, want 40/20", result.TokensIn, result.TokensOut)
+	}
+	if result.Steps != 4 {
+		t.Errorf("steps = %d, want 4", result.Steps)
 	}
 	if ws.files["app.js"] != "console.log('hi')" {
 		t.Errorf("file not written: %q", ws.files["app.js"])
@@ -129,12 +137,12 @@ func TestRunSelfHealsAfterFailedCommand(t *testing.T) {
 	ws.execOut = "1 passing"
 
 	var events []Event
-	final, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "fix failing tests", collect(&events))
+	result, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "fix failing tests", collect(&events))
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
 	}
-	if !strings.Contains(final, "Fixed") {
-		t.Errorf("unexpected final: %q", final)
+	if !strings.Contains(result.Final, "Fixed") {
+		t.Errorf("unexpected final: %q", result.Final)
 	}
 	if len(ws.execCmds) != 2 {
 		t.Errorf("expected 2 exec calls (run, re-run), got %d", len(ws.execCmds))
@@ -150,12 +158,12 @@ func TestRunRecoversFromMalformedStep(t *testing.T) {
 	ws := newMemWorkspace()
 
 	var events []Event
-	final, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "do a thing", collect(&events))
+	result, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "do a thing", collect(&events))
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
 	}
-	if final != "ok" {
-		t.Errorf("final = %q, want ok", final)
+	if result.Final != "ok" {
+		t.Errorf("final = %q, want ok", result.Final)
 	}
 	// The re-prompt observation must appear in the second model prompt.
 	if len(model.prompts) != 2 || !strings.Contains(model.prompts[1], "not a single valid JSON step") {
@@ -170,12 +178,12 @@ func TestRunStopsAtStepBudget(t *testing.T) {
 	model := &scriptedModel{responses: []string{loop, loop, loop, loop, loop}}
 	ws := newMemWorkspace()
 
-	final, err := NewRunner(model, ws, Config{WorkspaceID: "p1", MaxSteps: 3}).Run(context.Background(), "loop", nil)
+	result, err := NewRunner(model, ws, Config{WorkspaceID: "p1", MaxSteps: 3}).Run(context.Background(), "loop", nil)
 	if err != nil {
 		t.Fatalf("Run error: %v", err)
 	}
-	if !strings.Contains(final, "3-step budget") {
-		t.Errorf("expected budget message, got %q", final)
+	if !strings.Contains(result.Final, "3-step budget") {
+		t.Errorf("expected budget message, got %q", result.Final)
 	}
 	if model.call != 3 {
 		t.Errorf("expected exactly 3 model calls, got %d", model.call)

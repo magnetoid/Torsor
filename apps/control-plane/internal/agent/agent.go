@@ -123,15 +123,26 @@ Rules:
 - After a build/test command fails, read the error and fix it, then re-run.
 - When the task is done and verified, return a "final" message. Do not loop forever.`
 
+// RunResult summarizes a completed agent run.
+type RunResult struct {
+	Final     string // the final user-facing message
+	Steps     int    // model turns taken
+	Model     string // model id reported by the provider
+	TokensIn  int32  // summed across all model calls
+	TokensOut int32  // summed across all model calls
+}
+
 // Run executes the agent loop until the model returns a final answer or the step budget
-// is exhausted. Every step is reported through onEvent (in order). Run returns the final
-// user-facing message, or an error if the loop failed irrecoverably. A nil onEvent is ok.
-func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (string, error) {
+// is exhausted. Every step is reported through onEvent (in order). Run returns a RunResult
+// (final message + summed token usage), or an error if the loop failed irrecoverably. A
+// nil onEvent is ok.
+func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (RunResult, error) {
 	emit := func(e Event) {
 		if onEvent != nil {
 			onEvent(e)
 		}
 	}
+	var result RunResult
 
 	// The transcript accumulates the task and each observation as plain text, ending with
 	// a marker that asks for the next JSON step. Kept as text so it works with any model.
@@ -139,8 +150,9 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (str
 	fmt.Fprintf(&transcript, "Task: %s\n", task)
 
 	for i := 1; i <= r.cfg.MaxSteps; i++ {
+		result.Steps = i
 		if err := ctx.Err(); err != nil {
-			return "", err
+			return result, err
 		}
 
 		prompt := transcript.String() + "\nRespond with your next JSON step."
@@ -151,7 +163,12 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (str
 		})
 		if err != nil {
 			emit(Event{Kind: EventError, Step: i, Text: err.Error()})
-			return "", fmt.Errorf("model call failed on step %d: %w", i, err)
+			return result, fmt.Errorf("model call failed on step %d: %w", i, err)
+		}
+		result.TokensIn += res.TokensIn
+		result.TokensOut += res.TokensOut
+		if res.Model != "" {
+			result.Model = res.Model
 		}
 
 		st, perr := parseStep(res.Text)
@@ -173,7 +190,8 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (str
 				final = st.Thought
 			}
 			emit(Event{Kind: EventFinal, Step: i, Text: final})
-			return final, nil
+			result.Final = final
+			return result, nil
 		}
 
 		emit(Event{Kind: EventToolCall, Step: i, Tool: st.Action.Tool, Args: st.Action.Args})
@@ -185,7 +203,8 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (str
 
 	msg := fmt.Sprintf("Stopped after the %d-step budget was reached without finishing.", r.cfg.MaxSteps)
 	emit(Event{Kind: EventFinal, Step: r.cfg.MaxSteps, Text: msg})
-	return msg, nil
+	result.Final = msg
+	return result, nil
 }
 
 // runTool executes one tool action against the workspace and returns a text observation.

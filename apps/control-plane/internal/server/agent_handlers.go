@@ -82,14 +82,12 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		WorkspaceID: ws.ProjectID,
 		MaxSteps:    body.MaxSteps,
 	})
-	_, err := runner.Run(r.Context(), body.Task, send)
+	result, err := runner.Run(r.Context(), body.Task, send)
+	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).
+	s.recordUsage(userID(r), providerName, result.Model, result.TokensIn, result.TokensOut)
 	if err != nil {
 		payload, _ := json.Marshal(map[string]string{"error": err.Error()})
 		_, _ = w.Write([]byte("event: error\ndata: " + string(payload) + "\n\n"))
 		flusher.Flush()
-		return
 	}
-	// Best-effort usage marker for the run (per-step token accounting lands with the
-	// token-metering work); records the provider was exercised for this user.
-	s.recordUsage(userID(r), providerName, "", 0, 0)
 }
