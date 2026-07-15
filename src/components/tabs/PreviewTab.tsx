@@ -56,10 +56,12 @@ export default function PreviewTab() {
   };
 
   const renderContent = () => {
-    if (buildStatus === 'idle') {
+    // A live workspace preview (a running container's published port, proxied by the
+    // control-plane) is shown as soon as its URL is available, regardless of build state.
+    if (buildStatus === 'idle' && !previewUrl) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
-          <EmptyState 
+          <EmptyState
             icon={Monitor}
             title="Your app is not running"
             description="Run your application to see the live preview."

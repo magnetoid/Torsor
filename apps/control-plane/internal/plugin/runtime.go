@@ -43,6 +43,10 @@ type WorkspaceStatus struct {
 	ContainerID string
 	Status      string // created | running | stopped | destroyed | unknown
 	Message     string
+	// PreviewHost/PreviewPort locate the workspace's app for live preview (a published
+	// container port), or "" / 0 when it exposes none.
+	PreviewHost string
+	PreviewPort int32
 }
 
 // ExecSpec is a command to run inside a workspace.
@@ -116,6 +120,8 @@ func runtimeStatus(resp *proto.WorkspaceStatusResponse) WorkspaceStatus {
 		ContainerID: resp.GetContainerId(),
 		Status:      resp.GetStatus(),
 		Message:     resp.GetMessage(),
+		PreviewHost: resp.GetPreviewHost(),
+		PreviewPort: resp.GetPreviewPort(),
 	}
 }
 
@@ -247,6 +253,8 @@ func statusProto(st WorkspaceStatus) *proto.WorkspaceStatusResponse {
 		ContainerId: st.ContainerID,
 		Status:      st.Status,
 		Message:     st.Message,
+		PreviewHost: st.PreviewHost,
+		PreviewPort: st.PreviewPort,
 	}
 }
 

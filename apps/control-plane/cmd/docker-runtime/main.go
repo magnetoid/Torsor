@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -70,6 +71,13 @@ type limits struct {
 	// image. Empty = allow any (documented, single-tenant default); when set (CSV in
 	// TORSOR_WS_IMAGE_ALLOWLIST) only listed images are permitted.
 	allowlist []string
+	// keepAlive overrides the image command with `tail -f /dev/null` so a dev-workspace
+	// container stays up for `docker exec`. Set false ("app" deploys) to run the image's
+	// own entrypoint (e.g. nginx serving). Default true.
+	keepAlive bool
+	// appPort is the container port to publish + preview (e.g. "80"). When set, the port
+	// is published to a random 127.0.0.1 host port and reported as the preview target.
+	appPort string
 }
 
 func envOr(key, def string) string {
@@ -87,6 +95,8 @@ func limitsFromEnv() limits {
 		network:   envOr("TORSOR_WS_NETWORK", "bridge"),
 		hardened:  envOr("TORSOR_WS_HARDENED", "true") != "false",
 		allowlist: parseAllowlist(envOr("TORSOR_WS_IMAGE_ALLOWLIST", "")),
+		keepAlive: envOr("TORSOR_WS_KEEPALIVE", "true") != "false",
+		appPort:   strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")),
 	}
 }
 
@@ -160,11 +170,50 @@ func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) ([]stri
 		args = append(args, "--network", lim.network)
 	}
 	if lim.hardened {
-		args = append(args, "--cap-drop", "ALL", "--security-opt", "no-new-privileges")
+		args = append(args, "--security-opt", "no-new-privileges")
+		// Dropping ALL caps is right for a dev workspace running untrusted agent commands,
+		// but breaks normal app images (e.g. nginx needs CHOWN/SETUID to drop to its worker
+		// user). So only fully drop caps in keep-alive (dev workspace) mode; app deploys
+		// keep docker's default cap set.
+		if lim.keepAlive {
+			args = append(args, "--cap-drop", "ALL")
+		}
 	}
-	// Keep the container alive so we can exec into it across requests.
-	args = append(args, image, "tail", "-f", "/dev/null")
+	// Publish the app port to a random loopback host port so the control-plane can proxy
+	// a live preview to it (127.0.0.1 only — never exposed on all interfaces).
+	if lim.appPort != "" {
+		args = append(args, "-p", "127.0.0.1::"+lim.appPort)
+	}
+	args = append(args, image)
+	// Dev workspaces keep the container up for `docker exec`; app deploys run the image's
+	// own entrypoint (so e.g. nginx actually serves).
+	if lim.keepAlive {
+		args = append(args, "tail", "-f", "/dev/null")
+	}
 	return args, nil
+}
+
+// previewTarget asks docker for the host mapping of the workspace's published app port and
+// returns (host, port). Returns ("", 0) when nothing is published or the lookup fails.
+func (r runtime) previewTarget(ctx context.Context, id string) (string, int32) {
+	if r.lim.appPort == "" {
+		return "", 0
+	}
+	out, err := run(ctx, nil, "port", containerName(id), r.lim.appPort+"/tcp")
+	if err != nil {
+		return "", 0
+	}
+	// docker prints e.g. "127.0.0.1:49153"; take the last colon-separated field as the port.
+	line := strings.TrimSpace(strings.SplitN(out, "\n", 2)[0])
+	i := strings.LastIndex(line, ":")
+	if i < 0 {
+		return "", 0
+	}
+	p, err := strconv.Atoi(strings.TrimSpace(line[i+1:]))
+	if err != nil {
+		return "", 0
+	}
+	return "127.0.0.1", int32(p)
 }
 
 type runtime struct {
@@ -224,7 +273,11 @@ func (r runtime) lifecycle(ctx context.Context, workspaceID, reportStatus string
 }
 
 func (r runtime) StartWorkspace(ctx context.Context, id string) (plugin.WorkspaceStatus, error) {
-	return r.lifecycle(ctx, id, "running", "start", containerName(id))
+	st, err := r.lifecycle(ctx, id, "running", "start", containerName(id))
+	if err == nil {
+		st.PreviewHost, st.PreviewPort = r.previewTarget(ctx, id)
+	}
+	return st, err
 }
 
 func (r runtime) StopWorkspace(ctx context.Context, id string, timeoutSeconds int32) (plugin.WorkspaceStatus, error) {
@@ -245,7 +298,12 @@ func (r runtime) StatusWorkspace(ctx context.Context, id string) (plugin.Workspa
 		// inspect fails when the container does not exist.
 		return plugin.WorkspaceStatus{WorkspaceID: id, Status: "unknown"}, nil
 	}
-	return plugin.WorkspaceStatus{WorkspaceID: id, ContainerID: containerName(id), Status: strings.TrimSpace(out)}, nil
+	status := strings.TrimSpace(out)
+	st := plugin.WorkspaceStatus{WorkspaceID: id, ContainerID: containerName(id), Status: status}
+	if status == "running" {
+		st.PreviewHost, st.PreviewPort = r.previewTarget(ctx, id)
+	}
+	return st, nil
 }
 
 func (r runtime) Exec(ctx context.Context, spec plugin.ExecSpec, onChunk func(plugin.ExecChunk) error) error {

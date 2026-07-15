@@ -3,11 +3,13 @@ import { useParams } from 'react-router-dom';
 import { AppShell } from '../components/shell/AppShell';
 import { useProjectStore } from '../stores/projectStore';
 import { useAppStore } from '../useAppStore';
+import { fetchPreviewUrl } from '../lib/api';
 
 export function ProjectWorkspace() {
   const { id } = useParams<{ id: string }>();
   const { projects, fetchProject, fetchProjectFiles, isLoading, filesByProject, setActiveProject } = useProjectStore();
   const loadWorkspaceFiles = useAppStore((s) => s.loadWorkspaceFiles);
+  const setPreviewUrl = useAppStore((s) => s.setPreviewUrl);
 
   const project = useMemo(() => projects.find((p) => p.id === id), [projects, id]);
 
@@ -17,11 +19,13 @@ export function ProjectWorkspace() {
     void fetchProjectFiles(id);
     // Show the real workspace files in the IDE tree (what the agent reads/writes).
     void loadWorkspaceFiles(id);
+    // If the workspace exposes a running app, point the live preview at the proxy.
+    void fetchPreviewUrl(id).then((url) => setPreviewUrl(url ?? ''));
     // Mark this project active so the chat runs the coding agent against it; clear on
     // leave so chat elsewhere stays plain completion.
     setActiveProject(id);
     return () => setActiveProject(null);
-  }, [id, fetchProject, fetchProjectFiles, loadWorkspaceFiles, setActiveProject]);
+  }, [id, fetchProject, fetchProjectFiles, loadWorkspaceFiles, setPreviewUrl, setActiveProject]);
 
   if (isLoading && !project) {
     return <div className="flex items-center justify-center h-screen bg-page text-secondary">Loading project…</div>;

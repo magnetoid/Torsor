@@ -194,6 +194,7 @@ interface AppState {
   filesGenerated: number;
   totalTokens: number;
   previewUrl: string;
+  setPreviewUrl: (url: string) => void;
   isPreviewOpen: boolean;
   triggerBuild: () => void;
   setBuildSuccess: (time: number, filesCount: number) => void;
@@ -773,14 +774,14 @@ export const useAppStore = create<AppState>()(
       buildTime: 0,
       filesGenerated: 0,
       totalTokens: 0,
-      previewUrl: 'https://ais-pre-xoupfcetkt32dm5uetga6k-107535744547.europe-west1.run.app',
+      previewUrl: '',
+      setPreviewUrl: (url) => set({ previewUrl: url }),
       isPreviewOpen: true,
       triggerBuild: () => set({ buildStatus: 'building' }),
       setBuildSuccess: (time, filesCount) => set({
         buildStatus: 'success',
         buildTime: time,
         filesGenerated: filesCount,
-        previewUrl: 'https://ais-pre-xoupfcetkt32dm5uetga6k-107535744547.europe-west1.run.app'
       }),
       setBuildError: () => set({ buildStatus: 'error' }),
       togglePreview: (force) => set((state) => ({ 

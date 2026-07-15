@@ -87,6 +87,11 @@ message WorkspaceStatusResponse {
   string container_id = 2;            // runtime-native handle (container id, vm id, ...)
   string status = 3;                  // created | running | stopped | destroyed | unknown
   string message = 4;                 // optional human-readable detail
+  // Where the workspace's app is reachable for live preview, when it exposes one (e.g. a
+  // published container port). Empty host/0 port means "no preview available". The
+  // control-plane reverse-proxies to preview_host:preview_port.
+  string preview_host = 5;
+  int32 preview_port = 6;
 }
 
 message ExecRequest {

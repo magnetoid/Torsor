@@ -292,11 +292,16 @@ func (x *StopWorkspaceRequest) GetTimeoutSeconds() int32 {
 
 // WorkspaceStatusResponse is the common lifecycle reply.
 type WorkspaceStatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
-	ContainerId   string                 `protobuf:"bytes,2,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"` // runtime-native handle (container id, vm id, ...)
-	Status        string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                              // created | running | stopped | destroyed | unknown
-	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`                            // optional human-readable detail
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	ContainerId string                 `protobuf:"bytes,2,opt,name=container_id,json=containerId,proto3" json:"container_id,omitempty"` // runtime-native handle (container id, vm id, ...)
+	Status      string                 `protobuf:"bytes,3,opt,name=status,proto3" json:"status,omitempty"`                              // created | running | stopped | destroyed | unknown
+	Message     string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`                            // optional human-readable detail
+	// Where the workspace's app is reachable for live preview, when it exposes one (e.g. a
+	// published container port). Empty host/0 port means "no preview available". The
+	// control-plane reverse-proxies to preview_host:preview_port.
+	PreviewHost   string `protobuf:"bytes,5,opt,name=preview_host,json=previewHost,proto3" json:"preview_host,omitempty"`
+	PreviewPort   int32  `protobuf:"varint,6,opt,name=preview_port,json=previewPort,proto3" json:"preview_port,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -357,6 +362,20 @@ func (x *WorkspaceStatusResponse) GetMessage() string {
 		return x.Message
 	}
 	return ""
+}
+
+func (x *WorkspaceStatusResponse) GetPreviewHost() string {
+	if x != nil {
+		return x.PreviewHost
+	}
+	return ""
+}
+
+func (x *WorkspaceStatusResponse) GetPreviewPort() int32 {
+	if x != nil {
+		return x.PreviewPort
+	}
+	return 0
 }
 
 type ExecRequest struct {
@@ -1107,12 +1126,14 @@ const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"b\n" +
 	"\x14StopWorkspaceRequest\x12!\n" +
 	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12'\n" +
-	"\x0ftimeout_seconds\x18\x02 \x01(\x05R\x0etimeoutSeconds\"\x91\x01\n" +
+	"\x0ftimeout_seconds\x18\x02 \x01(\x05R\x0etimeoutSeconds\"\xd7\x01\n" +
 	"\x17WorkspaceStatusResponse\x12!\n" +
 	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12!\n" +
 	"\fcontainer_id\x18\x02 \x01(\tR\vcontainerId\x12\x16\n" +
 	"\x06status\x18\x03 \x01(\tR\x06status\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage\"k\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12!\n" +
+	"\fpreview_host\x18\x05 \x01(\tR\vpreviewHost\x12!\n" +
+	"\fpreview_port\x18\x06 \x01(\x05R\vpreviewPort\"k\n" +
 	"\vExecRequest\x12!\n" +
 	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x18\n" +
 	"\acommand\x18\x02 \x03(\tR\acommand\x12\x1f\n" +

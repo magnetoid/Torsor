@@ -10,7 +10,7 @@ import (
 func argString(args []string) string { return " " + strings.Join(args, " ") + " " }
 
 func TestBuildCreateArgsAppliesLimitsAndHardening(t *testing.T) {
-	lim := limits{memory: "512m", cpus: "1", pids: "256", network: "bridge", hardened: true}
+	lim := limits{memory: "512m", cpus: "1", pids: "256", network: "bridge", hardened: true, keepAlive: true}
 	args, err := buildCreateArgs("torsor-p1", plugin.WorkspaceSpec{ID: "p1", Image: "node:20", WorkingDir: "/app"}, lim)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -34,7 +34,8 @@ func TestBuildCreateArgsAppliesLimitsAndHardening(t *testing.T) {
 }
 
 func TestBuildCreateArgsEnvSortedAndDefaultImage(t *testing.T) {
-	args, err := buildCreateArgs("c", plugin.WorkspaceSpec{ID: "x", Env: map[string]string{"B": "2", "A": "1"}}, limits{})
+	// keepAlive dev workspace: image kept alive with tail.
+	args, err := buildCreateArgs("c", plugin.WorkspaceSpec{ID: "x", Env: map[string]string{"B": "2", "A": "1"}}, limits{keepAlive: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -50,6 +51,26 @@ func TestBuildCreateArgsEnvSortedAndDefaultImage(t *testing.T) {
 	// No hardening flags when limits are zero-valued.
 	if strings.Contains(s, "--cap-drop") {
 		t.Errorf("did not expect hardening flags with zero limits: %s", s)
+	}
+}
+
+func TestBuildCreateArgsAppModePublishesPortAndRunsImageCommand(t *testing.T) {
+	// App deploy: keepAlive false, appPort set — publish the port, run the image's own cmd.
+	lim := limits{keepAlive: false, appPort: "80"}
+	args, err := buildCreateArgs("torsor-web", plugin.WorkspaceSpec{ID: "web", Image: "nginx"}, lim)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	s := argString(args)
+	if !strings.Contains(s, " -p 127.0.0.1::80 ") {
+		t.Errorf("expected loopback port publish, got: %s", s)
+	}
+	// The image must be the final positional arg (no tail override in app mode).
+	if !strings.HasSuffix(strings.TrimSpace(s), "nginx") {
+		t.Errorf("app mode should run the image's own command (image last), got: %s", s)
+	}
+	if strings.Contains(s, "tail -f /dev/null") {
+		t.Errorf("app mode must not override the command with tail: %s", s)
 	}
 }
 

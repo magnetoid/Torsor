@@ -16,6 +16,13 @@ func FromContext(ctx context.Context) (*Claims, bool) {
 	return c, ok
 }
 
+// WithClaims attaches claims to a context so FromContext (and userID/ownsProject) work for
+// handlers that authenticate outside the Require middleware — e.g. query-token routes like
+// the live-preview proxy that browsers load in an iframe without an Authorization header.
+func WithClaims(ctx context.Context, c *Claims) context.Context {
+	return context.WithValue(ctx, authCtxKey, c)
+}
+
 // Require is middleware that enforces a valid Bearer token AND a live session row.
 // On failure it writes a JSON 401 and does not call the next handler.
 func (m *Manager) Require(next http.Handler) http.Handler {

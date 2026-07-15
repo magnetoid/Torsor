@@ -56,6 +56,11 @@ func (s *Server) Handler() http.Handler {
 		// can't set headers on WebSocket), so it lives outside the Bearer-header group.
 		r.Get("/providers/models/{name}/complete/ws", s.handleCompleteWS)
 
+		// Live-preview proxy: an iframe can't send an Authorization header, so this also
+		// authenticates via the access_token query param. Ownership is still enforced.
+		r.HandleFunc("/projects/{projectID}/preview", s.handlePreviewProxy)
+		r.HandleFunc("/projects/{projectID}/preview/*", s.handlePreviewProxy)
+
 		// Auth-sensitive endpoints get an additional, stricter limiter.
 		r.Group(func(r chi.Router) {
 			r.Use(httprate.LimitByIP(s.cfg.AuthRateLimit, 15*time.Minute))

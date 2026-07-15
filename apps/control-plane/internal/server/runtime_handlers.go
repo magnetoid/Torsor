@@ -18,6 +18,8 @@ type workspaceStatusResponse struct {
 	ContainerID string `json:"containerId,omitempty"`
 	Status      string `json:"status"`
 	Message     string `json:"message,omitempty"`
+	// HasPreview is true when the workspace exposes a live app the preview proxy can serve.
+	HasPreview bool `json:"hasPreview"`
 }
 
 func toStatusResponse(st plugin.WorkspaceStatus) workspaceStatusResponse {
@@ -26,6 +28,7 @@ func toStatusResponse(st plugin.WorkspaceStatus) workspaceStatusResponse {
 		ContainerID: st.ContainerID,
 		Status:      st.Status,
 		Message:     st.Message,
+		HasPreview:  st.PreviewHost != "" && st.PreviewPort != 0,
 	}
 }
 

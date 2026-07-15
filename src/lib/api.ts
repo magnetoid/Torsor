@@ -69,6 +69,28 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return response.json() as Promise<T>;
 }
 
+/** Build the live-preview proxy URL for a project's workspace. The token rides as a query
+ *  param because the preview loads in an iframe, which can't set an Authorization header. */
+export function previewUrlFor(projectId: string): string {
+  const token = getStoredToken() ?? '';
+  // Cache-bust so a fresh workspace/app isn't masked by a previously cached preview.
+  const t = Date.now();
+  return `${API_URL}/api/v1/projects/${encodeURIComponent(projectId)}/preview/?access_token=${encodeURIComponent(token)}&t=${t}`;
+}
+
+/** Fetch a project's workspace status and return the live-preview URL if it exposes one. */
+export async function fetchPreviewUrl(projectId: string): Promise<string | null> {
+  try {
+    const data = await apiRequest<{ runtimeStatus?: { hasPreview?: boolean; status?: string } }>(
+      `/api/v1/projects/${projectId}/workspace`,
+      { auth: true }
+    );
+    return data.runtimeStatus?.hasPreview ? previewUrlFor(projectId) : null;
+  } catch {
+    return null; // no workspace / no runtime
+  }
+}
+
 /** A container image from the marketplace search (Docker Hub). */
 export interface RegistryImage {
   name: string;
