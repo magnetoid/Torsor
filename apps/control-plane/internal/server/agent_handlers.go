@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -133,6 +135,9 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
+	// Persist the run as an ai_task so it shows up in durable, ownership-scoped history.
+	taskID := s.createAgentTask(r, ws.ProjectID, body.Task)
+
 	runner := agent.NewRunner(provider, rt, agent.Config{
 		WorkspaceID: ws.ProjectID,
 		MaxSteps:    body.MaxSteps,
@@ -141,8 +146,42 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).
 	s.recordUsage(userID(r), providerName, result.Model, result.TokensIn, result.TokensOut)
 	if err != nil {
+		s.finishAgentTask(taskID, "failed", "", err.Error())
 		payload, _ := json.Marshal(map[string]string{"error": err.Error()})
 		_, _ = w.Write([]byte("event: error\ndata: " + string(payload) + "\n\n"))
 		flusher.Flush()
+		return
 	}
+	s.finishAgentTask(taskID, "completed", result.Final, "")
+}
+
+// createAgentTask inserts a 'processing' ai_task row for an agent run and returns its id
+// (empty on failure — persistence is best-effort and must not block the run). Status uses
+// the ai_tasks vocabulary: pending/processing/completed/failed/cancelled.
+func (s *Server) createAgentTask(r *http.Request, projectID, prompt string) string {
+	var id string
+	_ = s.pool.QueryRow(r.Context(),
+		`INSERT INTO ai_tasks (project_id, task_type, prompt, status) VALUES ($1, 'agent', $2, 'processing') RETURNING id`,
+		projectID, prompt).Scan(&id)
+	return id
+}
+
+// finishAgentTask marks an agent ai_task terminal. Uses a fresh short-lived context
+// because the request context is often already cancelled once the SSE stream ends.
+func (s *Server) finishAgentTask(taskID, status, result, errMsg string) {
+	if taskID == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var resultArg, errArg any
+	if result != "" {
+		resultArg = result
+	}
+	if errMsg != "" {
+		errArg = errMsg
+	}
+	_, _ = s.pool.Exec(ctx,
+		`UPDATE ai_tasks SET status = $2, result = $3, error = $4, updated_at = NOW() WHERE id = $1`,
+		taskID, status, resultArg, errArg)
 }
