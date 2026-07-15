@@ -14,7 +14,8 @@ import {
   Star,
   Clock,
   Lock,
-  Shield
+  Shield,
+  Box
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { cn } from '../../lib/utils';
@@ -69,6 +70,7 @@ export function HomeSidebar() {
   const navItems = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/projects', icon: Grid, label: 'Projects' },
+    { to: '/marketplace', icon: Box, label: 'Marketplace' },
     { to: '/recent', icon: Clock, label: 'Recent' },
     { to: '/starred', icon: Star, label: 'Starred' },
     { to: '/shared', icon: Users, label: 'Shared with me' },

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { ProjectsPage } from './pages/ProjectsPage';
+import { MarketplacePage } from './pages/MarketplacePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AdminPage } from './pages/AdminPage';
@@ -92,8 +93,18 @@ export default function App() {
               </ErrorBoundary>
             } 
           />
-          <Route 
-            path="/project/:id" 
+          <Route
+            path="/marketplace"
+            element={
+              <ErrorBoundary name="Marketplace">
+                <ProtectedRoute>
+                  <MarketplacePage />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/project/:id"
             element={
               <ErrorBoundary name="Workspace">
                 <ProtectedRoute>

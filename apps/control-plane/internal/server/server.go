@@ -96,6 +96,9 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/tasks", s.handleCreateTask)
 
 			// Capability plugins (kernel + contributions).
+			// Container-image marketplace (Docker Hub search) — browse images to deploy.
+			r.Get("/registry/images", s.handleSearchRegistryImages)
+
 			r.Get("/providers/models", s.handleListModelProviders)
 			r.Post("/providers/models/{name}/complete", s.handleComplete)
 			r.Post("/providers/models/{name}/complete/stream", s.handleCompleteSSE)

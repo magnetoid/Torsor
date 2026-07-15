@@ -69,6 +69,39 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return response.json() as Promise<T>;
 }
 
+/** A container image from the marketplace search (Docker Hub). */
+export interface RegistryImage {
+  name: string;
+  description: string;
+  stars: number;
+  pulls: number;
+  official: boolean;
+}
+
+/** Search the container-image marketplace (proxied to Docker Hub by the control plane). */
+export async function searchRegistryImages(query: string, limit = 25): Promise<RegistryImage[]> {
+  const qs = new URLSearchParams({ q: query, limit: String(limit) });
+  const data = await apiRequest<{ items: RegistryImage[] }>(`/api/v1/registry/images?${qs}`, { auth: true });
+  return data.items ?? [];
+}
+
+/** Deploy an image: create a project, then provision its workspace from that image.
+ *  Returns the new project id. Actual container execution requires a Docker-backed
+ *  runtime; against the mock runtime this records the deploy without running it. */
+export async function deployImage(image: string, name?: string): Promise<string> {
+  const project = await apiRequest<{ id: string }>('/api/v1/projects', {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ name: name || image, description: `Deployed from ${image}` }),
+  });
+  await apiRequest(`/api/v1/projects/${project.id}/workspace`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ image }),
+  });
+  return project.id;
+}
+
 /** One JSON frame of a model completion stream (matches the control plane's SSE shape). */
 export interface StreamChunk {
   textDelta?: string;
