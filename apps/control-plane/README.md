@@ -207,8 +207,19 @@ conservative defaults): `TORSOR_WS_MEMORY` (512m), `TORSOR_WS_CPUS` (1), `TORSOR
 (`true` → `--cap-drop ALL --security-opt no-new-privileges`). The base image is caller-
 supplied and always validated (malformed references are rejected); set
 `TORSOR_WS_IMAGE_ALLOWLIST` (CSV, e.g. `node:20,python:3.12`) to permit only listed images
-— strongly recommended for any multi-tenant or shared host. The full lifecycle against a
-live Docker daemon still needs to be exercised on a Docker host.
+— strongly recommended for any multi-tenant or shared host.
+
+Two container modes:
+- **Dev workspace** (default, `TORSOR_WS_KEEPALIVE=true`): the container command is
+  overridden with `tail -f /dev/null` so it stays up for `docker exec` (the agent's
+  read/edit/run loop), and `--cap-drop ALL` fully hardens it for untrusted code.
+- **App deploy** (`TORSOR_WS_KEEPALIVE=false`): runs the image's own entrypoint (so e.g.
+  nginx serves), keeps docker's default cap set + `no-new-privileges`, and — when
+  `TORSOR_WS_APP_PORT` is set (e.g. `80`) — publishes that port to a random `127.0.0.1`
+  host port. The control-plane reports it as the workspace's **live preview** target and
+  reverse-proxies it at `GET /api/v1/projects/{id}/preview/*` (iframe-friendly:
+  authenticates via `access_token` query param, ownership-enforced). This is what powers
+  the IDE's live app preview. Verified end-to-end against a Colima Docker daemon.
 
 ## Not yet ported (intentional, next steps)
 
