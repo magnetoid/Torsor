@@ -21,6 +21,7 @@ import SettingsTab from '../components/tabs/SettingsTab';
 import CheckpointsTab from '../components/tabs/CheckpointsTab';
 import AgentRunsTab from '../components/tabs/AgentRunsTab';
 import UsageTab from '../components/tabs/UsageTab';
+import MCPServersTab from '../components/tabs/MCPServersTab';
 import React from 'react';
 import { PreviewBanner } from '../components/shared/PreviewBanner';
 
@@ -62,6 +63,7 @@ const BUILTIN_TABS: TabContribution[] = [
   { type: 'testing', label: 'App Testing', component: withPreview(AppTestingTab, 'App Testing'), source: 'core' },
   { type: 'runs', label: 'Agent Runs', component: AgentRunsTab, source: 'core' },
   { type: 'usage', label: 'Usage', component: UsageTab, source: 'core' },
+  { type: 'mcp', label: 'MCP Servers', component: MCPServersTab, source: 'core' },
   { type: 'settings', label: 'Settings', component: SettingsTab, source: 'core' },
 ];
 
@@ -76,7 +78,7 @@ for (const tab of BUILTIN_TABS) {
 import {
   Play, Code2, Terminal, Database, Shield, Puzzle, Sparkles, Lock, HardDrive, UserCheck,
   Rocket, CheckCircle, GitBranch, History, Workflow, Frame, MonitorPlay, Settings,
-  PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save, Activity, BarChart3,
+  PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save, Activity, BarChart3, Plug,
 } from 'lucide-react';
 import { useLayoutStore, type TabType } from '../stores/layoutStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -94,6 +96,7 @@ const RAIL_ITEMS: RailDef[] = [
   { id: 'checkpoints', label: 'Checkpoints', icon: History, pinned: true },
   { id: 'publishing', label: 'Publishing', icon: Rocket, pinned: true },
   { id: 'usage', label: 'Usage', icon: BarChart3 },
+  { id: 'mcp', label: 'MCP Servers', icon: Plug },
   { id: 'security', label: 'Security Scan', icon: Shield },
   { id: 'database', label: 'Database', icon: Database },
   { id: 'storage', label: 'App Storage', icon: HardDrive },

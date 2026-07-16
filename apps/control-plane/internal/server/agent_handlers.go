@@ -166,12 +166,18 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	if maxSteps <= 0 && len(body.ApprovedPlan) > 0 {
 		maxSteps = 24
 	}
+	// Connect any MCP servers the user has enabled so their tools are available this run.
+	mcpRouter, toolRouter := s.buildMCPRouter(r.Context(), userID(r))
+	if mcpRouter != nil {
+		defer mcpRouter.Close()
+	}
 	runner := agent.NewRunner(provider, rt, agent.Config{
 		WorkspaceID: ws.ProjectID,
 		MaxSteps:    maxSteps,
 		APIKey:      s.providerAPIKey(r.Context(), userID(r), providerName),
 		Mode:        body.Mode,
 		Plan:        body.ApprovedPlan,
+		Tools:       toolRouter,
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).

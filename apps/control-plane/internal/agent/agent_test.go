@@ -15,10 +15,12 @@ type scriptedModel struct {
 	responses []string
 	call      int
 	prompts   []string
+	systems   []string
 }
 
 func (m *scriptedModel) Complete(_ context.Context, req plugin.CompleteRequest) (plugin.CompleteResult, error) {
 	m.prompts = append(m.prompts, req.Prompt)
+	m.systems = append(m.systems, req.System)
 	if m.call >= len(m.responses) {
 		return plugin.CompleteResult{}, fmt.Errorf("scriptedModel: no response for call %d", m.call)
 	}
@@ -192,12 +194,12 @@ func TestRunStopsAtStepBudget(t *testing.T) {
 
 func TestExtractJSONObject(t *testing.T) {
 	cases := map[string]string{
-		`{"a":1}`:                                  `{"a":1}`,
-		"```json\n{\"a\":1}\n```":                  `{"a":1}`,
-		`prefix {"a":{"b":2}} suffix`:              `{"a":{"b":2}}`,
-		`{"s":"has } brace","x":1}`:                `{"s":"has } brace","x":1}`,
-		`{"s":"esc \" quote","y":2}`:               `{"s":"esc \" quote","y":2}`,
-		`no json here`:                             ``,
+		`{"a":1}`:                     `{"a":1}`,
+		"```json\n{\"a\":1}\n```":     `{"a":1}`,
+		`prefix {"a":{"b":2}} suffix`: `{"a":{"b":2}}`,
+		`{"s":"has } brace","x":1}`:   `{"s":"has } brace","x":1}`,
+		`{"s":"esc \" quote","y":2}`:  `{"s":"esc \" quote","y":2}`,
+		`no json here`:                ``,
 	}
 	for in, want := range cases {
 		if got := extractJSONObject(in); got != want {
@@ -225,5 +227,59 @@ func TestUnknownToolBecomesObservation(t *testing.T) {
 	}
 	if !strings.Contains(toolResult, "unknown tool") {
 		t.Errorf("expected unknown-tool observation, got %q", toolResult)
+	}
+}
+
+// fakeToolRouter is an in-memory ToolRouter exposing one external (MCP-style) tool.
+type fakeToolRouter struct {
+	tools  []ExternalTool
+	calls  []string
+	result string
+}
+
+func (f *fakeToolRouter) ExternalTools() []ExternalTool { return f.tools }
+
+func (f *fakeToolRouter) CallExternal(_ context.Context, name string, _ map[string]string) (string, error) {
+	f.calls = append(f.calls, name)
+	return f.result, nil
+}
+
+// The agent advertises a connected external tool in its system prompt and dispatches a call
+// to it through the ToolRouter (the MCP integration seam), surfacing the result as an
+// observation — all without the loop knowing the tool's origin.
+func TestRunDispatchesExternalTool(t *testing.T) {
+	router := &fakeToolRouter{
+		tools:  []ExternalTool{{Name: "mcp:demo.search", Description: "search the demo server"}},
+		result: "found 3 results",
+	}
+	model := &scriptedModel{responses: []string{
+		`{"thought":"use the mcp tool","action":{"tool":"mcp:demo.search","args":{"q":"widgets"}}}`,
+		`{"thought":"done","final":"Searched via MCP."}`,
+	}}
+	runner := NewRunner(model, newMemWorkspace(), Config{WorkspaceID: "p1", Tools: router})
+
+	var events []Event
+	res, err := runner.Run(context.Background(), "find widgets", collect(&events))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(router.calls) != 1 || router.calls[0] != "mcp:demo.search" {
+		t.Fatalf("expected one external call to mcp:demo.search, got %v", router.calls)
+	}
+	var gotResult bool
+	for _, e := range events {
+		if e.Kind == EventToolResult && strings.Contains(e.Result, "found 3 results") {
+			gotResult = true
+		}
+	}
+	if !gotResult {
+		t.Errorf("external tool result not surfaced in events: %v", events)
+	}
+	// The tool must have been advertised to the model in the system prompt.
+	if len(model.systems) == 0 || !strings.Contains(model.systems[0], "mcp:demo.search") {
+		t.Errorf("external tool not advertised in system prompt: %q", model.systems)
+	}
+	if res.Final == "" {
+		t.Errorf("expected a final message")
 	}
 }

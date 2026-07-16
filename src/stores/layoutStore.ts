@@ -21,10 +21,11 @@ import {
   History,
   Activity,
   BarChart3,
+  Plug,
   LucideIcon
 } from 'lucide-react';
 
-export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage';
+export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage' | 'mcp';
 
 export interface Tab {
   id: string;
@@ -112,6 +113,7 @@ export const TAB_CONFIG: Record<TabType, { label: string; icon: LucideIcon; clos
   checkpoints: { label: 'Checkpoints', icon: History, closable: true },
   runs: { label: 'Agent Runs', icon: Activity, closable: true },
   usage: { label: 'Usage', icon: BarChart3, closable: true },
+  mcp: { label: 'MCP Servers', icon: Plug, closable: true },
 };
 
 export const useLayoutStore = create<LayoutState>()(

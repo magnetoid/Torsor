@@ -60,9 +60,11 @@ function RunEventRow({ event }: { event: AgentEvent }) {
           .map(([k, v]) => `${k}=${v.length > 48 ? v.slice(0, 48) + '…' : v}`)
           .join(' ')
       : '';
+    const isMcp = event.tool?.startsWith('mcp:');
     return (
       <div className="flex items-center gap-1.5 px-1 font-mono text-[11px] text-secondary">
         <Wrench size={11} className="shrink-0 text-accent" />
+        {isMcp && <Badge variant="accent">MCP</Badge>}
         <span className="truncate">
           {event.tool}({args})
         </span>

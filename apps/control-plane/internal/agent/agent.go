@@ -75,6 +75,26 @@ type Config struct {
 	// Plan, when non-empty, is a user-approved plan pinned into the transcript so the
 	// execution run follows it. Set on the approved-execution call.
 	Plan []string
+	// Tools, when set, supplies external tools (e.g. from connected MCP servers) that are
+	// advertised to the model alongside the built-ins and dispatched via CallExternal. Nil
+	// means built-in tools only.
+	Tools ToolRouter
+}
+
+// ExternalTool is a tool contributed from outside the built-in set (an MCP server today).
+// Name is the exact string the model must emit to invoke it — Torsor uses the
+// "mcp:<server>.<tool>" convention so external calls are unambiguous.
+type ExternalTool struct {
+	Name        string
+	Description string
+}
+
+// ToolRouter supplies and executes external tools for a run. It keeps the loop ignorant of
+// where a tool comes from (the same narrow-interface design as Model/Workspace), so MCP —
+// or any future tool source — plugs in without the agent knowing its origin.
+type ToolRouter interface {
+	ExternalTools() []ExternalTool
+	CallExternal(ctx context.Context, name string, args map[string]string) (string, error)
 }
 
 func (c *Config) withDefaults() {
@@ -91,15 +111,22 @@ func (c *Config) withDefaults() {
 
 // Runner drives the agent loop for one project workspace.
 type Runner struct {
-	model Model
-	ws    Workspace
-	cfg   Config
+	model    Model
+	ws       Workspace
+	cfg      Config
+	extNames map[string]bool // external tool names (for O(1) dispatch routing)
 }
 
 // NewRunner builds a Runner. The model and workspace must be non-nil.
 func NewRunner(model Model, ws Workspace, cfg Config) *Runner {
 	cfg.withDefaults()
-	return &Runner{model: model, ws: ws, cfg: cfg}
+	ext := map[string]bool{}
+	if cfg.Tools != nil {
+		for _, t := range cfg.Tools.ExternalTools() {
+			ext[t.Name] = true
+		}
+	}
+	return &Runner{model: model, ws: ws, cfg: cfg, extNames: ext}
 }
 
 // step is the model's structured output for one turn. Exactly one of Action / Final is set.
@@ -191,6 +218,9 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	system := systemPrompt
 	if planning {
 		system = planSystemPrompt
+	} else if r.cfg.Tools != nil {
+		// Advertise connected external (MCP) tools to the model alongside the built-ins.
+		system += externalToolsPrompt(r.cfg.Tools.ExternalTools())
 	}
 
 	for i := 1; i <= r.cfg.MaxSteps; i++ {
@@ -268,10 +298,41 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	return result, nil
 }
 
+// externalToolsPrompt renders the connected external tools as a system-prompt appendix so
+// the model knows it may call them. Empty when there are none.
+func externalToolsPrompt(tools []ExternalTool) string {
+	if len(tools) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\nAdditional tools from connected MCP servers (call them exactly like the built-in tools; all args are strings):\n")
+	for _, t := range tools {
+		desc := t.Description
+		if desc == "" {
+			desc = "(no description)"
+		}
+		fmt.Fprintf(&b, "- %s   %s\n", t.Name, desc)
+	}
+	b.WriteString("Use an MCP tool when the task needs the external data or actions it provides.")
+	return b.String()
+}
+
 // runTool executes one tool action against the workspace and returns a text observation.
 // Tool errors are returned as observation text (not Go errors) so the agent can react and
 // recover rather than aborting the whole run.
 func (r *Runner) runTool(ctx context.Context, a action) string {
+	// External (MCP) tools are dispatched through the ToolRouter before the built-ins.
+	if r.extNames[a.Tool] {
+		if r.cfg.Tools == nil {
+			return "error: no tool router configured"
+		}
+		obs, err := r.cfg.Tools.CallExternal(ctx, a.Tool, a.Args)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return obs
+	}
+
 	switch a.Tool {
 	case "list_files":
 		entries, err := r.ws.ListFiles(ctx, r.cfg.WorkspaceID, a.Args["path"])

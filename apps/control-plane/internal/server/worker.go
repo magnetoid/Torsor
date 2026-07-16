@@ -154,6 +154,12 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 		cancel()
 	}()
 
+	// Connect the user's enabled MCP servers for this background run, too.
+	mcpRouter, toolRouter := s.buildMCPRouter(taskCtx, uid)
+	if mcpRouter != nil {
+		defer mcpRouter.Close()
+	}
+
 	seq := 0
 	onEvent := func(e agent.Event) {
 		seq++
@@ -179,6 +185,7 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 		WorkspaceID: ws.ProjectID,
 		MaxSteps:    backgroundMaxSteps,
 		APIKey:      apiKey,
+		Tools:       toolRouter,
 	})
 	result, runErr := runner.Run(taskCtx, prompt, onEvent)
 	s.recordUsage(uid, providerName, result.Model, result.TokensIn, result.TokensOut)

@@ -32,6 +32,7 @@ type Config struct {
 	DefaultRuntime        string   // runtime name used when a request doesn't specify one
 	SecretKey             string   // TORSOR_SECRET_KEY: passphrase for AES-256-GCM secret encryption (empty => secrets disabled)
 	AgentWorkers          int      // TORSOR_AGENT_WORKERS: background agent worker goroutines (0 => disabled)
+	OllamaHost            string   // OLLAMA_HOST: base URL of the local Ollama server for the model catalog
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -70,6 +71,7 @@ func Load() Config {
 		WorkspaceRuntimePaths: csv(os.Getenv("TORSOR_WORKSPACE_RUNTIME_PLUGINS")),
 		DefaultRuntime:        os.Getenv("TORSOR_DEFAULT_RUNTIME"),
 		AgentWorkers:          envInt("TORSOR_AGENT_WORKERS", 2),
+		OllamaHost:            envStr("OLLAMA_HOST", "http://127.0.0.1:11434"),
 	}
 }
 

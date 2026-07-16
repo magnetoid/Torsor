@@ -152,8 +152,17 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/registry/images", s.handleSearchRegistryImages)
 
 			r.Get("/providers/models", s.handleListModelProviders)
+			r.Get("/providers/models/{name}/catalog", s.handleModelCatalog)
 			r.Post("/providers/models/{name}/complete", s.handleComplete)
 			r.Post("/providers/models/{name}/complete/stream", s.handleCompleteSSE)
+
+			// MCP servers: user-configured Model Context Protocol endpoints whose tools the
+			// coding agent can call (ownership-scoped; auth headers write-only + encrypted).
+			r.Get("/mcp/servers", s.handleListMCPServers)
+			r.Post("/mcp/servers", s.handleCreateMCPServer)
+			r.Patch("/mcp/servers/{id}", s.handleUpdateMCPServer)
+			r.Delete("/mcp/servers/{id}", s.handleDeleteMCPServer)
+			r.Post("/mcp/servers/{id}/test", s.handleTestMCPServer)
 
 			// Lists available workspace runtime plugins (metadata only — no workspace access).
 			r.Get("/runtimes", s.handleListWorkspaceRuntimes)

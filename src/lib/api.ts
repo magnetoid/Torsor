@@ -482,3 +482,81 @@ export interface UsageSummary {
 export async function apiUsageSummary(): Promise<UsageSummary> {
   return apiRequest<UsageSummary>('/api/v1/usage/summary', { auth: true });
 }
+
+// --- MCP servers (Phase 5) ---------------------------------------------------------------
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  url: string;
+  transport: string;
+  hasAuth: boolean;
+  enabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MCPTestResult {
+  ok: boolean;
+  error?: string;
+  tools?: string[];
+  toolCount?: number;
+}
+
+export async function apiListMCPServers(): Promise<MCPServer[]> {
+  const data = await apiRequest<{ items: MCPServer[] }>('/api/v1/mcp/servers', { auth: true });
+  return data.items ?? [];
+}
+
+export async function apiCreateMCPServer(input: {
+  name: string;
+  url: string;
+  transport?: string;
+  authHeader?: string;
+}): Promise<MCPServer> {
+  return apiRequest<MCPServer>('/api/v1/mcp/servers', {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify(input),
+  });
+}
+
+export async function apiUpdateMCPServer(
+  id: string,
+  patch: { url?: string; transport?: string; enabled?: boolean; authHeader?: string }
+): Promise<void> {
+  await apiRequest(`/api/v1/mcp/servers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    auth: true,
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function apiDeleteMCPServer(id: string): Promise<void> {
+  await apiRequest(`/api/v1/mcp/servers/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true });
+}
+
+/** Connect to a stored MCP server and list its tools (reachability check). */
+export async function apiTestMCPServer(id: string): Promise<MCPTestResult> {
+  return apiRequest<MCPTestResult>(`/api/v1/mcp/servers/${encodeURIComponent(id)}/test`, {
+    method: 'POST',
+    auth: true,
+  });
+}
+
+// --- Model catalog (Phase 3/5) -----------------------------------------------------------
+
+export interface ModelCatalog {
+  supported: boolean;
+  reachable?: boolean;
+  items: { name: string; size: number }[];
+  recommended: string[];
+  error?: string;
+}
+
+/** List a provider's installed models (only 'ollama' is supported today). Best-effort hint. */
+export async function apiModelCatalog(provider: string): Promise<ModelCatalog> {
+  return apiRequest<ModelCatalog>(`/api/v1/providers/models/${encodeURIComponent(provider)}/catalog`, {
+    auth: true,
+  });
+}
