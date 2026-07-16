@@ -10,6 +10,9 @@
 // wired into the shell (command palette, rail, side panels, settings).
 import type { ComponentType } from 'react';
 
+/** An icon component (a lucide icon satisfies this). */
+export type IconComponent = ComponentType<{ size?: number; className?: string }>;
+
 /** A center-work-area tab. `type` matches the layout store's Tab.type. */
 export interface TabContribution {
   type: string;
@@ -24,6 +27,13 @@ export interface CommandContribution {
   id: string;
   title: string;
   run: () => void;
+  icon?: IconComponent;
+  /** Palette section heading (e.g. "Tools", "View", "Agent"). */
+  group?: string;
+  /** Display-only shortcut hint, e.g. "⌘⇧M". */
+  shortcut?: string;
+  /** Extra fuzzy-search terms. */
+  keywords?: string;
   source?: string;
 }
 
@@ -40,6 +50,9 @@ export interface RailItemContribution {
   id: string;
   label: string;
   opensTab?: string;
+  icon?: IconComponent;
+  /** Pinned items show inline on the rail; the rest live behind a "More…" popover. */
+  pinned?: boolean;
   component?: ComponentType;
   source?: string;
 }

@@ -61,8 +61,10 @@
   --bg-surface: #303034;
   --bg-elevated: #3E3E43;
   --bg-inset: #27272B;
-  --border: #48484E;
-  --border-subtle: #3B3B41;
+  /* Calm pass: borders softened one step toward hairline (was #48484E) so structure reads
+     through quiet separation, not hard lines. Finer calibration happens with eyes-on. */
+  --border: #43434A;
+  --border-subtle: #383840;
   --text-primary: #F6F6F8;
   --text-secondary: #A1A1A8;
   --text-tertiary: #6D6D74;
@@ -80,8 +82,9 @@
   --bg-surface: #FFFFFF;
   --bg-elevated: #F1F1F5;
   --bg-inset: #EAEAEF;
-  --border: #E2E2E8;
-  --border-subtle: #ECECF1;
+  /* Calm pass: light borders softened one step (was #E2E2E8). */
+  --border: #E8E8EF;
+  --border-subtle: #F0F0F4;
   --text-primary: #18181B;
   --text-secondary: #62626B;
   --text-tertiary: #A0A0AA;
