@@ -19,6 +19,8 @@ import CanvasTab from '../components/tabs/CanvasTab';
 import AppTestingTab from '../components/tabs/AppTestingTab';
 import SettingsTab from '../components/tabs/SettingsTab';
 import CheckpointsTab from '../components/tabs/CheckpointsTab';
+import AgentRunsTab from '../components/tabs/AgentRunsTab';
+import UsageTab from '../components/tabs/UsageTab';
 import React from 'react';
 import { PreviewBanner } from '../components/shared/PreviewBanner';
 
@@ -58,6 +60,8 @@ const BUILTIN_TABS: TabContribution[] = [
   { type: 'workflow', label: 'Workflows', component: WorkflowsTab, source: 'core' },
   { type: 'canvas', label: 'Canvas', component: CanvasTab, source: 'core' },
   { type: 'testing', label: 'App Testing', component: withPreview(AppTestingTab, 'App Testing'), source: 'core' },
+  { type: 'runs', label: 'Agent Runs', component: AgentRunsTab, source: 'core' },
+  { type: 'usage', label: 'Usage', component: UsageTab, source: 'core' },
   { type: 'settings', label: 'Settings', component: SettingsTab, source: 'core' },
 ];
 
@@ -72,7 +76,7 @@ for (const tab of BUILTIN_TABS) {
 import {
   Play, Code2, Terminal, Database, Shield, Puzzle, Sparkles, Lock, HardDrive, UserCheck,
   Rocket, CheckCircle, GitBranch, History, Workflow, Frame, MonitorPlay, Settings,
-  PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save,
+  PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save, Activity, BarChart3,
 } from 'lucide-react';
 import { useLayoutStore, type TabType } from '../stores/layoutStore';
 import { useProjectStore } from '../stores/projectStore';
@@ -85,9 +89,11 @@ const RAIL_ITEMS: RailDef[] = [
   { id: 'preview', label: 'Preview', icon: Play, pinned: true },
   { id: 'code', label: 'Code Editor', icon: Code2, pinned: true },
   { id: 'terminal', label: 'Terminal', icon: Terminal, pinned: true },
+  { id: 'runs', label: 'Agent Runs', icon: Activity, pinned: true },
   { id: 'secrets', label: 'Secrets', icon: Lock, pinned: true },
   { id: 'checkpoints', label: 'Checkpoints', icon: History, pinned: true },
   { id: 'publishing', label: 'Publishing', icon: Rocket, pinned: true },
+  { id: 'usage', label: 'Usage', icon: BarChart3 },
   { id: 'security', label: 'Security Scan', icon: Shield },
   { id: 'database', label: 'Database', icon: Database },
   { id: 'storage', label: 'App Storage', icon: HardDrive },

@@ -133,9 +133,19 @@ func (s *Server) Handler() http.Handler {
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
 			// the model edits files and runs commands in the owned project's workspace.
 			r.Post("/projects/{projectID}/agent/stream", s.handleAgentRunSSE)
+			// Background agent runs: enqueue an unattended run, then attach/reattach to its
+			// step stream. Work continues even after the browser tab closes.
+			r.Post("/projects/{projectID}/agent/tasks", s.handleCreateAgentTask)
 
 			r.Get("/tasks", s.handleListTasks)
 			r.Post("/tasks", s.handleCreateTask)
+			r.Get("/tasks/{taskID}", s.handleGetTask)
+			r.Get("/tasks/{taskID}/events/stream", s.handleTaskEventsSSE)
+			r.Post("/tasks/{taskID}/cancel", s.handleCancelTask)
+
+			// Usage: per-user token/cost accounting read back from usage_events.
+			r.Get("/usage/summary", s.handleUsageSummary)
+			r.Get("/usage/events", s.handleUsageEvents)
 
 			// Capability plugins (kernel + contributions).
 			// Container-image marketplace (Docker Hub search) — browse images to deploy.

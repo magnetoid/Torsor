@@ -97,6 +97,12 @@ func main() {
 	am := auth.NewManager(pool, cfg.JWTSecret, cfg.JWTExpiry)
 	srv := server.New(cfg, pool, rc, am, host, logger)
 
+	// Background agent worker pool: drains the ai_tasks queue. Bound to workerCtx so
+	// in-flight runs are cancelled (and requeued as pending) on shutdown.
+	workerCtx, stopWorkers := context.WithCancel(context.Background())
+	defer stopWorkers()
+	srv.StartAgentWorkers(workerCtx)
+
 	httpServer := &http.Server{
 		Addr:              ":" + strconv.Itoa(cfg.Port),
 		Handler:           srv.Handler(),
@@ -126,6 +132,7 @@ func main() {
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	sig := <-stop
 	logger.Info("shutting down", "signal", sig.String())
+	stopWorkers() // cancel in-flight background runs so they requeue for the next boot
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

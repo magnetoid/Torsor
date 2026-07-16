@@ -56,6 +56,10 @@ type Event struct {
 	Result string            `json:"result,omitempty"` // observation for tool_result
 	Plan   []string          `json:"plan,omitempty"`   // proposed plan steps (EventPlan)
 	Step   int               `json:"step"`             // 1-based step index
+	// Seq is a 1-based monotonic index assigned when a background run persists this event,
+	// used by the reattach SSE stream to de-duplicate replayed vs. live-tailed events. It is
+	// unset (0, omitted) for the synchronous /agent/stream path.
+	Seq int `json:"seq,omitempty"`
 }
 
 // Config controls a single run.

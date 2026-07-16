@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -38,53 +39,71 @@ func (s *Server) pickModelProvider(name string) (plugin.ModelProvider, string, b
 	return nil, "", false
 }
 
-// loadOrCreateWorkspace returns the owned project's workspace + runtime, provisioning one
-// with the default runtime if the project has none yet. Writes the appropriate error and
-// returns ok=false on failure (not owned / no runtime / provision failure).
-func (s *Server) loadOrCreateWorkspace(w http.ResponseWriter, r *http.Request) (workspace, plugin.WorkspaceRuntime, bool) {
-	projectID, ok := s.requireOwnedProject(w, r)
-	if !ok {
-		return workspace{}, nil, false
-	}
+// runtimeUnavailableError signals the requested (or default) workspace runtime plugin is
+// not loaded — an HTTP 503, distinct from an internal failure. Used so the same
+// workspace-resolution core can serve both the request path and the background worker.
+type runtimeUnavailableError struct{ msg string }
 
-	ws, err := scanWorkspace(s.pool.QueryRow(r.Context(),
+func (e runtimeUnavailableError) Error() string { return e.msg }
+
+// loadOrCreateWorkspaceCtx resolves the workspace + runtime for a project, provisioning one
+// with the default runtime if none exists yet. It is HTTP-independent so both the request
+// handler and the background worker share the exact provisioning logic. Callers MUST have
+// already verified that uid owns projectID — this does not re-check ownership.
+func (s *Server) loadOrCreateWorkspaceCtx(ctx context.Context, projectID, uid string) (workspace, plugin.WorkspaceRuntime, error) {
+	ws, err := scanWorkspace(s.pool.QueryRow(ctx,
 		`SELECT `+workspaceCols+` FROM workspaces WHERE project_id = $1`, projectID))
 	if err == nil {
 		rt, _, ok := s.pickRuntime(ws.Runtime)
 		if !ok {
-			writeError(w, http.StatusServiceUnavailable, "Workspace runtime '"+ws.Runtime+"' is not available")
-			return workspace{}, nil, false
+			return workspace{}, nil, runtimeUnavailableError{"Workspace runtime '" + ws.Runtime + "' is not available"}
 		}
-		return ws, rt, true
+		return ws, rt, nil
 	}
 	if err != pgx.ErrNoRows {
-		s.fail(w, r, err)
-		return workspace{}, nil, false
+		return workspace{}, nil, err
 	}
 
 	// No workspace yet: provision one with the default runtime.
 	rt, runtimeName, ok := s.pickRuntime("")
 	if !ok {
-		writeError(w, http.StatusServiceUnavailable, "No workspace runtime available")
-		return workspace{}, nil, false
+		return workspace{}, nil, runtimeUnavailableError{"No workspace runtime available"}
 	}
-	st, err := rt.CreateWorkspace(r.Context(), plugin.WorkspaceSpec{ID: projectID})
+	st, err := rt.CreateWorkspace(ctx, plugin.WorkspaceSpec{ID: projectID})
 	if err != nil {
-		s.fail(w, r, err)
-		return workspace{}, nil, false
+		return workspace{}, nil, err
 	}
 	var containerID *string
 	if st.ContainerID != "" {
 		containerID = &st.ContainerID
 	}
-	ws, err = scanWorkspace(s.pool.QueryRow(r.Context(),
+	ws, err = scanWorkspace(s.pool.QueryRow(ctx,
 		`INSERT INTO workspaces (project_id, user_id, runtime, container_id, image, status)
 		 VALUES ($1, $2, $3, $4, NULL, $5)
 		 ON CONFLICT (project_id) DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()
 		 RETURNING `+workspaceCols,
-		projectID, userID(r), runtimeName, containerID, st.Status))
+		projectID, uid, runtimeName, containerID, st.Status))
 	if err != nil {
-		s.fail(w, r, err)
+		return workspace{}, nil, err
+	}
+	return ws, rt, nil
+}
+
+// loadOrCreateWorkspace is the HTTP wrapper around loadOrCreateWorkspaceCtx: it enforces
+// project ownership and maps errors to responses (503 for a missing runtime, 500 otherwise).
+func (s *Server) loadOrCreateWorkspace(w http.ResponseWriter, r *http.Request) (workspace, plugin.WorkspaceRuntime, bool) {
+	projectID, ok := s.requireOwnedProject(w, r)
+	if !ok {
+		return workspace{}, nil, false
+	}
+	ws, rt, err := s.loadOrCreateWorkspaceCtx(r.Context(), projectID, userID(r))
+	if err != nil {
+		var rue runtimeUnavailableError
+		if errors.As(err, &rue) {
+			writeError(w, http.StatusServiceUnavailable, rue.Error())
+		} else {
+			s.fail(w, r, err)
+		}
 		return workspace{}, nil, false
 	}
 	return ws, rt, true

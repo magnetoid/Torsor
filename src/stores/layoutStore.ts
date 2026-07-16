@@ -19,10 +19,12 @@ import {
   Frame,
   MonitorPlay,
   History,
+  Activity,
+  BarChart3,
   LucideIcon
 } from 'lucide-react';
 
-export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints';
+export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage';
 
 export interface Tab {
   id: string;
@@ -108,6 +110,8 @@ export const TAB_CONFIG: Record<TabType, { label: string; icon: LucideIcon; clos
   canvas: { label: 'Canvas', icon: Frame, closable: true },
   testing: { label: 'App Testing', icon: MonitorPlay, closable: true },
   checkpoints: { label: 'Checkpoints', icon: History, closable: true },
+  runs: { label: 'Agent Runs', icon: Activity, closable: true },
+  usage: { label: 'Usage', icon: BarChart3, closable: true },
 };
 
 export const useLayoutStore = create<LayoutState>()(

@@ -313,6 +313,9 @@ export interface AgentEvent {
   result?: string;
   plan?: string[];
   step: number;
+  /** 1-based sequence index set on persisted background-run events (used to de-dup replay
+   *  vs. live tail). Unset on the synchronous /agent/stream path. */
+  seq?: number;
 }
 
 interface AgentStreamOptions {
@@ -369,4 +372,113 @@ export async function apiAgentStream(
       // Ignore unparseable frames (keep-alive comments).
     }
   });
+}
+
+// --- Background agent runs (Phase 4) -----------------------------------------------------
+
+/** An ai_tasks row: a first-class, observable agent run. Fields are snake_case to match the
+ *  control plane's task JSON shape. */
+export interface TaskSummary {
+  id: string;
+  project_id: string;
+  task_type: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  prompt: string;
+  result: string | null;
+  error: string | null;
+  steps: number;
+  model: string;
+  tokens_in: number;
+  tokens_out: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A single run with its persisted step transcript (the events jsonb column). */
+export interface TaskDetail extends TaskSummary {
+  events: AgentEvent[];
+}
+
+/** Enqueue a background coding-agent run; returns immediately with the created task. */
+export async function apiCreateAgentTask(projectId: string, task: string): Promise<TaskSummary> {
+  return apiRequest<TaskSummary>(`/api/v1/projects/${encodeURIComponent(projectId)}/agent/tasks`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ task }),
+  });
+}
+
+/** List the caller's recent agent runs (all projects), newest first. */
+export async function apiListTasks(): Promise<TaskSummary[]> {
+  const data = await apiRequest<{ items: TaskSummary[] }>('/api/v1/tasks', { auth: true });
+  return data.items ?? [];
+}
+
+/** Fetch one run including its full step transcript. */
+export async function apiGetTask(taskId: string): Promise<TaskDetail> {
+  return apiRequest<TaskDetail>(`/api/v1/tasks/${encodeURIComponent(taskId)}`, { auth: true });
+}
+
+/** Request cancellation of a pending or running task. */
+export async function apiCancelTask(taskId: string): Promise<void> {
+  await apiRequest(`/api/v1/tasks/${encodeURIComponent(taskId)}/cancel`, { method: 'POST', auth: true });
+}
+
+interface TaskEventsStreamOptions {
+  signal?: AbortSignal;
+  onEvent: (event: AgentEvent) => void;
+  onDone?: () => void;
+}
+
+// apiTaskEventsStream attaches to a background run's step stream (GET SSE). It replays the
+// persisted transcript then live-tails until the run finishes (an `event: done` frame) or the
+// caller aborts. Uses fetch + ReadableStream so the Authorization header can be set.
+export async function apiTaskEventsStream(taskId: string, options: TaskEventsStreamOptions): Promise<void> {
+  const { signal, onEvent, onDone } = options;
+  const token = getStoredToken();
+  const response = await fetch(`${API_URL}/api/v1/tasks/${encodeURIComponent(taskId)}/events/stream`, {
+    method: 'GET',
+    signal,
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+
+  if (!response.ok || !response.body) {
+    handleUnauthorized(true, response.status);
+    throw new ApiError(`Task stream failed with status ${response.status}`, response.status);
+  }
+
+  await consumeSSE(response, (eventName, data) => {
+    if (eventName === 'done') {
+      onDone?.();
+      return;
+    }
+    if (eventName === 'error') {
+      let message = 'Task stream error';
+      try {
+        message = (JSON.parse(data) as { error?: string }).error || message;
+      } catch {
+        /* keep default */
+      }
+      throw new ApiError(message, 502);
+    }
+    try {
+      onEvent(JSON.parse(data) as AgentEvent);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      // Ignore unparseable frames (keep-alive comments).
+    }
+  });
+}
+
+// --- Usage (Phase 4) ---------------------------------------------------------------------
+
+export interface UsageSummary {
+  totals: { tokensIn: number; tokensOut: number; events: number };
+  byDay: { day: string; tokensIn: number; tokensOut: number; events: number }[];
+  byModel: { model: string; provider: string; tokensIn: number; tokensOut: number; events: number }[];
+}
+
+/** Per-user token/cost aggregation read back from usage_events. */
+export async function apiUsageSummary(): Promise<UsageSummary> {
+  return apiRequest<UsageSummary>('/api/v1/usage/summary', { auth: true });
 }

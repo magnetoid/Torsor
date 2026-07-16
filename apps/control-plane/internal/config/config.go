@@ -31,6 +31,7 @@ type Config struct {
 	WorkspaceRuntimePaths []string // executables implementing the WorkspaceRuntime capability
 	DefaultRuntime        string   // runtime name used when a request doesn't specify one
 	SecretKey             string   // TORSOR_SECRET_KEY: passphrase for AES-256-GCM secret encryption (empty => secrets disabled)
+	AgentWorkers          int      // TORSOR_AGENT_WORKERS: background agent worker goroutines (0 => disabled)
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -68,6 +69,7 @@ func Load() Config {
 		ModelPluginPaths:      csv(os.Getenv("TORSOR_MODEL_PLUGINS")),
 		WorkspaceRuntimePaths: csv(os.Getenv("TORSOR_WORKSPACE_RUNTIME_PLUGINS")),
 		DefaultRuntime:        os.Getenv("TORSOR_DEFAULT_RUNTIME"),
+		AgentWorkers:          envInt("TORSOR_AGENT_WORKERS", 2),
 	}
 }
 

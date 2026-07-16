@@ -38,4 +38,62 @@ func (c *Client) Publish(ctx context.Context, channel, payload string) error {
 	return c.rdb.Publish(ctx, channel, payload).Err()
 }
 
+// Subscribe calls handler for every message on channel until ctx is cancelled. It runs the
+// receive loop in a background goroutine and returns immediately; used to wake the agent
+// worker pool (torsor:jobs) and to deliver cancel signals (torsor:cancel).
+func (c *Client) Subscribe(ctx context.Context, channel string, handler func(payload string)) {
+	sub := c.rdb.Subscribe(ctx, channel)
+	ch := sub.Channel()
+	go func() {
+		defer sub.Close()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-ch:
+				if !ok {
+					return
+				}
+				handler(msg.Payload)
+			}
+		}
+	}()
+}
+
+// SubscribeChan subscribes to channel and returns a receive-only channel of payloads plus a
+// cancel func the caller must invoke to release the subscription. Used by the task-event SSE
+// handler to live-tail a running agent run.
+func (c *Client) SubscribeChan(ctx context.Context, channel string) (<-chan string, func()) {
+	sub := c.rdb.Subscribe(ctx, channel)
+	out := make(chan string, 64)
+	done := make(chan struct{})
+	go func() {
+		defer close(out)
+		msgs := sub.Channel()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-done:
+				return
+			case msg, ok := <-msgs:
+				if !ok {
+					return
+				}
+				select {
+				case out <- msg.Payload:
+				case <-ctx.Done():
+					return
+				case <-done:
+					return
+				}
+			}
+		}
+	}()
+	return out, func() {
+		close(done)
+		_ = sub.Close()
+	}
+}
+
 func (c *Client) Close() error { return c.rdb.Close() }
