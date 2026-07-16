@@ -73,8 +73,6 @@ const INITIAL_FILES: FileNode[] = [];
 interface AppState {
   // 4. FILE STATE
   files: FileNode[];
-  openTabs: string[];
-  activeTab: string | null;
   /** The project whose real workspace backs `files` (set by loadWorkspaceFiles). Gates
    *  saves so we never POST mock/local scaffolding to a workspace we didn't load from. */
   workspaceProjectId: string | null;
@@ -85,8 +83,6 @@ interface AppState {
   loadWorkspaceFiles: (projectId: string) => Promise<void>;
   /** Fetch a workspace file's real content into its tree node (id === workspace path). */
   loadFileContent: (projectId: string, fileId: string) => Promise<void>;
-  openFile: (id: string) => void;
-  closeTab: (id: string) => void;
   /** Update a file's content in memory and (for workspace-backed files) schedule a
    *  debounced save to the workspace. Marks the file dirty immediately. */
   updateFileContent: (id: string, content: string) => void;
@@ -160,8 +156,6 @@ export const useAppStore = create<AppState>()(
 
       // 4. FILE STATE
       files: INITIAL_FILES,
-      openTabs: [],
-      activeTab: null,
       workspaceProjectId: null,
       saveStatus: {},
       loadWorkspaceFiles: async (projectId) => {
@@ -213,20 +207,6 @@ export const useAppStore = create<AppState>()(
           // Best-effort: leave the node without content if the read fails.
         }
       },
-      openFile: (id) => set((state) => {
-        const isOpen = state.openTabs.includes(id);
-        return {
-          openTabs: isOpen ? state.openTabs : [...state.openTabs, id],
-          activeTab: id
-        };
-      }),
-      closeTab: (id) => set((state) => {
-        const newTabs = state.openTabs.filter(t => t !== id);
-        return {
-          openTabs: newTabs,
-          activeTab: state.activeTab === id ? (newTabs[newTabs.length - 1] || null) : state.activeTab
-        };
-      }),
       updateFileContent: (id, content) => {
         set((state) => ({
           files: state.files.map(f => f.id === id ? { ...f, content } : f),
@@ -287,12 +267,9 @@ export const useAppStore = create<AppState>()(
           return [targetId, ...children.flatMap(getIdsToDelete)];
         };
         const idsToDelete = getIdsToDelete(id);
-        const newTabs = state.openTabs.filter(t => !idsToDelete.includes(t));
-        
+        // Open-file tabs are owned by editorStore; this store only owns file content.
         return {
           files: state.files.filter(f => !idsToDelete.includes(f.id)),
-          openTabs: newTabs,
-          activeTab: idsToDelete.includes(state.activeTab!) ? (newTabs[newTabs.length - 1] || null) : state.activeTab
         };
       }),
       renameFile: (id, newName) => set((state) => {
@@ -429,7 +406,6 @@ export const useAppStore = create<AppState>()(
     {
       name: 'array-ide-storage',
       partialize: (state) => ({
-        openTabs: state.openTabs,
         apiKeys: state.apiKeys,
         files: state.files,
       }),

@@ -26,6 +26,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { WorkspaceSwitcher } from '../shared/WorkspaceSwitcher';
+import { Segmented } from '../shared/ui';
 import { TabBar } from './TabBar';
 import { usePlanGate } from '../../hooks/usePlanGate';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
@@ -81,6 +82,8 @@ export function TopBar() {
     }
     setEconomyMode(mode);
   };
+
+  const maxGated = !checkFeature('max_power_mode').allowed;
 
   return (
     <header className="h-10 bg-surface border-b border-default flex items-center px-2 gap-2 shrink-0 z-50">
@@ -147,31 +150,25 @@ export function TopBar() {
 
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="flex bg-page rounded-full p-0.5 border border-default">
-          {[
-            { id: 'turbo', label: 'Turbo' },
-            { id: 'balanced', label: 'Balance' },
-            { id: 'max', label: 'Max', gated: true }
-          ].map((mode) => {
-            const isGated = mode.gated && !checkFeature('max_power_mode').allowed;
-            return (
-              <button
-                key={mode.id}
-                onClick={() => handleModeChange(mode.id as any)}
-                className={cn(
-                  "px-2 py-0.5 text-[10px] font-bold rounded-full transition-all flex items-center gap-1",
-                  economyMode === mode.id 
-                    ? "bg-accent text-white shadow-sm" 
-                    : "text-secondary hover:text-primary",
-                  isGated && "opacity-70"
-                )}
-              >
-                {mode.label}
-                {isGated && <Lock size={8} className="text-tertiary" />}
-              </button>
-            );
-          })}
-        </div>
+        <Segmented
+          size="sm"
+          aria-label="Model tier"
+          value={economyMode}
+          onChange={handleModeChange}
+          options={[
+            { value: 'turbo', label: 'Turbo' },
+            { value: 'balanced', label: 'Balance' },
+            {
+              value: 'max',
+              label: maxGated ? (
+                <span className="inline-flex items-center gap-1">Max<Lock size={8} className="text-tertiary" /></span>
+              ) : (
+                'Max'
+              ),
+              title: maxGated ? 'Upgrade to unlock Max power' : undefined,
+            },
+          ]}
+        />
 
         <Separator.Root className="w-[1px] h-4 bg-default" />
 
