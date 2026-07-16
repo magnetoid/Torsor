@@ -60,7 +60,11 @@ interface ChatState {
 
   // Actions
   sendMessage: (content: string) => Promise<void>;
-  runAgent: (projectId: string, task: string) => Promise<void>;
+  runAgent: (projectId: string, task: string, opts?: { approvedPlan?: string[] }) => Promise<void>;
+  /** Execute a previously-proposed plan the user approved (spec-driven flow). */
+  approvePlan: (projectId: string, task: string, plan: string[]) => Promise<void>;
+  /** Remove any pending plan cards (used by "Modify" so the user can re-plan). */
+  dismissPlans: () => void;
   stopAgent: () => void;
   loadProviders: () => Promise<void>;
   setProvider: (name: string) => void;
@@ -208,9 +212,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  runAgent: async (projectId, task) => {
+  runAgent: async (projectId, task, opts) => {
     const trimmed = task.trim();
     if (!trimmed || get().isAgentWorking) return;
+    // Plan mode only when the toggle is on AND we're not already executing an approved plan.
+    const planning = get().planning && !opts?.approvedPlan;
 
     const appendMessage = (msg: ChatMessageData) =>
       set((state) => ({ messages: [...state.messages, msg] }));
@@ -239,7 +245,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // tool results as terminal output, and the final answer as the agent's reply.
     const onEvent = (e: AgentEvent) => {
       const base = { id: `msg-agent-${e.step}-${e.kind}-${Date.now()}`, timestamp: Date.now() };
-      if (e.kind === 'thought' && e.text) {
+      if (e.kind === 'plan' && e.plan?.length) {
+        // Spec mode: show the proposed plan card, awaiting the user's approval.
+        appendMessage({ ...base, type: 'plan', content: '', metadata: { steps: e.plan, planTask: trimmed } });
+      } else if (e.kind === 'thought' && e.text) {
         appendMessage({ ...base, type: 'work', content: e.text });
       } else if (e.kind === 'tool_call') {
         if (e.tool === 'write_file') filesChanged = true;
@@ -260,7 +269,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     abortController = new AbortController();
     try {
-      await apiAgentStream(projectId, { task: trimmed, provider }, { auth: true, signal: abortController.signal, onEvent });
+      await apiAgentStream(
+        projectId,
+        { task: trimmed, provider, mode: planning ? 'plan' : undefined, approvedPlan: opts?.approvedPlan },
+        { auth: true, signal: abortController.signal, onEvent }
+      );
     } catch (err) {
       const aborted = err instanceof DOMException && err.name === 'AbortError';
       if (!aborted) {
@@ -295,6 +308,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
   },
+
+  approvePlan: async (projectId, task, plan) => {
+    // Turn off plan mode for this run and execute with the approved plan pinned.
+    set((state) => ({ planning: false, messages: state.messages.filter((m) => m.type !== 'plan') }));
+    await get().runAgent(projectId, task, { approvedPlan: plan });
+  },
+
+  dismissPlans: () => set((state) => ({ messages: state.messages.filter((m) => m.type !== 'plan') })),
 
   stopAgent: () => {
     abortController?.abort();

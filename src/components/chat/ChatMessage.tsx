@@ -12,7 +12,8 @@ import {
   Lock as LockIcon
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { ChatMessageData } from '../../stores/chatStore';
+import { ChatMessageData, useChatStore } from '../../stores/chatStore';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface ChatMessageProps {
   message: ChatMessageData;
@@ -52,10 +53,25 @@ export function ChatMessage({ message }: ChatMessageProps) {
           ))}
         </div>
         <div className="mt-3 flex gap-2">
-          <button className="flex-1 bg-accent hover:bg-accent-hover text-white py-1 rounded-md text-[10px] font-bold transition-colors">
+          <button
+            onClick={() => {
+              const pid = useProjectStore.getState().activeProjectId;
+              if (pid) {
+                void useChatStore.getState().approvePlan(
+                  pid,
+                  message.metadata?.planTask ?? '',
+                  message.metadata?.steps ?? []
+                );
+              }
+            }}
+            className="flex-1 bg-accent hover:bg-accent-hover text-white py-1 rounded-md text-[10px] font-bold transition-colors"
+          >
             Approve & Execute
           </button>
-          <button className="px-3 border border-default text-secondary hover:text-primary py-1 rounded-md text-[10px] font-bold transition-colors">
+          <button
+            onClick={() => useChatStore.getState().dismissPlans()}
+            className="px-3 border border-default text-secondary hover:text-primary py-1 rounded-md text-[10px] font-bold transition-colors"
+          >
             Modify
           </button>
         </div>

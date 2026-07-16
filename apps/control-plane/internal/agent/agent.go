@@ -39,6 +39,7 @@ type EventKind string
 
 const (
 	EventThought    EventKind = "thought"     // the model's reasoning for this step
+	EventPlan       EventKind = "plan"        // a proposed plan (spec-mode), awaiting approval
 	EventToolCall   EventKind = "tool_call"   // a tool is about to run
 	EventToolResult EventKind = "tool_result" // the tool's observation
 	EventFinal      EventKind = "final"       // the agent's final answer to the user
@@ -53,16 +54,23 @@ type Event struct {
 	Tool   string            `json:"tool,omitempty"`   // tool name for tool_call / tool_result
 	Args   map[string]string `json:"args,omitempty"`   // tool arguments for tool_call
 	Result string            `json:"result,omitempty"` // observation for tool_result
+	Plan   []string          `json:"plan,omitempty"`   // proposed plan steps (EventPlan)
 	Step   int               `json:"step"`             // 1-based step index
 }
 
 // Config controls a single run.
 type Config struct {
 	WorkspaceID  string
-	MaxSteps     int   // hard cap on model turns (default 12)
-	MaxTokens    int32 // per-model-call output cap (default 2048)
-	MaxObservLen int   // truncate a tool observation fed back to the model (default 4000 chars)
+	MaxSteps     int    // hard cap on model turns (default 12)
+	MaxTokens    int32  // per-model-call output cap (default 2048)
+	MaxObservLen int    // truncate a tool observation fed back to the model (default 4000 chars)
 	APIKey       string // optional per-user BYO key forwarded to the model provider
+	// Mode selects the loop's behavior: "direct" (default) acts immediately; "plan" first
+	// proposes a plan and pauses for approval (spec-driven flow).
+	Mode string
+	// Plan, when non-empty, is a user-approved plan pinned into the transcript so the
+	// execution run follows it. Set on the approved-execution call.
+	Plan []string
 }
 
 func (c *Config) withDefaults() {
@@ -92,9 +100,10 @@ func NewRunner(model Model, ws Workspace, cfg Config) *Runner {
 
 // step is the model's structured output for one turn. Exactly one of Action / Final is set.
 type step struct {
-	Thought string  `json:"thought"`
-	Action  *action `json:"action,omitempty"`
-	Final   string  `json:"final,omitempty"`
+	Thought string   `json:"thought"`
+	Action  *action  `json:"action,omitempty"`
+	Final   string   `json:"final,omitempty"`
+	Plan    []string `json:"plan,omitempty"`
 }
 
 type action struct {
@@ -122,15 +131,32 @@ Rules:
 - Respond with ONE JSON object only. Do not wrap it in code fences.
 - Take the smallest useful step; inspect before editing.
 - After a build/test command fails, read the error and fix it, then re-run.
+- VERIFY your work before finishing: if the project has tests, run them; if it has a dev
+  server or build, run it and (with the run tool) curl the app's local port to confirm it
+  responds. Fix what you find, then re-verify. Only then return "final".
 - When the task is done and verified, return a "final" message. Do not loop forever.`
+
+// planSystemPrompt drives the spec-mode planning phase: the model proposes a short plan and
+// nothing else, so the user can approve/refine before any file is touched.
+const planSystemPrompt = `You are Torsor Agent in PLANNING mode. Do NOT take any action or edit any files yet.
+
+Read the user's task and respond with exactly ONE JSON object and nothing else:
+
+{"thought": "<brief reasoning>", "plan": ["<step 1>", "<step 2>", "<step 3>", ...]}
+
+Rules:
+- 2 to 6 concrete, ordered steps. Each step is a short imperative sentence.
+- The plan should end by verifying the result (run tests / check the app responds).
+- Respond with ONE JSON object only. No prose, no code fences, no actions.`
 
 // RunResult summarizes a completed agent run.
 type RunResult struct {
-	Final     string // the final user-facing message
-	Steps     int    // model turns taken
-	Model     string // model id reported by the provider
-	TokensIn  int32  // summed across all model calls
-	TokensOut int32  // summed across all model calls
+	Final     string   // the final user-facing message
+	Steps     int      // model turns taken
+	Model     string   // model id reported by the provider
+	TokensIn  int32    // summed across all model calls
+	TokensOut int32    // summed across all model calls
+	Plan      []string // proposed plan (plan-mode planning phase); empty otherwise
 }
 
 // Run executes the agent loop until the model returns a final answer or the step budget
@@ -149,6 +175,19 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	// a marker that asks for the next JSON step. Kept as text so it works with any model.
 	var transcript strings.Builder
 	fmt.Fprintf(&transcript, "Task: %s\n", task)
+	// Executing a user-approved plan: pin the agreed steps so the loop follows them.
+	if len(r.cfg.Plan) > 0 {
+		transcript.WriteString("\nApproved plan — follow these steps in order:\n")
+		for i, s := range r.cfg.Plan {
+			fmt.Fprintf(&transcript, "%d. %s\n", i+1, s)
+		}
+	}
+	// Planning phase: propose a plan and pause for approval (no actions taken yet).
+	planning := r.cfg.Mode == "plan" && len(r.cfg.Plan) == 0
+	system := systemPrompt
+	if planning {
+		system = planSystemPrompt
+	}
 
 	for i := 1; i <= r.cfg.MaxSteps; i++ {
 		result.Steps = i
@@ -159,7 +198,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		prompt := transcript.String() + "\nRespond with your next JSON step."
 		res, err := r.model.Complete(ctx, plugin.CompleteRequest{
 			Prompt:    prompt,
-			System:    systemPrompt,
+			System:    system,
 			MaxTokens: r.cfg.MaxTokens,
 			APIKey:    r.cfg.APIKey,
 		})
@@ -180,6 +219,22 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 			emit(Event{Kind: EventThought, Step: i, Text: "(unparseable model output; re-prompting)"})
 			fmt.Fprintf(&transcript, "\nSystem: your last output was not a single valid JSON step (%s). Respond with ONE JSON object only.\n", perr)
 			continue
+		}
+
+		// Planning phase: emit the proposed plan and pause for approval (the handler
+		// persists it; the user approves, and a follow-up run executes with Plan set).
+		if planning {
+			if len(st.Plan) == 0 {
+				emit(Event{Kind: EventThought, Step: i, Text: "(no plan proposed; re-prompting)"})
+				transcript.WriteString("\nSystem: respond with a JSON object containing a non-empty \"plan\" array.\n")
+				continue
+			}
+			if st.Thought != "" {
+				emit(Event{Kind: EventThought, Step: i, Text: st.Thought})
+			}
+			emit(Event{Kind: EventPlan, Step: i, Plan: st.Plan})
+			result.Plan = st.Plan
+			return result, nil
 		}
 
 		if st.Thought != "" {
@@ -288,7 +343,7 @@ func parseStep(text string) (step, error) {
 	if err := json.Unmarshal([]byte(raw), &st); err != nil {
 		return step{}, fmt.Errorf("invalid JSON: %w", err)
 	}
-	if st.Action == nil && st.Final == "" && st.Thought == "" {
+	if st.Action == nil && st.Final == "" && st.Thought == "" && len(st.Plan) == 0 {
 		return step{}, fmt.Errorf("empty step")
 	}
 	return st, nil

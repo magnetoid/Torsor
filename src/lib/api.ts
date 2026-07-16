@@ -306,11 +306,12 @@ export async function apiExecStream(
 
 /** One step event from the coding agent loop (mirrors internal/agent.Event). */
 export interface AgentEvent {
-  kind: 'thought' | 'tool_call' | 'tool_result' | 'final' | 'error';
+  kind: 'thought' | 'plan' | 'tool_call' | 'tool_result' | 'final' | 'error';
   text?: string;
   tool?: string;
   args?: Record<string, string>;
   result?: string;
+  plan?: string[];
   step: number;
 }
 
@@ -325,7 +326,7 @@ interface AgentStreamOptions {
 // (not EventSource) because it is a POST needing the Authorization header.
 export async function apiAgentStream(
   projectId: string,
-  body: { task: string; provider?: string; maxSteps?: number },
+  body: { task: string; provider?: string; maxSteps?: number; mode?: string; approvedPlan?: string[] },
   options: AgentStreamOptions
 ): Promise<void> {
   const { auth = true, signal, onEvent } = options;

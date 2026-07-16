@@ -17,6 +17,10 @@ type agentBody struct {
 	Task     string `json:"task"`
 	Provider string `json:"provider"`
 	MaxSteps int    `json:"maxSteps"`
+	// Mode "plan" proposes a plan and pauses; "" / "direct" acts immediately.
+	Mode string `json:"mode"`
+	// ApprovedPlan, when set, executes a previously-proposed plan (spec-driven flow).
+	ApprovedPlan []string `json:"approvedPlan"`
 }
 
 // pickModelProvider resolves the model provider for an agent run: the named one, else the
@@ -138,10 +142,17 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	// Persist the run as an ai_task so it shows up in durable, ownership-scoped history.
 	taskID := s.createAgentTask(r, ws.ProjectID, body.Task)
 
+	// Approved-plan executions get a larger step budget (multi-step plans need room).
+	maxSteps := body.MaxSteps
+	if maxSteps <= 0 && len(body.ApprovedPlan) > 0 {
+		maxSteps = 24
+	}
 	runner := agent.NewRunner(provider, rt, agent.Config{
 		WorkspaceID: ws.ProjectID,
-		MaxSteps:    body.MaxSteps,
+		MaxSteps:    maxSteps,
 		APIKey:      s.providerAPIKey(r.Context(), userID(r), providerName),
+		Mode:        body.Mode,
+		Plan:        body.ApprovedPlan,
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).
