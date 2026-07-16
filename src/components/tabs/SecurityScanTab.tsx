@@ -15,7 +15,8 @@ import {
   Zap
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useAppStore } from '../../useAppStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { useEditorStore } from '../../stores/editorStore';
 
 type ScanState = 'idle' | 'scanning' | 'results';
@@ -74,7 +75,6 @@ export default function SecurityScanTab() {
   const [scanState, setScanState] = useState<ScanState>('idle');
   const [checks, setChecks] = useState<ScanCheck[]>(INITIAL_CHECKS);
   const [progress, setProgress] = useState(0);
-  const { simulateBuilderFlow } = useAppStore();
   const { openFile } = useEditorStore();
 
   const startScan = () => {
@@ -114,7 +114,12 @@ export default function SecurityScanTab() {
   }, [scanState]);
 
   const handleFix = (issue: SecurityIssue) => {
-    simulateBuilderFlow(`Fix the following security issue in ${issue.file} at line ${issue.line}: ${issue.title}. ${issue.description}`);
+    const projectId = useProjectStore.getState().activeProjectId;
+    if (!projectId) return;
+    void useChatStore.getState().runAgent(
+      projectId,
+      `Fix the following security issue in ${issue.file} at line ${issue.line}: ${issue.title}. ${issue.description}`
+    );
   };
 
   if (scanState === 'idle') {
