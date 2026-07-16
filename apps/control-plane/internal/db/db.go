@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -17,6 +19,21 @@ func New(ctx context.Context, dsn string, maxConns int32) (*pgxpool.Pool, error)
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
+	}
+	// Scan timestamps as UTC so they JSON-marshal as "...Z" — matching the legacy
+	// apps/api responses (node-postgres + toISOString) instead of the host's local
+	// offset. pgx's binary protocol ignores the session timezone and defaults to
+	// time.Local, so this must be set on the codec, per connection.
+	cfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
+		conn.TypeMap().RegisterType(&pgtype.Type{
+			Name: "timestamptz", OID: pgtype.TimestamptzOID,
+			Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC},
+		})
+		conn.TypeMap().RegisterType(&pgtype.Type{
+			Name: "timestamp", OID: pgtype.TimestampOID,
+			Codec: &pgtype.TimestampCodec{ScanLocation: time.UTC},
+		})
+		return nil
 	}
 	if maxConns > 0 {
 		cfg.MaxConns = maxConns

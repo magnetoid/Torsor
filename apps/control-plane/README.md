@@ -32,8 +32,13 @@ PATCH  /api/v1/projects/{id}      (auth)
 DELETE /api/v1/projects/{id}      (auth)
 GET    /api/v1/projects/{id}/files (auth)
 POST   /api/v1/projects/{id}/files (auth)
+PATCH  /api/v1/projects/{id}/files/{fileId} (auth)  # rename/re-tag, bumps version, 409 on name clash
+DELETE /api/v1/projects/{id}/files/{fileId} (auth)
 GET    /api/v1/tasks              (auth)
 POST   /api/v1/tasks              (auth)
+GET    /api/v1/admin/stats        (auth, role >= admin)
+GET    /api/v1/admin/users        (auth, role >= admin)   # ?search=&limit=&offset=
+PATCH  /api/v1/admin/users/{userId}/role (auth, super_admin only)
 GET    /api/v1/providers/models                          (auth)  # list loaded model plugins
 POST   /api/v1/providers/models/{name}/complete          (auth)  # invoke (one-shot)
 POST   /api/v1/providers/models/{name}/complete/stream   (auth)  # stream via SSE
@@ -223,8 +228,7 @@ Two container modes:
 
 ## Not yet ported (intentional, next steps)
 
-- exercise the **Docker** runtime's full lifecycle against a live daemon on a Docker host
 - more capability contracts: `DeployTarget`, `VCSProvider`, …
-- real model plugins (Ollama local-first, Claude/OpenAI BYO-key)
-- frontend contribution registry + theme-token contract
-- compose/nginx switch from `apps/api` to this service (deliberate cutover)
+- compose/nginx switch from `apps/api` to this service (deliberate cutover) — with the
+  admin routes and file PATCH/DELETE now ported, the HTTP surface is at full parity
+  with `apps/api`, so the cutover is unblocked

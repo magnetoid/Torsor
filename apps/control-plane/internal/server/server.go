@@ -80,6 +80,20 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/projects/{projectID}", s.handleDeleteProject)
 			r.Get("/projects/{projectID}/files", s.handleListFiles)
 			r.Post("/projects/{projectID}/files", s.handleUpsertFile)
+			r.Patch("/projects/{projectID}/files/{fileID}", s.handleUpdateFile)
+			r.Delete("/projects/{projectID}/files/{fileID}", s.handleDeleteFile)
+
+			// Admin / super-admin platform dashboard (role-gated on the effective role:
+			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireRole(auth.RoleAdmin))
+				r.Get("/admin/stats", s.handleAdminStats)
+				r.Get("/admin/users", s.handleAdminUsers)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(s.requireRole(auth.RoleSuperAdmin))
+				r.Patch("/admin/users/{userID}/role", s.handleAdminUpdateUserRole)
+			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
 			// the runtime workspace id is the project id, never a client-supplied value.

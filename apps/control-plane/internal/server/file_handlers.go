@@ -1,12 +1,14 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type projectFile struct {
@@ -111,4 +113,108 @@ func (s *Server) handleUpsertFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, f)
+}
+
+// handleUpdateFile renames/re-tags a file (PATCH). Mirrors apps/api: absent fields keep
+// their current values, a present-but-blank filename is a 400, renames bump the version,
+// and a unique-name collision maps to 409.
+func (s *Server) handleUpdateFile(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "projectID")
+	fileID := chi.URLParam(r, "fileID")
+
+	// Pointers distinguish "field absent" (keep current) from "present but empty".
+	var body struct {
+		Filename *string `json:"filename"`
+		Language *string `json:"language"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if body.Filename != nil && strings.TrimSpace(*body.Filename) == "" {
+		writeError(w, http.StatusBadRequest, "filename cannot be empty")
+		return
+	}
+
+	owns, err := s.ownsProject(r, projectID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if !owns {
+		writeError(w, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	current, err := scanFile(s.pool.QueryRow(r.Context(),
+		`SELECT `+fileCols+` FROM project_files WHERE id = $1 AND project_id = $2`,
+		fileID, projectID))
+	if err == pgx.ErrNoRows {
+		writeError(w, http.StatusNotFound, "File not found")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
+	filename := current.Filename
+	if body.Filename != nil {
+		filename = strings.TrimSpace(*body.Filename)
+	}
+	language := current.Language
+	if body.Language != nil {
+		language = body.Language
+	}
+
+	f, err := scanFile(s.pool.QueryRow(r.Context(),
+		`UPDATE project_files
+		 SET filename = $3,
+		     language = $4,
+		     version = version + 1,
+		     updated_at = NOW()
+		 WHERE id = $1 AND project_id = $2
+		 RETURNING `+fileCols,
+		fileID, projectID, filename, language))
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			writeError(w, http.StatusConflict, "A file with that name already exists")
+			return
+		}
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, f)
+}
+
+// handleDeleteFile removes a file from an owned project. 404s on both a non-owned
+// project and a missing file (mirrors apps/api); 204 on success.
+func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "projectID")
+	fileID := chi.URLParam(r, "fileID")
+
+	owns, err := s.ownsProject(r, projectID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if !owns {
+		writeError(w, http.StatusNotFound, "Project not found")
+		return
+	}
+
+	var id string
+	err = s.pool.QueryRow(r.Context(),
+		`DELETE FROM project_files WHERE id = $1 AND project_id = $2 RETURNING id`,
+		fileID, projectID).Scan(&id)
+	if err == pgx.ErrNoRows {
+		writeError(w, http.StatusNotFound, "File not found")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
