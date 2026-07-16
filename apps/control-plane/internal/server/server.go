@@ -74,6 +74,12 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/auth/me", s.handleMe)
 			r.Patch("/auth/me", s.handleUpdateMe)
 
+			// User-scoped encrypted secrets (BYO API keys). Values are AES-GCM encrypted
+			// at rest and never returned by the list endpoint.
+			r.Get("/secrets", s.handleListSecrets)
+			r.Post("/secrets", s.handleCreateSecret)
+			r.Delete("/secrets/{name}", s.handleDeleteSecret)
+
 			r.Get("/projects", s.handleListProjects)
 			r.Post("/projects", s.handleCreateProject)
 			r.Get("/projects/{projectID}", s.handleGetProject)

@@ -30,6 +30,7 @@ type Config struct {
 	ModelPluginPaths      []string // executables implementing the ModelProvider capability
 	WorkspaceRuntimePaths []string // executables implementing the WorkspaceRuntime capability
 	DefaultRuntime        string   // runtime name used when a request doesn't specify one
+	SecretKey             string   // TORSOR_SECRET_KEY: passphrase for AES-256-GCM secret encryption (empty => secrets disabled)
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -63,6 +64,7 @@ func Load() Config {
 		AuthRateLimit:         envInt("AUTH_RATE_LIMIT", 20),
 		APIRateLimit:          envInt("API_RATE_LIMIT", 300),
 		JSONBodyLimit:         int64(envInt("JSON_BODY_LIMIT_BYTES", 2*1024*1024)),
+		SecretKey:             os.Getenv("TORSOR_SECRET_KEY"),
 		ModelPluginPaths:      csv(os.Getenv("TORSOR_MODEL_PLUGINS")),
 		WorkspaceRuntimePaths: csv(os.Getenv("TORSOR_WORKSPACE_RUNTIME_PLUGINS")),
 		DefaultRuntime:        os.Getenv("TORSOR_DEFAULT_RUNTIME"),

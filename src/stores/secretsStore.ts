@@ -1,71 +1,78 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { useWorkspaceStore } from './workspaceStore';
+import { apiRequest } from '../lib/api';
 
-export interface Secret {
-  id: string;
-  workspaceId: string;
-  key: string;
-  value: string;
-  type: 'app' | 'account';
-  inUse: boolean;
-  lastUsed?: string;
+// Backend-backed, user-scoped secrets (BYO API keys). Values are encrypted at rest on the
+// control plane and NEVER returned by the API — this store only ever holds key names, so
+// there is no plaintext to persist client-side (hence no `persist` middleware).
+export interface SecretMeta {
+  keyName: string;
+  createdAt: string;
 }
 
 interface SecretsState {
-  secrets: Secret[];
-  addSecret: (key: string, value: string, workspaceId: string, type?: 'app' | 'account') => void;
-  updateSecret: (id: string, updates: Partial<Secret>) => void;
-  deleteSecret: (id: string) => void;
-  bulkUpdate: (secrets: Secret[]) => void;
-  clearWorkspaceSecrets: (workspaceId: string) => void;
+  secrets: SecretMeta[];
+  /** Whether the server has TORSOR_SECRET_KEY configured (can store secrets at all). */
+  enabled: boolean;
+  loading: boolean;
+  loaded: boolean;
+  error: string | null;
+  fetchSecrets: () => Promise<void>;
+  /** Create or replace a secret. Returns true on success. */
+  createSecret: (keyName: string, value: string) => Promise<boolean>;
+  deleteSecret: (keyName: string) => Promise<void>;
+  clearError: () => void;
 }
 
-const MOCK_SECRETS: Secret[] = [
-  { id: '1', workspaceId: 'ws-1', key: 'DATABASE_URL', value: 'postgresql://user:password@localhost:5432/mydb', type: 'app', inUse: true },
-  { id: '2', workspaceId: 'ws-1', key: 'STRIPE_SECRET_KEY', value: 'sk_test_51MzX...', type: 'app', inUse: true },
-  { id: '3', workspaceId: 'ws-1', key: 'JWT_SECRET', value: 'super-secret-token-123', type: 'app', inUse: false },
-  { id: '4', workspaceId: 'ws-1', key: 'OPENAI_API_KEY', value: 'sk-proj-abc123xyz', type: 'account', inUse: true },
-  { id: '5', workspaceId: 'ws-2', key: 'SUPABASE_ANON_KEY', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', type: 'app', inUse: true },
-];
+export const useSecretsStore = create<SecretsState>((set, get) => ({
+  secrets: [],
+  enabled: true,
+  loading: false,
+  loaded: false,
+  error: null,
 
-export const useSecretsStore = create<SecretsState>()(
-  persist(
-    (set) => ({
-      secrets: MOCK_SECRETS,
-      addSecret: (key, value, workspaceId, type = 'app') => set((state) => ({
-        secrets: [
-          ...state.secrets,
-          {
-            id: Math.random().toString(36).substring(7),
-            workspaceId,
-            key,
-            value,
-            type,
-            inUse: false,
-          }
-        ]
-      })),
-      updateSecret: (id, updates) => set((state) => ({
-        secrets: state.secrets.map((s) => s.id === id ? { ...s, ...updates } : s)
-      })),
-      deleteSecret: (id) => set((state) => ({
-        secrets: state.secrets.filter((s) => s.id !== id)
-      })),
-      bulkUpdate: (secrets) => set({ secrets }),
-      clearWorkspaceSecrets: (workspaceId) => set((state) => ({
-        secrets: state.secrets.filter(s => s.workspaceId !== workspaceId)
-      })),
-    }),
-    {
-      name: 'tesseract-secrets',
+  fetchSecrets: async () => {
+    set({ loading: true, error: null });
+    try {
+      const data = await apiRequest<{ items: SecretMeta[]; enabled: boolean }>(
+        '/api/v1/secrets',
+        { auth: true }
+      );
+      set({ secrets: data.items ?? [], enabled: data.enabled, loading: false, loaded: true });
+    } catch (e) {
+      set({
+        loading: false,
+        loaded: true,
+        error: e instanceof Error ? e.message : 'Failed to load secrets',
+      });
     }
-  )
-);
+  },
 
-// Computed Selectors
-export const useActiveSecrets = () => {
-  const activeWorkspaceId = useWorkspaceStore((state) => state.activeWorkspaceId);
-  const secrets = useSecretsStore((state) => state.secrets);
-  return secrets.filter(s => s.workspaceId === activeWorkspaceId);
-};
+  createSecret: async (keyName, value) => {
+    try {
+      await apiRequest('/api/v1/secrets', {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({ keyName, value }),
+      });
+      await get().fetchSecrets();
+      return true;
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to save secret' });
+      return false;
+    }
+  },
+
+  deleteSecret: async (keyName) => {
+    try {
+      await apiRequest(`/api/v1/secrets/${encodeURIComponent(keyName)}`, {
+        method: 'DELETE',
+        auth: true,
+      });
+      set((s) => ({ secrets: s.secrets.filter((x) => x.keyName !== keyName) }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to delete secret' });
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));
