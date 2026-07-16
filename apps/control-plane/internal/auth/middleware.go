@@ -37,17 +37,21 @@ func (m *Manager) Require(next http.Handler) http.Handler {
 			writeAuthError(w, http.StatusUnauthorized, "Invalid or expired token")
 			return
 		}
-		// Enforce the server-side session so logout actually revokes access.
-		if claims.SessionID != "" {
-			valid, err := m.SessionValid(r.Context(), claims.SessionID)
-			if err != nil {
-				writeAuthError(w, http.StatusInternalServerError, "Authentication check failed")
-				return
-			}
-			if !valid {
-				writeAuthError(w, http.StatusUnauthorized, "Session expired or revoked")
-				return
-			}
+		// Enforce the server-side session so logout actually revokes access. Every token
+		// this service issues carries a sessionId; a token without one is forged or
+		// malformed, so require it rather than skipping the check (revocation bypass).
+		if claims.SessionID == "" {
+			writeAuthError(w, http.StatusUnauthorized, "Invalid or expired token")
+			return
+		}
+		valid, err := m.SessionValid(r.Context(), claims.SessionID)
+		if err != nil {
+			writeAuthError(w, http.StatusInternalServerError, "Authentication check failed")
+			return
+		}
+		if !valid {
+			writeAuthError(w, http.StatusUnauthorized, "Session expired or revoked")
+			return
 		}
 		ctx := context.WithValue(r.Context(), authCtxKey, claims)
 		next.ServeHTTP(w, r.WithContext(ctx))

@@ -157,8 +157,12 @@ func (s *Server) wsUpgrader() websocket.Upgrader {
 	return websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			origin := r.Header.Get("Origin")
-			if origin == "" || len(s.cfg.CORSOrigins) == 0 {
-				return true // no Origin (non-browser) or reflect-all CORS policy
+			if origin == "" {
+				return true // non-browser client (no Origin header)
+			}
+			if len(s.cfg.CORSOrigins) == 0 {
+				// Same-origin topology by default; only explicit dev accepts any origin.
+				return s.cfg.IsDevelopment()
 			}
 			for _, o := range s.cfg.CORSOrigins {
 				if o == origin {

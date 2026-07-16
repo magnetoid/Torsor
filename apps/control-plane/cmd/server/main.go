@@ -36,14 +36,18 @@ func main() {
 	cfg := config.Load()
 	logger := newLogger(cfg)
 
-	if cfg.IsProduction() {
+	// Fail closed unless NODE_ENV is explicitly "development": require a strong JWT_SECRET
+	// so a bare `docker run` (unset NODE_ENV) cannot boot with the well-known dev secret,
+	// which would let anyone forge tokens for any user.
+	if !cfg.IsDevelopment() {
 		if s := cfg.JWTSecret; s == "" || s == "dev-secret-change-me" || len(s) < 32 {
-			logger.Error("JWT_SECRET must be a strong value (>=32 chars) in production")
+			logger.Error("JWT_SECRET must be set to a strong value (>=32 chars) unless NODE_ENV=development")
 			os.Exit(1)
 		}
-	}
-	if cfg.JWTSecret == "" {
+	} else if cfg.JWTSecret == "" {
+		// Explicit local dev only: allow the well-known throwaway secret.
 		cfg.JWTSecret = "dev-secret-change-me"
+		logger.Warn("using well-known dev JWT secret (NODE_ENV=development); never do this in production")
 	}
 
 	ctx := context.Background()
@@ -203,7 +207,7 @@ func ensureDevSeed(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) e
 		return err
 	}
 	_, err = pool.Exec(ctx,
-		`INSERT INTO users (email, username, password_hash, bio) VALUES ($1, $2, $3, $4)`,
+		`INSERT INTO users (email, username, password_hash, bio, onboarded) VALUES ($1, $2, $3, $4, true)`,
 		cfg.DevSeedEmail, "demo", hash, "Local seeded demo user")
 	return err
 }

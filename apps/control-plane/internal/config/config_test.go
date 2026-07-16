@@ -47,3 +47,23 @@ func TestLowerAll(t *testing.T) {
 		t.Errorf("lowerAll = %v", got)
 	}
 }
+
+// An unset NODE_ENV must NOT count as development — otherwise a bare `docker run` boots
+// with the well-known dev JWT secret + a seeded demo user. Only explicit "development" is dev.
+func TestEnvFailsClosed(t *testing.T) {
+	cases := []struct {
+		env     string
+		wantDev bool
+	}{
+		{"development", true},
+		{"", false},        // unset → NOT dev (fail closed)
+		{"production", false},
+		{"staging", false},
+		{"Development", false}, // case-sensitive; only exact "development"
+	}
+	for _, tc := range cases {
+		if got := (Config{Env: tc.env}).IsDevelopment(); got != tc.wantDev {
+			t.Errorf("Env=%q IsDevelopment()=%v, want %v", tc.env, got, tc.wantDev)
+		}
+	}
+}

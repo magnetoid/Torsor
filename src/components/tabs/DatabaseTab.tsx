@@ -72,16 +72,26 @@ const MOCK_TABLES: TableData[] = [
 ];
 
 export default function DatabaseTab() {
+  // ALL hooks must run before any early return — a useState after the `if (!isConnected)`
+  // return changed the hook count between renders (React "rendered more hooks" crash that
+  // the workspace ErrorBoundary then swallowed). Keep every hook at the top.
   const [isConnected, setIsConnected] = useState(false);
   const [activeTableId, setActiveTableId] = useState('users');
   const [viewMode, setViewMode] = useState<'table' | 'sql'>('table');
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [sqlQuery, setSqlQuery] = useState('SELECT * FROM users LIMIT 10;');
-  
+  const [queryHistory] = useState([
+    'SELECT * FROM users WHERE age > 30;',
+    'UPDATE posts SET published = true WHERE author_id = \'u1\';',
+    'DELETE FROM sessions WHERE expires_at < NOW();',
+    'SELECT email, full_name FROM users ORDER BY created_at DESC;',
+    'INSERT INTO posts (title, content) VALUES (\'New Post\', \'Content here\');'
+  ]);
+
   if (!isConnected) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-page p-8 animate-in fade-in duration-500">
-        <EmptyState 
+        <EmptyState
           icon={Database}
           title="No database connected"
           description="Connect a database to view tables, run SQL queries, and manage your project's data."
@@ -94,13 +104,6 @@ export default function DatabaseTab() {
       </div>
     );
   }
-  const [queryHistory] = useState([
-    'SELECT * FROM users WHERE age > 30;',
-    'UPDATE posts SET published = true WHERE author_id = \'u1\';',
-    'DELETE FROM sessions WHERE expires_at < NOW();',
-    'SELECT email, full_name FROM users ORDER BY created_at DESC;',
-    'INSERT INTO posts (title, content) VALUES (\'New Post\', \'Content here\');'
-  ]);
 
   const activeTable = MOCK_TABLES.find(t => t.id === activeTableId) || MOCK_TABLES[0];
 

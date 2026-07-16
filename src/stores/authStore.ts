@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { apiRequest, getStoredToken, setStoredToken } from '../lib/api';
+import { apiRequest, getStoredToken, setStoredToken, setUnauthorizedHandler } from '../lib/api';
 
 export interface User {
   id: string;
@@ -138,9 +138,19 @@ export const useAuthStore = create<AuthState>()(
         setStoredToken(null);
         set({ user: null, token: null, isAuthenticated: false, error: null, initialized: true });
       },
-      setOnboarded: (onboarded) => set((state) => ({
-        user: state.user ? { ...state.user, onboarded } : null,
-      })),
+      setOnboarded: (onboarded) => {
+        // Optimistic local update, then persist server-side so /auth/me doesn't force the
+        // onboarding flow again on the next load / another device. Best-effort: if the
+        // PATCH fails the local flag still lets the user proceed this session.
+        set((state) => ({ user: state.user ? { ...state.user, onboarded } : null }));
+        void apiRequest('/api/v1/auth/me', {
+          method: 'PATCH',
+          auth: true,
+          body: JSON.stringify({ onboarded }),
+        }).catch(() => {
+          /* keep the optimistic local state */
+        });
+      },
     }),
     {
       // Token is owned by localStorage ('torsor-auth-token' via lib/api); persist only
@@ -153,3 +163,12 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
+// When any authenticated request 401s (session expired/revoked server-side), drop local
+// auth so the route guards (ProtectedRoute) redirect to /login instead of leaving the app
+// wedged with a dead token and silent failures. Guarded so we don't loop while already out.
+setUnauthorizedHandler(() => {
+  if (!useAuthStore.getState().isAuthenticated) return;
+  setStoredToken(null);
+  useAuthStore.setState({ user: null, token: null, isAuthenticated: false, error: 'Your session expired. Please sign in again.' });
+});

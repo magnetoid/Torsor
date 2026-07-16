@@ -72,6 +72,7 @@ func (s *Server) Handler() http.Handler {
 			r.Use(s.auth.Require)
 			r.Post("/auth/logout", s.handleLogout)
 			r.Get("/auth/me", s.handleMe)
+			r.Patch("/auth/me", s.handleUpdateMe)
 
 			r.Get("/projects", s.handleListProjects)
 			r.Post("/projects", s.handleCreateProject)
@@ -219,7 +220,12 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 		allowed := ""
 		if len(s.cfg.CORSOrigins) == 0 {
-			allowed = origin // reflect request origin (matches cors origin:true)
+			// No CORS_ORIGIN configured: the intended topology is same-origin (nginx
+			// proxies /api to this service), so cross-origin is denied by default. Only
+			// explicit development reflects the request origin for convenience.
+			if s.cfg.IsDevelopment() {
+				allowed = origin
+			}
 		} else {
 			for _, o := range s.cfg.CORSOrigins {
 				if o == origin {

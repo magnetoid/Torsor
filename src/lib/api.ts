@@ -35,6 +35,18 @@ export function setStoredToken(token: string | null) {
   }
 }
 
+// Central session-expiry handler. When an *authenticated* request comes back 401, the
+// server has expired/revoked the session — clear local auth and let the route guards send
+// the user to /login. Registered by authStore so lib/api stays free of store imports (no
+// cycle). Not fired for unauthenticated calls (e.g. a bad-credentials login 401).
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(fn: (() => void) | null) {
+  onUnauthorized = fn;
+}
+function handleUnauthorized(authed: boolean, status: number) {
+  if (authed && status === 401) onUnauthorized?.();
+}
+
 interface RequestOptions extends RequestInit {
   auth?: boolean;
 }
@@ -52,6 +64,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   });
 
   if (!response.ok) {
+    handleUnauthorized(auth, response.status);
     let payload: ApiErrorShape | null = null;
     try {
       payload = await response.json();
@@ -161,6 +174,7 @@ export async function apiStream(path: string, body: unknown, options: StreamOpti
     } catch {
       payload = null;
     }
+    handleUnauthorized(auth, response.status);
     throw new ApiError(payload?.message || payload?.error || `Stream failed with status ${response.status}`, response.status);
   }
 
@@ -267,6 +281,7 @@ export async function apiExecStream(
     } catch {
       payload = null;
     }
+    handleUnauthorized(true, response.status);
     throw new ApiError(payload?.message || payload?.error || `Exec failed with status ${response.status}`, response.status);
   }
 
@@ -332,6 +347,7 @@ export async function apiAgentStream(
     } catch {
       payload = null;
     }
+    handleUnauthorized(auth, response.status);
     throw new ApiError(payload?.message || payload?.error || `Agent run failed with status ${response.status}`, response.status);
   }
 

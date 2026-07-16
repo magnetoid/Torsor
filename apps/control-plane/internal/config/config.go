@@ -32,7 +32,12 @@ type Config struct {
 	DefaultRuntime        string   // runtime name used when a request doesn't specify one
 }
 
-func (c Config) IsProduction() bool  { return c.Env == "production" }
+func (c Config) IsProduction() bool { return c.Env == "production" }
+
+// IsDevelopment is TRUE only when NODE_ENV is explicitly "development". An unset/blank
+// NODE_ENV is deliberately NOT development — it is treated as production-grade so a bare
+// `docker run` fails closed (strong-secret required, no dev seed, no creds leak) instead
+// of silently booting with a well-known JWT secret. Dev conveniences require opting in.
 func (c Config) IsDevelopment() bool { return c.Env == "development" }
 
 // Load reads configuration from the process environment, applying the same defaults as
@@ -40,7 +45,9 @@ func (c Config) IsDevelopment() bool { return c.Env == "development" }
 func Load() Config {
 	port := envInt("PORT", envInt("API_PORT", 3001))
 	return Config{
-		Env:                   envStr("NODE_ENV", "development"),
+		// Blank default (not "development"): an unset NODE_ENV must fail closed, not
+		// enable dev seeding + the well-known JWT secret. See IsDevelopment.
+		Env:                   envStr("NODE_ENV", ""),
 		Port:                  port,
 		AppURL:                envStr("APP_URL", "http://localhost:3000"),
 		APIURL:                envStr("VITE_API_URL", "http://localhost:"+strconv.Itoa(port)),

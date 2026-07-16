@@ -1,12 +1,14 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/magnetoid/torsor/control-plane/internal/auth"
 )
@@ -93,6 +95,12 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		 VALUES ($1, $2, $3, $4, $5) RETURNING `+projectCols,
 		userID(r), name, desc, vibe, body.IsPublic))
 	if err != nil {
+		// UNIQUE(user_id, name) violation → 409, not a generic 500 that leaks the constraint.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			writeError(w, http.StatusConflict, "A project with that name already exists")
+			return
+		}
 		s.fail(w, r, err)
 		return
 	}

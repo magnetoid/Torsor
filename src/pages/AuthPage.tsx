@@ -8,10 +8,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 export function AuthPage() {
   const location = useLocation();
   const routeMode = location.pathname === '/signup' ? 'signup' : 'login';
+  // Prefill the dev-seed credentials only in the local dev build, never in a production
+  // bundle (shipping real-looking creds in the login form is a bad look + a footgun).
+  const isDev = import.meta.env.DEV;
   const [isLogin, setIsLogin] = useState(routeMode === 'login');
-  const [email, setEmail] = useState('demo@torsor.local');
-  const [name, setName] = useState('Demo User');
-  const [password, setPassword] = useState('demo12345');
+  const [email, setEmail] = useState(isDev ? 'demo@torsor.local' : '');
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState(isDev ? 'demo12345' : '');
   const [formError, setFormError] = useState<string | null>(null);
 
   const { loginWithGitHub, loginWithGoogle, loginWithEmail, signup, isLoading, error } = useAuthStore();
@@ -153,7 +156,7 @@ export function AuthPage() {
                 />
               </div>
               {activeError && <p className="text-sm text-error">{activeError}</p>}
-              {isLogin && (
+              {isLogin && isDev && (
                 <p className="text-xs text-secondary">Dev seed: demo@torsor.local / demo12345</p>
               )}
               <button

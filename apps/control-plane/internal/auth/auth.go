@@ -31,6 +31,7 @@ type APIUser struct {
 	AvatarURL *string
 	Bio       *string
 	Role      Role
+	Onboarded bool
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -105,14 +106,17 @@ func (m *Manager) Authenticate(ctx context.Context, token string) (*Claims, erro
 	if err != nil {
 		return nil, err
 	}
-	if claims.SessionID != "" {
-		valid, err := m.SessionValid(ctx, claims.SessionID)
-		if err != nil {
-			return nil, err
-		}
-		if !valid {
-			return nil, ErrSessionInvalid
-		}
+	// A token without a sessionId is forged/malformed — every issued token has one.
+	// Require it so the server-side session check can't be bypassed.
+	if claims.SessionID == "" {
+		return nil, ErrSessionInvalid
+	}
+	valid, err := m.SessionValid(ctx, claims.SessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, ErrSessionInvalid
 	}
 	return claims, nil
 }
@@ -137,9 +141,9 @@ func (m *Manager) SanitizeUserByID(ctx context.Context, userID string) (*APIUser
 	u := &APIUser{}
 	var role *string
 	err := m.pool.QueryRow(ctx,
-		`SELECT id, email, username, avatar_url, bio, role, created_at, updated_at
+		`SELECT id, email, username, avatar_url, bio, role, onboarded, created_at, updated_at
 		   FROM users WHERE id = $1`, userID,
-	).Scan(&u.ID, &u.Email, &u.Username, &u.AvatarURL, &u.Bio, &role, &u.CreatedAt, &u.UpdatedAt)
+	).Scan(&u.ID, &u.Email, &u.Username, &u.AvatarURL, &u.Bio, &role, &u.Onboarded, &u.CreatedAt, &u.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

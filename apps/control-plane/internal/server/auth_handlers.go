@@ -59,7 +59,7 @@ func (s *Server) toUserPayload(u *auth.APIUser) userPayload {
 		Name:      u.Username,
 		AvatarURL: u.AvatarURL,
 		Role:      s.resolveRole(u.Email, u.Role),
-		Onboarded: true,
+		Onboarded: u.Onboarded,
 		CreatedAt: u.CreatedAt,
 	}
 }
@@ -210,10 +210,43 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": s.toUserPayload(u)})
 }
 
-// fail logs the error and returns a generic 500 (detail only outside production).
+// handleUpdateMe patches the current user's profile. Today it persists the onboarding
+// flag so the client stops re-running onboarding on reload; extend with name/avatar later.
+func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
+	claims, _ := auth.FromContext(r.Context())
+	var body struct {
+		Onboarded *bool `json:"onboarded"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if body.Onboarded != nil {
+		if _, err := s.pool.Exec(r.Context(),
+			`UPDATE users SET onboarded = $2, updated_at = NOW() WHERE id = $1`,
+			claims.UserID, *body.Onboarded); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	u, err := s.auth.SanitizeUserByID(r.Context(), claims.UserID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if u == nil {
+		writeError(w, http.StatusNotFound, "User not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"user": s.toUserPayload(u)})
+}
+
+// fail logs the error and returns a generic 500. Error detail is exposed only in explicit
+// development (NODE_ENV=development); an unset NODE_ENV fails closed like production so
+// internals aren't leaked to clients.
 func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 	s.logger.Error("request error", "path", r.URL.Path, "err", err)
-	if s.cfg.IsProduction() {
+	if !s.cfg.IsDevelopment() {
 		writeError(w, http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
