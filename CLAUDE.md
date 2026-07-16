@@ -97,6 +97,12 @@ A project-specific `torsor-helper` MCP server is available (tools like `map_repo
 ### Non-negotiable principles
 - **Free and open by default.** Works with local models (Ollama) — no API key or paid
   service required. Hosted models (Claude/OpenAI/Gemini) are opt-in, never required.
+- **Open-source first (ADR 0010).** By default, integrate/adapt mature open-source code,
+  libraries, and tools behind Torsor's plugin/kernel contracts rather than writing bespoke
+  equivalents — reach for the OSS option first (Yjs, firecracker-go-sdk, the MCP SDK, …).
+  Build in-house only when nothing fits, the license is incompatible with free/open
+  redistribution, it fails security/maintenance review, or it adds disproportionate bloat.
+  Record the source + license when integrating.
 - **Kernel + contributions.** Keep the core small and stable. Every feature is a plugin
   on a versioned public contract — modular in fact, not just on paper.
 - **Per-user ownership on every data route.** Project/file/task queries always scope by
