@@ -8,7 +8,11 @@ RUN npm ci --no-audit --no-fund
 
 COPY . .
 
-ARG VITE_API_URL=/api
+# Empty by default so the SPA's absolute /api/v1/... paths hit the same origin
+# (nginx proxies them to the control plane). api.ts concatenates API_URL + path,
+# so a non-empty value here must NOT include /api or requests become /api/api/v1.
+# Override only for a cross-origin API (e.g. VITE_API_URL=https://api.example.com).
+ARG VITE_API_URL=
 ENV VITE_API_URL=${VITE_API_URL}
 RUN npm run build
 

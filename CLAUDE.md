@@ -9,9 +9,9 @@ An open-source, self-hostable, modular "vibe-coding" cloud IDE. The repo is **mi
 ## Repo layout (three backends + one frontend)
 
 - **`src/`** — React 19 + Vite + Tailwind 4 frontend (repo root, not under `apps/`). This is the strongest existing asset and carries forward unchanged.
-- **`apps/api/`** — Express + TypeScript REST API. The current `[now]` backend; everything is wired to it.
-- **`apps/worker/`** — background job processor (polls `ai_tasks`, also wakes on the `torsor:jobs` Redis pub/sub channel).
-- **`apps/control-plane/`** — Go service that is a deliberate **1:1 port of `apps/api`** (same routes, JSON shapes, schema, JWT/session model). Shipped **in parallel**; nothing depends on it yet. It is the future backend (Phase 1) and additionally hosts the gRPC plugin system + streaming gateway. Adopting it is a reversible cutover, not yet done.
+- **`apps/control-plane/`** — Go service: **the backend** as of the cutover (ADR 0009). The default install (`docker-compose.yml` → `nginx.conf`) now routes the frontend to it; it applies migrations and hosts auth/projects/files, the gRPC plugin system (model providers + workspace runtimes), the coding-agent loop, live preview, and terminal exec. Began as a 1:1 port of `apps/api`; the cutover is deliberate but **reversible** (flip nginx/compose back).
+- **`apps/api/`** — Express + TypeScript REST API. The **legacy** backend, retained for reference and rollback; no longer in the default stack. Kept until the control-plane is battle-tested, then removed.
+- **`apps/worker/`** — legacy background job processor (polled `ai_tasks`, woke on the `torsor:jobs` Redis channel). Retired from the default stack; the control-plane's agent loop replaces it.
 
 `apps/api` and `apps/control-plane` share the **same Postgres schema and `schema_migrations` table** with idempotent SQL, so either service can run migrations against a shared DB without conflict.
 
@@ -107,8 +107,10 @@ A project-specific `torsor-helper` MCP server is available (tools like `map_repo
   white-labeling is drop-in and requires no component changes.
 - **Respect the `[now]` / `[partial]` / `[target]` doc tags.** Much of the architecture
   is aspirational. Don't treat target design as built, or present mock UI as real.
-- **The Go control plane is a reversible parallel port.** Keep it 1:1 with `apps/api`
-  (routes, JSON shapes, schema) until a deliberate cutover — don't let them diverge.
+- **The Go control plane is the backend (cutover done — ADR 0009).** It is now the
+  default runtime; `apps/api` is legacy (reference/rollback only). The cutover stays
+  reversible (nginx/compose can flip back), so don't delete `apps/api` yet — but new
+  work targets the control-plane, and the two need not stay 1:1.
 
 ### Architecture rules (machine-enforced — `torsor guard` flags violations)
 - forbid_pattern: `console\.log` in `apps/api/src/**/*.ts` — apps/api uses the pino structured logger (and req.log) — avoid console.log. (per ADR 0002: Data-access & auth invariants)

@@ -3,30 +3,16 @@ name: torsor
 # Production-leaning defaults for Coolify (and any Compose host).
 # - Internal services use `expose`, not host `ports`
 # - No fixed `container_name` values, so deploys stay namespace-safe
-# - Migrations are applied by the API on startup (apps/api/migrations)
-# - For local dev, `docker-compose.override.yml` flips images to dev mode
+# - The Go control-plane is now the backend (the api→control-plane cutover, ADR 0009).
+#   It applies migrations on startup and hosts the AI agent, workspace runtime, live
+#   preview, terminal exec, and model providers — the features the frontend calls.
+# - For local dev, `docker-compose.override.yml` flips to dev mode (NODE_ENV=development,
+#   frontend hot-reload).
 
 x-postgres-env: &postgres-env
   POSTGRES_DB: ${POSTGRES_DB:-torsor_dev}
   POSTGRES_USER: ${POSTGRES_USER:-postgres}
   POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-
-x-app-env: &app-env
-  NODE_ENV: ${NODE_ENV:-production}
-  APP_ENV: ${APP_ENV:-production}
-  API_PORT: ${API_PORT:-3001}
-  FRONTEND_PORT: ${FRONTEND_PORT:-3000}
-  APP_URL: ${APP_URL:-http://localhost:3000}
-  DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-torsor_dev}
-  REDIS_URL: redis://redis:6379
-  JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-  LOG_LEVEL: ${LOG_LEVEL:-info}
-  SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  SUPABASE_URL: ${SUPABASE_URL:-}
-  SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
-  SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
 
 x-restart-policy: &restart-policy
   restart: unless-stopped
@@ -78,18 +64,52 @@ services:
     mem_limit: 384m
     cpus: 0.5
 
-  api:
+  # The Go control plane — the backend. Bundles the ollama-model provider + the
+  # mock/docker workspace runtimes (see apps/control-plane/Dockerfile).
+  control-plane:
     build:
-      context: ./apps/api
+      context: ./apps/control-plane
       dockerfile: Dockerfile
-      target: production
     <<: [*restart-policy, *default-logging]
     environment:
-      <<: *app-env
-      PORT: ${API_PORT:-3001}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+      # NODE_ENV=production makes the control plane FAIL CLOSED: it refuses to boot
+      # without a strong JWT_SECRET and never seeds a demo user. Provide JWT_SECRET.
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: "3001"
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-torsor_dev}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SUPER_ADMIN_EMAILS: ${SUPER_ADMIN_EMAILS:-}
+      # AES-256 key (32 bytes) for encrypting BYO API keys at rest. Set in production.
+      TORSOR_SECRET_KEY: ${TORSOR_SECRET_KEY:-}
+      # Model providers: the free local default via Ollama. Point OLLAMA_HOST at your
+      # Ollama server (the optional `ollama` service below, or one on the host), and pull
+      # a coding model (e.g. `ollama pull qwen3-coder` / `devstral`).
+      TORSOR_MODEL_PLUGINS: /app/ollama-model
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3-coder}
+      # Workspace runtimes: mock (in-memory, safe anywhere) + docker (real containers).
+      # Default to docker so terminals/preview/agent-exec are REAL. This requires the
+      # Docker socket mounted below. SECURITY: mounting the socket gives this container
+      # root-equivalent host access — only do this on a SINGLE-TENANT self-host. For
+      # multi-tenant, run docker-runtime on a dedicated worker host (or the future
+      # firecracker-runtime) and set TORSOR_DEFAULT_RUNTIME=mock here.
+      TORSOR_WORKSPACE_RUNTIME_PLUGINS: /app/mock-runtime,/app/docker-runtime
+      TORSOR_DEFAULT_RUNTIME: ${TORSOR_DEFAULT_RUNTIME:-docker}
+      TORSOR_WS_IMAGE_ALLOWLIST: ${TORSOR_WS_IMAGE_ALLOWLIST:-}
     expose:
-      - "${API_PORT:-3001}"
+      - "3001"
+    volumes:
+      # Real container workspaces need the Docker engine. Remove this (and set
+      # TORSOR_DEFAULT_RUNTIME=mock) on shared/multi-tenant hosts.
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      # Lets OLLAMA_HOST=host.docker.internal reach an Ollama running on the host (Linux).
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,34 +118,11 @@ services:
     networks:
       - torsor_network
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:' + (process.env.PORT || 3001) + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      test: ["CMD", "/app/control-plane", "-health"]
       interval: 15s
       timeout: 5s
       retries: 10
       start_period: 30s
-    mem_limit: 512m
-    cpus: 1.0
-    stop_grace_period: 30s
-
-  worker:
-    build:
-      context: ./apps/worker
-      dockerfile: Dockerfile
-      target: production
-    <<: [*restart-policy, *default-logging]
-    environment:
-      <<: *app-env
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-5}
-      WORKER_POLL_INTERVAL_MS: ${WORKER_POLL_INTERVAL_MS:-5000}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-    networks:
-      - torsor_network
     mem_limit: 512m
     cpus: 1.0
     stop_grace_period: 30s
@@ -140,7 +137,6 @@ services:
     <<: [*restart-policy, *default-logging]
     environment:
       NODE_ENV: ${NODE_ENV:-production}
-      APP_ENV: ${APP_ENV:-production}
       VITE_API_URL: ${VITE_API_URL:-}
     expose:
       - "80"
@@ -150,7 +146,7 @@ services:
     ports:
       - "127.0.0.1:${FRONTEND_HOST_PORT:-18080}:80"
     depends_on:
-      api:
+      control-plane:
         condition: service_healthy
     networks:
       - torsor_network
@@ -162,6 +158,21 @@ services:
       start_period: 10s
     mem_limit: 128m
     cpus: 0.5
+
+  # Optional local model server (free AI). Enable with `--profile ai`. Pull a coding
+  # model into it once, e.g. `docker compose exec ollama ollama pull qwen3-coder`.
+  ollama:
+    image: ollama/ollama:latest
+    <<: [*restart-policy, *default-logging]
+    profiles:
+      - ai
+    volumes:
+      - ollama_data:/root/.ollama
+    expose:
+      - "11434"
+    networks:
+      - torsor_network
+    mem_limit: 8g
 
   adminer:
     image: adminer:4-standalone
@@ -182,9 +193,8 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  ollama_data:
   frontend_node_modules:
-  api_node_modules:
-  worker_node_modules:
 
 networks:
   torsor_network:
