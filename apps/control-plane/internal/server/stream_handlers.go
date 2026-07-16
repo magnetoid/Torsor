@@ -66,9 +66,11 @@ func (s *Server) handleCompleteSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no") // disable nginx proxy buffering
 	w.WriteHeader(http.StatusOK)
 
+	req := body.toRequest()
+	req.APIKey = s.providerAPIKey(r.Context(), userID(r), providerName)
 	var usageModel string
 	var usageTokensOut int32
-	err := provider.CompleteStream(r.Context(), body.toRequest(), func(c plugin.Chunk) error {
+	err := provider.CompleteStream(r.Context(), req, func(c plugin.Chunk) error {
 		if c.Done {
 			usageModel, usageTokensOut = c.Model, c.TokensOut
 		}
@@ -132,9 +134,11 @@ func (s *Server) handleCompleteWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req := body.toRequest()
+	req.APIKey = s.providerAPIKey(r.Context(), claims.UserID, providerName)
 	var usageModel string
 	var usageTokensOut int32
-	streamErr := provider.CompleteStream(r.Context(), body.toRequest(), func(c plugin.Chunk) error {
+	streamErr := provider.CompleteStream(r.Context(), req, func(c plugin.Chunk) error {
 		if c.Done {
 			usageModel, usageTokensOut = c.Model, c.TokensOut
 		}

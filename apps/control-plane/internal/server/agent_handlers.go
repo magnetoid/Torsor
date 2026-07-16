@@ -141,6 +141,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	runner := agent.NewRunner(provider, rt, agent.Config{
 		WorkspaceID: ws.ProjectID,
 		MaxSteps:    body.MaxSteps,
+		APIKey:      s.providerAPIKey(r.Context(), userID(r), providerName),
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).

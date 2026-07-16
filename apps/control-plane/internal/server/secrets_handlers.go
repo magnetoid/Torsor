@@ -113,6 +113,14 @@ func (s *Server) handleDeleteSecret(w http.ResponseWriter, r *http.Request) {
 // lookupUserSecret decrypts one of a user's secrets by name for internal use (e.g. feeding
 // a BYO API key into a model provider). Returns ("", nil) when the secret does not exist or
 // secrets are disabled, so callers can fall back to host-env credentials.
+// providerAPIKey returns the caller's decrypted BYO key for a model provider, looked up by
+// the convention secret name "{PROVIDER}_API_KEY" (e.g. anthropic -> ANTHROPIC_API_KEY).
+// Returns "" when absent or secrets are disabled, so the plugin falls back to its host key.
+func (s *Server) providerAPIKey(ctx context.Context, uid, providerName string) string {
+	key, _ := s.lookupUserSecret(ctx, uid, strings.ToUpper(providerName)+"_API_KEY")
+	return key
+}
+
 func (s *Server) lookupUserSecret(ctx context.Context, uid, keyName string) (string, error) {
 	cipher, err := s.secretCipher()
 	if errors.Is(err, secrets.ErrDisabled) {

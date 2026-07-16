@@ -68,8 +68,18 @@ func (p provider) params(req plugin.CompleteRequest) anthropic.MessageNewParams 
 	return params
 }
 
+// clientFor returns a client using the caller's per-request BYO key when provided,
+// otherwise the plugin's host-env client. This is what makes hosted models opt-in per user.
+func (p provider) clientFor(req plugin.CompleteRequest) anthropic.Client {
+	if key := strings.TrimSpace(req.APIKey); key != "" {
+		return anthropic.NewClient(option.WithAPIKey(key))
+	}
+	return p.client
+}
+
 func (p provider) Complete(ctx context.Context, req plugin.CompleteRequest) (plugin.CompleteResult, error) {
-	msg, err := p.client.Messages.New(ctx, p.params(req))
+	client := p.clientFor(req)
+	msg, err := client.Messages.New(ctx, p.params(req))
 	if err != nil {
 		return plugin.CompleteResult{}, fmt.Errorf("anthropic: %w", err)
 	}
@@ -88,7 +98,8 @@ func (p provider) Complete(ctx context.Context, req plugin.CompleteRequest) (plu
 }
 
 func (p provider) CompleteStream(ctx context.Context, req plugin.CompleteRequest, onChunk func(plugin.Chunk) error) error {
-	stream := p.client.Messages.NewStreaming(ctx, p.params(req))
+	client := p.clientFor(req)
+	stream := client.Messages.NewStreaming(ctx, p.params(req))
 	var tokensOut int64
 	for stream.Next() {
 		event := stream.Current()

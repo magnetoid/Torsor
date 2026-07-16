@@ -86,6 +86,7 @@ func (s *Server) handleComplete(w http.ResponseWriter, r *http.Request) {
 		System:      body.System,
 		MaxTokens:   body.MaxTokens,
 		Temperature: body.Temperature,
+		APIKey:      s.providerAPIKey(r.Context(), userID(r), name),
 	})
 	if err != nil {
 		s.fail(w, r, err)

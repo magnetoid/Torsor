@@ -32,6 +32,9 @@ message CompleteRequest {
   string system = 2;
   int32 max_tokens = 3;
   double temperature = 4;
+  // Optional per-request API key (a caller's decrypted BYO secret). When empty the plugin
+  // uses its own host-env credential. Lets hosted providers be opt-in per user.
+  string api_key = 5;
 }
 
 message CompleteResponse {

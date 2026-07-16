@@ -50,6 +50,9 @@ type CompleteRequest struct {
 	System      string
 	MaxTokens   int32
 	Temperature float64
+	// APIKey is an optional per-request credential (a caller's decrypted BYO secret).
+	// Empty => the plugin uses its own host-env key.
+	APIKey string
 }
 
 // CompleteResult is a single completion result.
@@ -117,6 +120,7 @@ func (c *grpcClient) Complete(ctx context.Context, req CompleteRequest) (Complet
 		System:      req.System,
 		MaxTokens:   req.MaxTokens,
 		Temperature: req.Temperature,
+		ApiKey:      req.APIKey,
 	})
 	if err != nil {
 		return CompleteResult{}, err
@@ -135,6 +139,7 @@ func (c *grpcClient) CompleteStream(ctx context.Context, req CompleteRequest, on
 		System:      req.System,
 		MaxTokens:   req.MaxTokens,
 		Temperature: req.Temperature,
+		ApiKey:      req.APIKey,
 	})
 	if err != nil {
 		return err
@@ -183,6 +188,7 @@ func (s *grpcServer) Complete(ctx context.Context, req *proto.CompleteRequest) (
 		System:      req.GetSystem(),
 		MaxTokens:   req.GetMaxTokens(),
 		Temperature: req.GetTemperature(),
+		APIKey:      req.GetApiKey(),
 	})
 	if err != nil {
 		return nil, err
@@ -201,6 +207,7 @@ func (s *grpcServer) CompleteStream(req *proto.CompleteRequest, stream grpc.Serv
 		System:      req.GetSystem(),
 		MaxTokens:   req.GetMaxTokens(),
 		Temperature: req.GetTemperature(),
+		APIKey:      req.GetApiKey(),
 	}, func(c Chunk) error {
 		return stream.Send(&proto.CompleteChunk{
 			TextDelta: c.TextDelta,

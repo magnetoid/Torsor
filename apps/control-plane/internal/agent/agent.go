@@ -62,6 +62,7 @@ type Config struct {
 	MaxSteps     int   // hard cap on model turns (default 12)
 	MaxTokens    int32 // per-model-call output cap (default 2048)
 	MaxObservLen int   // truncate a tool observation fed back to the model (default 4000 chars)
+	APIKey       string // optional per-user BYO key forwarded to the model provider
 }
 
 func (c *Config) withDefaults() {
@@ -160,6 +161,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 			Prompt:    prompt,
 			System:    systemPrompt,
 			MaxTokens: r.cfg.MaxTokens,
+			APIKey:    r.cfg.APIKey,
 		})
 		if err != nil {
 			emit(Event{Kind: EventError, Step: i, Text: err.Error()})
