@@ -23,6 +23,7 @@ import {
   Workflow,
   Frame,
   MonitorPlay,
+  History,
   LucideIcon
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -97,6 +98,7 @@ export function Rail({ className }: { className?: string }) {
     { type: 'publishing', icon: Rocket, label: 'Publishing' },
     { type: 'validation', icon: CheckCircle, label: 'Validation' },
     { type: 'git', icon: GitBranch, label: 'Git' },
+    { type: 'checkpoints', icon: History, label: 'Checkpoints' },
     { type: 'workflow', icon: Workflow, label: 'Workflows' },
     { type: 'canvas', icon: Frame, label: 'Canvas' },
     { type: 'testing', icon: MonitorPlay, label: 'App Testing' },

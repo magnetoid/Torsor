@@ -18,10 +18,11 @@ import {
   Workflow,
   Frame,
   MonitorPlay,
+  History,
   LucideIcon
 } from 'lucide-react';
 
-export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing';
+export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints';
 
 export interface Tab {
   id: string;
@@ -78,6 +79,7 @@ export const TAB_CONFIG: Record<TabType, { label: string; icon: LucideIcon; clos
   workflow: { label: 'Workflows', icon: Workflow, closable: true },
   canvas: { label: 'Canvas', icon: Frame, closable: true },
   testing: { label: 'App Testing', icon: MonitorPlay, closable: true },
+  checkpoints: { label: 'Checkpoints', icon: History, closable: true },
 };
 
 export const useLayoutStore = create<LayoutState>()(
