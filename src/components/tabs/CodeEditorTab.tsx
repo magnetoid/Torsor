@@ -19,19 +19,32 @@ import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/utils';
 
 export default function CodeEditorTab() {
-  const { files, updateFileContent } = useAppStore();
+  const { files, updateFileContent, saveFile, saveStatus, workspaceProjectId } = useAppStore();
   const { openFileIds, activeFileId, setActiveFile, closeFile } = useEditorStore();
   const [editorValue, setEditorValue] = useState('');
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
 
   const activeFile = files.find(f => f.id === activeFileId);
   const openFiles = openFileIds.map(id => files.find(f => f.id === id)).filter(Boolean);
+  const activeSaveStatus = activeFileId ? saveStatus[activeFileId] : undefined;
 
   useEffect(() => {
     if (activeFile) {
       setEditorValue(activeFile.content || '');
     }
   }, [activeFileId, activeFile?.content]);
+
+  // Cmd/Ctrl+S forces an immediate save (bypassing the debounce) for workspace-backed files.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (activeFileId && workspaceProjectId) void saveFile(activeFileId);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeFileId, workspaceProjectId, saveFile]);
 
   const handleEditorChange = (value: string | undefined) => {
     if (value !== undefined && activeFileId) {
@@ -233,10 +246,33 @@ export default function CodeEditorTab() {
           <span>UTF-8</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-success" />
-            Saved
-          </span>
+          {!workspaceProjectId ? (
+            // No real workspace backs this file — don't claim it's saved to a backend.
+            <span className="flex items-center gap-1 text-tertiary">
+              <div className="w-1.5 h-1.5 rounded-full border border-default" />
+              Local
+            </span>
+          ) : activeSaveStatus === 'saving' ? (
+            <span className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+              Saving…
+            </span>
+          ) : activeSaveStatus === 'error' ? (
+            <span className="flex items-center gap-1 text-error">
+              <div className="w-1.5 h-1.5 rounded-full bg-error" />
+              Save failed
+            </span>
+          ) : activeSaveStatus === 'dirty' ? (
+            <span className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+              Unsaved
+            </span>
+          ) : (
+            <span className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-success" />
+              Saved
+            </span>
+          )}
           <span className="uppercase">{getLanguage(activeFile.name)}</span>
         </div>
       </div>

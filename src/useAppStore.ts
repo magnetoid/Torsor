@@ -22,6 +22,23 @@ import { persist } from 'zustand/middleware';
 import { useErrorStore } from './stores/errorStore';
 import { apiRequest } from './lib/api';
 
+// Per-file debounce timers for editor auto-save (module scope: one shared set across the
+// single store instance). Keyed by FileNode.id.
+const saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const SAVE_DEBOUNCE_MS = 800;
+
+/** UTF-8-safe base64 encode, chunked so large files don't overflow the call stack.
+ *  Mirror of the atob+TextDecoder read path in loadFileContent. */
+function encodeBase64Utf8(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
 // --- Types ---
 
 export type AppMode = 'builder' | 'ide';
@@ -82,6 +99,9 @@ export interface ChatMessage {
 }
 
 export type FileType = 'file' | 'folder';
+
+/** Persistence state for a workspace-backed file, driving the editor's save indicator. */
+export type FileSaveStatus = 'dirty' | 'saving' | 'saved' | 'error';
 
 export interface FileNode {
   id: string;
@@ -175,6 +195,11 @@ interface AppState {
   files: FileNode[];
   openTabs: string[];
   activeTab: string | null;
+  /** The project whose real workspace backs `files` (set by loadWorkspaceFiles). Gates
+   *  saves so we never POST mock/local scaffolding to a workspace we didn't load from. */
+  workspaceProjectId: string | null;
+  /** Per-file persistence status, keyed by FileNode.id, driving the editor indicator. */
+  saveStatus: Record<string, FileSaveStatus>;
   /** Populate the file tree from a project's real workspace (WorkspaceRuntime). Makes
    *  files the agent creates visible in the IDE. */
   loadWorkspaceFiles: (projectId: string) => Promise<void>;
@@ -182,7 +207,12 @@ interface AppState {
   loadFileContent: (projectId: string, fileId: string) => Promise<void>;
   openFile: (id: string) => void;
   closeTab: (id: string) => void;
+  /** Update a file's content in memory and (for workspace-backed files) schedule a
+   *  debounced save to the workspace. Marks the file dirty immediately. */
   updateFileContent: (id: string, content: string) => void;
+  /** Persist a file's current content to the workspace now (POST /workspace/file).
+   *  No-op unless the tree was loaded from a real workspace. */
+  saveFile: (id: string) => Promise<void>;
   createFile: (name: string, type: FileType, parentId: string | null) => void;
   deleteFile: (id: string) => void;
   renameFile: (id: string, newName: string) => void;
@@ -656,6 +686,8 @@ export const useAppStore = create<AppState>()(
       files: INITIAL_FILES,
       openTabs: [],
       activeTab: null,
+      workspaceProjectId: null,
+      saveStatus: {},
       loadWorkspaceFiles: async (projectId) => {
         try {
           const base = `/api/v1/projects/${projectId}/workspace/files`;
@@ -682,9 +714,12 @@ export const useAppStore = create<AppState>()(
               if (e.isDir) queue.push(e.path);
             }
           }
-          set({ files: nodes });
+          // Mark this project's workspace as the save target and reset per-file status;
+          // freshly-listed files are considered clean/saved.
+          set({ files: nodes, workspaceProjectId: projectId, saveStatus: {} });
         } catch {
           // No workspace yet, or a backend without the runtime capability: leave files as-is.
+          set({ workspaceProjectId: null });
         }
       },
       loadFileContent: async (projectId, fileId) => {
@@ -716,9 +751,48 @@ export const useAppStore = create<AppState>()(
           activeTab: state.activeTab === id ? (newTabs[newTabs.length - 1] || null) : state.activeTab
         };
       }),
-      updateFileContent: (id, content) => set((state) => ({
-        files: state.files.map(f => f.id === id ? { ...f, content } : f)
-      })),
+      updateFileContent: (id, content) => {
+        set((state) => ({
+          files: state.files.map(f => f.id === id ? { ...f, content } : f),
+          // Only track/save files backed by a real workspace; local scaffolding stays untracked.
+          saveStatus: get().workspaceProjectId
+            ? { ...state.saveStatus, [id]: 'dirty' as FileSaveStatus }
+            : state.saveStatus,
+        }));
+        if (!get().workspaceProjectId) return;
+        // Debounce the network write so we don't POST on every keystroke.
+        const existing = saveTimers.get(id);
+        if (existing) clearTimeout(existing);
+        saveTimers.set(id, setTimeout(() => {
+          saveTimers.delete(id);
+          void get().saveFile(id);
+        }, SAVE_DEBOUNCE_MS));
+      },
+      saveFile: async (id) => {
+        const projectId = get().workspaceProjectId;
+        if (!projectId) return; // not workspace-backed → nothing to persist
+        const file = get().files.find(f => f.id === id);
+        if (!file || file.type !== 'file') return;
+        // Cancel any pending debounce so an explicit save (Cmd/Ctrl+S) wins cleanly.
+        const pending = saveTimers.get(id);
+        if (pending) { clearTimeout(pending); saveTimers.delete(id); }
+        set((state) => ({ saveStatus: { ...state.saveStatus, [id]: 'saving' } }));
+        try {
+          await apiRequest(`/api/v1/projects/${projectId}/workspace/file`, {
+            method: 'POST',
+            auth: true,
+            body: JSON.stringify({
+              path: id, // FileNode.id === workspace path for workspace-backed files
+              contentBase64: encodeBase64Utf8(file.content ?? ''),
+            }),
+          });
+          set((state) => ({ saveStatus: { ...state.saveStatus, [id]: 'saved' } }));
+        } catch {
+          // Surface via the editor's save indicator ('Save failed'); an authed 401 is
+          // separately handled by lib/api's central session-expiry redirect.
+          set((state) => ({ saveStatus: { ...state.saveStatus, [id]: 'error' } }));
+        }
+      },
       createFile: (name, type, parentId) => set((state) => {
         const ext = name.split('.').pop();
         const newFile: FileNode = {
