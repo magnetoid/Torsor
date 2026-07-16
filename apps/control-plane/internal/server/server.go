@@ -119,6 +119,14 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
 
+			// Snapshot / restore / fork (microVM sandbox pattern) over the WorkspaceRuntime
+			// capability. Runtimes without support return 501; the snapshot handle is a
+			// runtime-native id persisted per project (ownership-scoped).
+			r.Post("/projects/{projectID}/workspace/snapshot", s.handleSnapshotWorkspace)
+			r.Get("/projects/{projectID}/workspace/snapshots", s.handleListWorkspaceSnapshots)
+			r.Post("/projects/{projectID}/workspace/restore", s.handleRestoreWorkspace)
+			r.Post("/projects/{projectID}/workspace/fork", s.handleForkWorkspace)
+
 			// Checkpoints: file-tree snapshots for restore/rollback (ownership-scoped).
 			r.Get("/projects/{projectID}/checkpoints", s.handleListCheckpoints)
 			r.Post("/projects/{projectID}/checkpoints", s.handleCreateCheckpoint)

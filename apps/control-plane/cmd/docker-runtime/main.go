@@ -145,6 +145,13 @@ func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) ([]stri
 	if err != nil {
 		return nil, err
 	}
+	return buildCreateArgsForImage(name, image, spec, lim), nil
+}
+
+// buildCreateArgsForImage builds the `docker create` argv for an already-resolved, trusted
+// image (skips the allowlist gate). Used by snapshot restore/fork, which run our own commit
+// images — never a caller-supplied reference.
+func buildCreateArgsForImage(name, image string, spec plugin.WorkspaceSpec, lim limits) []string {
 	args := []string{"create", "--name", name}
 	if spec.WorkingDir != "" {
 		args = append(args, "-w", spec.WorkingDir)
@@ -190,7 +197,7 @@ func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) ([]stri
 	if lim.keepAlive {
 		args = append(args, "tail", "-f", "/dev/null")
 	}
-	return args, nil
+	return args
 }
 
 // previewTarget asks docker for the host mapping of the workspace's published app port and
@@ -400,6 +407,83 @@ func (r runtime) WriteFile(ctx context.Context, workspaceID, path string, conten
 	}
 	_, err := run(ctx, content, "exec", "-i", containerName(workspaceID), "sh", "-c", script)
 	return err
+}
+
+// SnapshotWorkspace captures the container's filesystem as a docker image via `docker
+// commit`. The returned snapshot id is the image id — pass it to Restore/Fork. Best-effort
+// (documented limits): this is a filesystem snapshot, not a live-memory microVM snapshot;
+// running processes are not preserved.
+func (r runtime) SnapshotWorkspace(ctx context.Context, workspaceID, label string) (plugin.SnapshotResult, error) {
+	args := []string{"commit"}
+	if label != "" {
+		args = append(args, "-m", label)
+	}
+	args = append(args, containerName(workspaceID))
+	out, err := run(ctx, nil, args...)
+	if err != nil {
+		return plugin.SnapshotResult{}, err
+	}
+	imageID := strings.TrimSpace(out)
+	return plugin.SnapshotResult{WorkspaceID: workspaceID, SnapshotID: imageID, Message: "docker image " + shortImageID(imageID)}, nil
+}
+
+// RestoreWorkspace resets a workspace to a snapshot by removing the current container and
+// recreating it from the snapshot image, then starting it. The container id changes; the
+// filesystem is restored.
+func (r runtime) RestoreWorkspace(ctx context.Context, workspaceID, snapshotID string) (plugin.WorkspaceStatus, error) {
+	name := containerName(workspaceID)
+	_, _ = run(ctx, nil, "rm", "-f", name) // best-effort: remove the current container
+	args := buildCreateArgsForImage(name, snapshotID, plugin.WorkspaceSpec{ID: workspaceID}, r.lim)
+	out, err := run(ctx, nil, args...)
+	if err != nil {
+		return plugin.WorkspaceStatus{WorkspaceID: workspaceID, Status: "unknown"}, err
+	}
+	if _, err := run(ctx, nil, "start", name); err != nil {
+		return plugin.WorkspaceStatus{WorkspaceID: workspaceID, ContainerID: strings.TrimSpace(out), Status: "created"}, err
+	}
+	st := plugin.WorkspaceStatus{
+		WorkspaceID: workspaceID, ContainerID: strings.TrimSpace(out), Status: "running",
+		Message: "restored from " + shortImageID(snapshotID),
+	}
+	st.PreviewHost, st.PreviewPort = r.previewTarget(ctx, workspaceID)
+	return st, nil
+}
+
+// ForkWorkspace provisions a new workspace from a source snapshot (or the live source, which
+// is committed first), then starts it. The fork is an independent container.
+func (r runtime) ForkWorkspace(ctx context.Context, sourceWorkspaceID, snapshotID, newWorkspaceID string) (plugin.WorkspaceStatus, error) {
+	image := snapshotID
+	if image == "" {
+		out, err := run(ctx, nil, "commit", containerName(sourceWorkspaceID))
+		if err != nil {
+			return plugin.WorkspaceStatus{WorkspaceID: newWorkspaceID, Status: "unknown"}, err
+		}
+		image = strings.TrimSpace(out)
+	}
+	name := containerName(newWorkspaceID)
+	args := buildCreateArgsForImage(name, image, plugin.WorkspaceSpec{ID: newWorkspaceID}, r.lim)
+	out, err := run(ctx, nil, args...)
+	if err != nil {
+		return plugin.WorkspaceStatus{WorkspaceID: newWorkspaceID, Status: "unknown"}, err
+	}
+	if _, err := run(ctx, nil, "start", name); err != nil {
+		return plugin.WorkspaceStatus{WorkspaceID: newWorkspaceID, ContainerID: strings.TrimSpace(out), Status: "created"}, err
+	}
+	st := plugin.WorkspaceStatus{
+		WorkspaceID: newWorkspaceID, ContainerID: strings.TrimSpace(out), Status: "running",
+		Message: "forked from " + sourceWorkspaceID,
+	}
+	st.PreviewHost, st.PreviewPort = r.previewTarget(ctx, newWorkspaceID)
+	return st, nil
+}
+
+// shortImageID trims a docker image id ("sha256:hex…") to a short, human-readable form.
+func shortImageID(id string) string {
+	id = strings.TrimPrefix(id, "sha256:")
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
 }
 
 // shellQuote single-quotes a string for safe use inside an `sh -c` script.

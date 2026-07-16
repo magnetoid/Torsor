@@ -17,9 +17,13 @@ import (
 )
 
 // runtime is an in-memory mock: each workspace is a status plus a flat path->content map.
+// It also implements real (in-memory) snapshot/restore/fork so the whole capability can be
+// exercised end-to-end without Docker or a microVM host.
 type runtime struct {
-	mu         sync.Mutex
-	workspaces map[string]*workspace
+	mu          sync.Mutex
+	workspaces  map[string]*workspace
+	snapshots   map[string]*snapshot
+	snapCounter int
 }
 
 type workspace struct {
@@ -27,8 +31,24 @@ type workspace struct {
 	files  map[string][]byte
 }
 
+type snapshot struct {
+	workspaceID string
+	files       map[string][]byte
+}
+
 func newRuntime() *runtime {
-	return &runtime{workspaces: map[string]*workspace{}}
+	return &runtime{workspaces: map[string]*workspace{}, snapshots: map[string]*snapshot{}}
+}
+
+// copyFiles deep-copies a workspace file map so a snapshot is independent of later edits.
+func copyFiles(in map[string][]byte) map[string][]byte {
+	out := make(map[string][]byte, len(in))
+	for k, v := range in {
+		b := make([]byte, len(v))
+		copy(b, v)
+		out[k] = b
+	}
+	return out
 }
 
 func (r *runtime) Info(_ context.Context) (plugin.RuntimeInfo, error) {
@@ -144,6 +164,65 @@ func (r *runtime) WriteFile(_ context.Context, workspaceID, p string, content []
 	}
 	ws.files[p] = content
 	return nil
+}
+
+func (r *runtime) SnapshotWorkspace(_ context.Context, workspaceID, label string) (plugin.SnapshotResult, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ws, ok := r.workspaces[workspaceID]
+	if !ok {
+		return plugin.SnapshotResult{}, fmt.Errorf("workspace %q not found", workspaceID)
+	}
+	r.snapCounter++
+	id := fmt.Sprintf("snap-%s-%d", workspaceID, r.snapCounter)
+	r.snapshots[id] = &snapshot{workspaceID: workspaceID, files: copyFiles(ws.files)}
+	msg := "in-memory snapshot"
+	if label != "" {
+		msg = "in-memory snapshot: " + label
+	}
+	return plugin.SnapshotResult{WorkspaceID: workspaceID, SnapshotID: id, Message: msg}, nil
+}
+
+func (r *runtime) RestoreWorkspace(_ context.Context, workspaceID, snapshotID string) (plugin.WorkspaceStatus, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ws, ok := r.workspaces[workspaceID]
+	if !ok {
+		return plugin.WorkspaceStatus{WorkspaceID: workspaceID, Status: "unknown"}, fmt.Errorf("workspace %q not found", workspaceID)
+	}
+	snap, ok := r.snapshots[snapshotID]
+	if !ok {
+		return plugin.WorkspaceStatus{WorkspaceID: workspaceID, Status: ws.status}, fmt.Errorf("snapshot %q not found", snapshotID)
+	}
+	ws.files = copyFiles(snap.files)
+	return plugin.WorkspaceStatus{
+		WorkspaceID: workspaceID, ContainerID: "mock-" + workspaceID, Status: ws.status,
+		Message: "restored from " + snapshotID,
+	}, nil
+}
+
+func (r *runtime) ForkWorkspace(_ context.Context, sourceWorkspaceID, snapshotID, newWorkspaceID string) (plugin.WorkspaceStatus, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var src map[string][]byte
+	if snapshotID != "" {
+		snap, ok := r.snapshots[snapshotID]
+		if !ok {
+			return plugin.WorkspaceStatus{WorkspaceID: newWorkspaceID, Status: "unknown"}, fmt.Errorf("snapshot %q not found", snapshotID)
+		}
+		src = snap.files
+	} else {
+		ws, ok := r.workspaces[sourceWorkspaceID]
+		if !ok {
+			return plugin.WorkspaceStatus{WorkspaceID: newWorkspaceID, Status: "unknown"}, fmt.Errorf("source workspace %q not found", sourceWorkspaceID)
+		}
+		src = ws.files
+	}
+	r.workspaces[newWorkspaceID] = &workspace{status: "created", files: copyFiles(src)}
+	return plugin.WorkspaceStatus{
+		WorkspaceID: newWorkspaceID, ContainerID: "mock-" + newWorkspaceID, Status: "created",
+		Message: "forked from " + sourceWorkspaceID,
+	}, nil
 }
 
 func main() {

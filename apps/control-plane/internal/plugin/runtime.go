@@ -49,6 +49,14 @@ type WorkspaceStatus struct {
 	PreviewPort int32
 }
 
+// SnapshotResult is the outcome of capturing a workspace snapshot: a runtime-native handle
+// (SnapshotID) to pass to Restore/Fork, plus optional detail.
+type SnapshotResult struct {
+	WorkspaceID string
+	SnapshotID  string
+	Message     string
+}
+
 // ExecSpec is a command to run inside a workspace.
 type ExecSpec struct {
 	WorkspaceID string
@@ -92,6 +100,19 @@ type WorkspaceRuntime interface {
 	ListFiles(ctx context.Context, workspaceID, path string) ([]FileEntry, error)
 	ReadFile(ctx context.Context, workspaceID, path string) ([]byte, error)
 	WriteFile(ctx context.Context, workspaceID, path string, content []byte, createDirs bool) error
+
+	// --- Snapshot / fork (the 2027 microVM sandbox standard) ---
+	// Runtimes that don't support snapshots return a gRPC Unimplemented error; callers use
+	// SupportsSnapshots to probe capability and hide the UI when unavailable.
+
+	// SnapshotWorkspace captures the workspace's current state and returns a runtime-native
+	// snapshot handle.
+	SnapshotWorkspace(ctx context.Context, workspaceID, label string) (SnapshotResult, error)
+	// RestoreWorkspace resets a workspace in place back to a previously taken snapshot.
+	RestoreWorkspace(ctx context.Context, workspaceID, snapshotID string) (WorkspaceStatus, error)
+	// ForkWorkspace provisions a new workspace (newWorkspaceID) from a source workspace or
+	// snapshot. An empty snapshotID forks from the live state.
+	ForkWorkspace(ctx context.Context, sourceWorkspaceID, snapshotID, newWorkspaceID string) (WorkspaceStatus, error)
 }
 
 // WorkspaceRuntimePlugin adapts a WorkspaceRuntime to hashicorp/go-plugin's gRPC plugin.
@@ -241,6 +262,34 @@ func (c *runtimeGRPCClient) WriteFile(ctx context.Context, workspaceID, path str
 	return err
 }
 
+func (c *runtimeGRPCClient) SnapshotWorkspace(ctx context.Context, workspaceID, label string) (SnapshotResult, error) {
+	resp, err := c.client.SnapshotWorkspace(ctx, &proto.SnapshotRequest{WorkspaceId: workspaceID, Label: label})
+	if err != nil {
+		return SnapshotResult{}, err
+	}
+	return SnapshotResult{WorkspaceID: resp.GetWorkspaceId(), SnapshotID: resp.GetSnapshotId(), Message: resp.GetMessage()}, nil
+}
+
+func (c *runtimeGRPCClient) RestoreWorkspace(ctx context.Context, workspaceID, snapshotID string) (WorkspaceStatus, error) {
+	resp, err := c.client.RestoreWorkspace(ctx, &proto.RestoreRequest{WorkspaceId: workspaceID, SnapshotId: snapshotID})
+	if err != nil {
+		return WorkspaceStatus{}, err
+	}
+	return runtimeStatus(resp), nil
+}
+
+func (c *runtimeGRPCClient) ForkWorkspace(ctx context.Context, sourceWorkspaceID, snapshotID, newWorkspaceID string) (WorkspaceStatus, error) {
+	resp, err := c.client.ForkWorkspace(ctx, &proto.ForkRequest{
+		SourceWorkspaceId: sourceWorkspaceID,
+		SnapshotId:        snapshotID,
+		NewWorkspaceId:    newWorkspaceID,
+	})
+	if err != nil {
+		return WorkspaceStatus{}, err
+	}
+	return runtimeStatus(resp), nil
+}
+
 // runtimeGRPCServer is the plugin-side adapter: a gRPC server backed by a WorkspaceRuntime.
 type runtimeGRPCServer struct {
 	proto.UnimplementedWorkspaceRuntimeServer
@@ -356,6 +405,30 @@ func (s *runtimeGRPCServer) WriteFile(ctx context.Context, req *proto.WriteFileR
 		return nil, err
 	}
 	return &proto.WriteFileResponse{Ok: true}, nil
+}
+
+func (s *runtimeGRPCServer) SnapshotWorkspace(ctx context.Context, req *proto.SnapshotRequest) (*proto.SnapshotResponse, error) {
+	res, err := s.impl.SnapshotWorkspace(ctx, req.GetWorkspaceId(), req.GetLabel())
+	if err != nil {
+		return nil, err
+	}
+	return &proto.SnapshotResponse{WorkspaceId: res.WorkspaceID, SnapshotId: res.SnapshotID, Message: res.Message}, nil
+}
+
+func (s *runtimeGRPCServer) RestoreWorkspace(ctx context.Context, req *proto.RestoreRequest) (*proto.WorkspaceStatusResponse, error) {
+	st, err := s.impl.RestoreWorkspace(ctx, req.GetWorkspaceId(), req.GetSnapshotId())
+	if err != nil {
+		return nil, err
+	}
+	return statusProto(st), nil
+}
+
+func (s *runtimeGRPCServer) ForkWorkspace(ctx context.Context, req *proto.ForkRequest) (*proto.WorkspaceStatusResponse, error) {
+	st, err := s.impl.ForkWorkspace(ctx, req.GetSourceWorkspaceId(), req.GetSnapshotId(), req.GetNewWorkspaceId())
+	if err != nil {
+		return nil, err
+	}
+	return statusProto(st), nil
 }
 
 // ServeRuntime is called by a workspace-runtime plugin binary's main() to expose its

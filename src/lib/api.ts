@@ -560,3 +560,53 @@ export async function apiModelCatalog(provider: string): Promise<ModelCatalog> {
     auth: true,
   });
 }
+
+// --- Workspace snapshots / fork (Phase 6) ------------------------------------------------
+
+export interface WorkspaceSnapshot {
+  id: string;
+  snapshotId: string;
+  runtime: string;
+  label: string;
+  createdAt: string;
+}
+
+export async function apiListWorkspaceSnapshots(projectId: string): Promise<WorkspaceSnapshot[]> {
+  const data = await apiRequest<{ items: WorkspaceSnapshot[] }>(
+    `/api/v1/projects/${encodeURIComponent(projectId)}/workspace/snapshots`,
+    { auth: true }
+  );
+  return data.items ?? [];
+}
+
+/** Capture a runtime-native snapshot of the project's workspace. Throws ApiError 501 if the
+ *  workspace runtime doesn't support snapshots. */
+export async function apiSnapshotWorkspace(projectId: string, label: string): Promise<WorkspaceSnapshot> {
+  return apiRequest<WorkspaceSnapshot>(`/api/v1/projects/${encodeURIComponent(projectId)}/workspace/snapshot`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ label }),
+  });
+}
+
+/** Restore a workspace in place to a stored snapshot (by snapshot row id). */
+export async function apiRestoreWorkspace(projectId: string, snapshotRowId: string): Promise<void> {
+  await apiRequest(`/api/v1/projects/${encodeURIComponent(projectId)}/workspace/restore`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ snapshotId: snapshotRowId }),
+  });
+}
+
+/** Fork a new project+workspace from a source workspace (optionally from a snapshot). Returns
+ *  the new project id. */
+export async function apiForkWorkspace(
+  projectId: string,
+  opts: { snapshotId?: string; name?: string } = {}
+): Promise<{ projectId: string }> {
+  return apiRequest<{ projectId: string }>(`/api/v1/projects/${encodeURIComponent(projectId)}/workspace/fork`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify(opts),
+  });
+}
