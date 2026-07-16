@@ -27,6 +27,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { WorkspaceSwitcher } from '../shared/WorkspaceSwitcher';
 import { Segmented } from '../shared/ui';
+import { PresenceAvatars } from '../shared/PresenceAvatars';
 import { TabBar } from './TabBar';
 import { usePlanGate } from '../../hooks/usePlanGate';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
@@ -156,6 +157,9 @@ export function TopBar() {
 
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Live collaborators — a calm dot in Focus, stacked avatars in IDE. */}
+        <PresenceAvatars focus={focus} />
+
         {/* Advanced controls — hidden in Focus; the ⌘K palette still reaches them. */}
         {!focus && (
           <>

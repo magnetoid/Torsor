@@ -27,6 +27,23 @@ export function getStoredToken() {
   return localStorage.getItem(AUTH_STORAGE_KEY);
 }
 
+/** Build a ws:// or wss:// URL for a WebSocket path, carrying the auth token as a query param
+ *  (browsers can't set headers on a WebSocket). Same-origin by default; derives the scheme
+ *  from the page (or from VITE_API_URL when the API is cross-origin). */
+export function wsUrlFor(path: string): string {
+  const token = getStoredToken() ?? '';
+  let base = API_URL;
+  if (!base) {
+    const proto = typeof location !== 'undefined' && location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof location !== 'undefined' ? location.host : '';
+    base = `${proto}//${host}`;
+  } else {
+    base = base.replace(/^http/, 'ws');
+  }
+  const sep = path.includes('?') ? '&' : '?';
+  return `${base}${path}${sep}access_token=${encodeURIComponent(token)}`;
+}
+
 export function setStoredToken(token: string | null) {
   if (token) {
     localStorage.setItem(AUTH_STORAGE_KEY, token);

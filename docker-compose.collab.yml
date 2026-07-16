@@ -1,0 +1,14 @@
+# Optional Yjs co-editing sidecar (Phase 7). Kept out of the default stack because real-time
+# co-editing is opt-in and needs the control plane pointed at it. Run it alongside the base:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.collab.yml up --build
+#
+# and set TORSOR_COLLAB_URL=ws://torsor-collab:1234 on the control-plane service (it proxies
+# /api/v1/projects/{id}/collab/ws to this sidecar with an ownership check). The sidecar uses
+# `expose` only (no host port) — it is reachable solely through that proxy, never directly.
+services:
+  torsor-collab:
+    build: ./apps/torsor-collab
+    expose:
+      - "1234"
+    restart: unless-stopped

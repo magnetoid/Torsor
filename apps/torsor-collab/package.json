@@ -1,0 +1,14 @@
+{
+  "name": "torsor-collab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Torsor Yjs co-editing sidecar (y-websocket). Fronted by the control-plane collab proxy, which adds ownership enforcement; this process only runs CRDT sync + awareness.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "y-websocket": "^1.5.4",
+    "yjs": "^13.6.20"
+  }
+}

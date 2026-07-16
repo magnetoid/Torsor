@@ -33,6 +33,7 @@ type Config struct {
 	SecretKey             string   // TORSOR_SECRET_KEY: passphrase for AES-256-GCM secret encryption (empty => secrets disabled)
 	AgentWorkers          int      // TORSOR_AGENT_WORKERS: background agent worker goroutines (0 => disabled)
 	OllamaHost            string   // OLLAMA_HOST: base URL of the local Ollama server for the model catalog
+	CollabURL             string   // TORSOR_COLLAB_URL: ws:// base URL of the Yjs co-editing sidecar ("" => disabled)
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -72,6 +73,7 @@ func Load() Config {
 		DefaultRuntime:        os.Getenv("TORSOR_DEFAULT_RUNTIME"),
 		AgentWorkers:          envInt("TORSOR_AGENT_WORKERS", 2),
 		OllamaHost:            envStr("OLLAMA_HOST", "http://127.0.0.1:11434"),
+		CollabURL:             os.Getenv("TORSOR_COLLAB_URL"),
 	}
 }
 

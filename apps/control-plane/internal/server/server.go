@@ -61,6 +61,11 @@ func (s *Server) Handler() http.Handler {
 		// can't set headers on WebSocket), so it lives outside the Bearer-header group.
 		r.Get("/providers/models/{name}/complete/ws", s.handleCompleteWS)
 
+		// Multiplayer presence (live avatars / cursors) + the Yjs co-editing proxy: both
+		// are WebSockets authenticated via access_token and scoped to project ownership.
+		r.Get("/projects/{projectID}/presence/ws", s.handlePresenceWS)
+		r.Get("/projects/{projectID}/collab/ws", s.handleCollabWS)
+
 		// Live-preview proxy: an iframe can't send an Authorization header, so this also
 		// authenticates via the access_token query param. Ownership is still enforced.
 		r.HandleFunc("/projects/{projectID}/preview", s.handlePreviewProxy)
