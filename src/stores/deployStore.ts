@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { apiRequest } from '../lib/api';
 import { useProjectStore } from './projectStore';
+import { useLayoutStore } from './layoutStore';
 
 export type DeployStatus = 'idle' | 'building' | 'deploying' | 'success' | 'error';
 export type DeployTarget = 'torsor' | 'vercel' | 'netlify' | 'coolify' | 'gcp' | 'ssh';
@@ -137,6 +138,12 @@ export const useDeployStore = create<DeployState>()(
             logs: [...base.logs, `[deploy] Live at ${res.url}`],
           };
           set({ isDeploying: false, currentDeployment: done, history: [done, ...get().history] });
+          useLayoutStore.getState().pushDisclosure({
+            kind: 'preview-ready',
+            label: 'Your app is deployed and live.',
+            actionLabel: 'Open',
+            url: res.url,
+          });
         } catch (e) {
           set({
             isDeploying: false,

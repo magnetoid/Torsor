@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ApiError, apiRequest, apiStream, apiAgentStream, type AgentEvent } from '../lib/api';
 import { useSettingsStore } from './settingsStore';
 import { useAppStore } from '../useAppStore';
+import { useLayoutStore } from './layoutStore';
 
 export type ContextType = 'file' | 'code' | 'canvas';
 
@@ -229,6 +230,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     const provider = get().selectedProvider ?? undefined;
 
+    // Track signals for progressive disclosure: did the agent edit files, and did its last
+    // command fail? One calm offer is surfaced at the end of the run (see finally).
+    let filesChanged = false;
+    let lastRunFailed = false;
+
     // Map one agent step event to a chat message. thoughts + tool calls read as "work",
     // tool results as terminal output, and the final answer as the agent's reply.
     const onEvent = (e: AgentEvent) => {
@@ -236,9 +242,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (e.kind === 'thought' && e.text) {
         appendMessage({ ...base, type: 'work', content: e.text });
       } else if (e.kind === 'tool_call') {
+        if (e.tool === 'write_file') filesChanged = true;
         const args = e.args ? Object.entries(e.args).map(([k, v]) => `${k}=${v.length > 60 ? v.slice(0, 60) + '…' : v}`).join(' ') : '';
         appendMessage({ ...base, type: 'work', content: `${e.tool}(${args})`, metadata: { tool: e.tool } });
       } else if (e.kind === 'tool_result') {
+        if (e.tool === 'run') {
+          const m = /(?:^|\n)exit=(\d+)/.exec(e.result ?? '');
+          lastRunFailed = m ? m[1] !== '0' : false;
+        }
         appendMessage({ ...base, type: 'terminal', content: e.result ?? '', metadata: { tool: e.tool } });
       } else if (e.kind === 'final' && e.text) {
         appendMessage({ ...base, type: 'agent', content: e.text });
@@ -264,6 +275,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
         await useAppStore.getState().loadWorkspaceFiles(projectId);
       } catch {
         /* tree refresh is best-effort */
+      }
+      // Surface one calm "advanced on demand" offer based on what happened.
+      const layout = useLayoutStore.getState();
+      if (lastRunFailed) {
+        layout.pushDisclosure({
+          kind: 'run-failed',
+          label: 'A command failed while the agent worked.',
+          actionLabel: 'Open terminal',
+          tab: 'terminal',
+        });
+      } else if (filesChanged) {
+        layout.pushDisclosure({
+          kind: 'files-changed',
+          label: 'The agent edited files in your workspace.',
+          actionLabel: 'Review',
+          tab: 'code',
+        });
       }
     }
   },

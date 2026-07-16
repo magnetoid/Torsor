@@ -35,7 +35,8 @@ export function TopBar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const { toggleLeftPanel } = useLayoutStore();
+  const { toggleLeftPanel, uiMode, setUiMode } = useLayoutStore();
+  const focus = uiMode === 'focus';
 
   const handleLogout = async () => {
     try {
@@ -134,51 +135,73 @@ export function TopBar() {
           </Tooltip.Root>
         </Tooltip.Provider>
 
-        <button 
+        <button
           onClick={toggleLeftPanel}
           className="flex items-center gap-1.5 px-2 py-0.5 bg-elevated hover:bg-surface rounded-full border border-default transition-all group"
+          title="Toggle the agent chat"
         >
           <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-accent" />
-          <span className="text-[10px] font-bold text-primary">Agent · 4</span>
+          <span className="text-[10px] font-bold text-primary">Agent</span>
         </button>
       </div>
 
-      {/* CENTER: the tab strip lives here — one top bar for the whole workspace,
-          instead of stacking a project strip + toolbar + tab bar. */}
-      <Separator.Root className="w-[1px] h-4 bg-default" />
-      <TabBar />
+      {/* CENTER: the tab strip — IDE-only chrome; hidden in the calm Focus surface. */}
+      {!focus && (
+        <>
+          <Separator.Root className="w-[1px] h-4 bg-default" />
+          <TabBar />
+        </>
+      )}
+      {focus && <div className="flex-1" />}
 
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-2 shrink-0">
+        {/* Advanced controls — hidden in Focus; the ⌘K palette still reaches them. */}
+        {!focus && (
+          <>
+            <Segmented
+              size="sm"
+              aria-label="Model tier"
+              value={economyMode}
+              onChange={handleModeChange}
+              options={[
+                { value: 'turbo', label: 'Turbo' },
+                { value: 'balanced', label: 'Balance' },
+                {
+                  value: 'max',
+                  label: maxGated ? (
+                    <span className="inline-flex items-center gap-1">Max<Lock size={8} className="text-tertiary" /></span>
+                  ) : (
+                    'Max'
+                  ),
+                  title: maxGated ? 'Upgrade to unlock Max power' : undefined,
+                },
+              ]}
+            />
+
+            <Separator.Root className="w-[1px] h-4 bg-default" />
+
+            <button className="bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20">
+              Publish
+            </button>
+
+            <button className="p-1.5 text-secondary hover:text-primary transition-colors">
+              <Search size={16} />
+            </button>
+          </>
+        )}
+
+        {/* Focus / IDE toggle — the always-available bridge (also ⌘⇧M). */}
         <Segmented
           size="sm"
-          aria-label="Model tier"
-          value={economyMode}
-          onChange={handleModeChange}
+          aria-label="Interface mode"
+          value={uiMode}
+          onChange={setUiMode}
           options={[
-            { value: 'turbo', label: 'Turbo' },
-            { value: 'balanced', label: 'Balance' },
-            {
-              value: 'max',
-              label: maxGated ? (
-                <span className="inline-flex items-center gap-1">Max<Lock size={8} className="text-tertiary" /></span>
-              ) : (
-                'Max'
-              ),
-              title: maxGated ? 'Upgrade to unlock Max power' : undefined,
-            },
+            { value: 'focus', label: 'Focus' },
+            { value: 'ide', label: 'IDE' },
           ]}
         />
-
-        <Separator.Root className="w-[1px] h-4 bg-default" />
-
-        <button className="bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20">
-          Publish
-        </button>
-
-        <button className="p-1.5 text-secondary hover:text-primary transition-colors">
-          <Search size={16} />
-        </button>
 
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

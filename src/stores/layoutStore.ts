@@ -31,7 +31,28 @@ export interface Tab {
   closable: boolean;
 }
 
+export type UiMode = 'focus' | 'ide';
+
+/** A single, dismissible "advanced on demand" offer surfaced by a real event (the agent
+ *  edited files, a command failed, the app deployed). Calm discipline: at most one visible. */
+export interface Disclosure {
+  id: string;
+  kind: 'files-changed' | 'run-failed' | 'preview-ready';
+  label: string;
+  actionLabel: string;
+  /** Tab to open when the user accepts the offer (escalates Focus→IDE). */
+  tab?: TabType;
+  /** External URL to open instead of a tab. */
+  url?: string;
+}
+
 interface LayoutState {
+  /** 'focus' = the calm, minimal surface (chat + preview) for describe→build; 'ide' = the
+   *  full workspace (rail, tabs, side panels). New users start in focus; the toggle + ⌘K
+   *  reveal the IDE on demand. */
+  uiMode: UiMode;
+  /** The current progressive-disclosure offer, or null. Never persisted. */
+  disclosure: Disclosure | null;
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   rightPanelView: 'files' | 'library' | 'search';
@@ -59,6 +80,13 @@ interface LayoutState {
   setQuickOpen: (open: boolean) => void;
   setHomeSidebarCollapsed: (collapsed: boolean) => void;
   toggleHomeSidebar: () => void;
+  setUiMode: (mode: UiMode) => void;
+  toggleUiMode: () => void;
+  /** Surface a disclosure offer (replaces any current one — max one visible). */
+  pushDisclosure: (d: Omit<Disclosure, 'id'>) => void;
+  dismissDisclosure: () => void;
+  /** Accept the current offer: open its tab (escalating to IDE) or URL, then dismiss. */
+  acceptDisclosure: () => void;
 }
 
 export const TAB_CONFIG: Record<TabType, { label: string; icon: LucideIcon; closable: boolean }> = {
@@ -85,6 +113,8 @@ export const TAB_CONFIG: Record<TabType, { label: string; icon: LucideIcon; clos
 export const useLayoutStore = create<LayoutState>()(
   persist(
     (set, get) => ({
+      uiMode: 'focus',
+      disclosure: null,
       leftPanelOpen: true,
       rightPanelOpen: true,
       rightPanelView: 'files',
@@ -158,15 +188,36 @@ export const useLayoutStore = create<LayoutState>()(
       setQuickOpen: (open) => set({ quickOpenOpen: open }),
       setHomeSidebarCollapsed: (collapsed) => set({ homeSidebarCollapsed: collapsed }),
       toggleHomeSidebar: () => set((state) => ({ homeSidebarCollapsed: !state.homeSidebarCollapsed })),
+      setUiMode: (mode) => set({ uiMode: mode }),
+      toggleUiMode: () => set((state) => ({ uiMode: state.uiMode === 'focus' ? 'ide' : 'focus' })),
+      pushDisclosure: (d) => set({ disclosure: { ...d, id: `disc-${Date.now()}` } }),
+      dismissDisclosure: () => set({ disclosure: null }),
+      acceptDisclosure: () => {
+        const d = get().disclosure;
+        if (!d) return;
+        if (d.url) {
+          window.open(d.url, '_blank', 'noopener');
+        } else if (d.tab) {
+          // Escalate Focus→IDE so the drilled-into surface is fully navigable.
+          set({ uiMode: 'ide' });
+          get().openTab(d.tab);
+        }
+        set({ disclosure: null });
+      },
     }),
     {
       name: 'tesseract-layout-storage',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
         // v1: the home sidebar now defaults to expanded. Correct the old collapsed
         // default for users who have the previous persisted value, once.
         if (version < 1 && persisted && typeof persisted === 'object') {
           (persisted as LayoutState).homeSidebarCollapsed = false;
+        }
+        // v2: uiMode was introduced. New users default to 'focus'; existing users (who have
+        // any persisted layout) keep the full IDE they're used to.
+        if (version < 2 && persisted && typeof persisted === 'object') {
+          (persisted as LayoutState).uiMode = 'ide';
         }
         return persisted as LayoutState;
       },
