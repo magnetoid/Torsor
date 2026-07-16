@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { apiRequest } from '../lib/api';
+import { useProjectStore } from './projectStore';
 
 export type DeployStatus = 'idle' | 'building' | 'deploying' | 'success' | 'error';
 export type DeployTarget = 'torsor' | 'vercel' | 'netlify' | 'coolify' | 'gcp' | 'ssh';
@@ -39,8 +41,9 @@ interface DeployState {
   isDeploying: boolean;
   
   // Actions
-  deploy: (target: DeployTarget) => void;
-  unpublish: () => void;
+  deploy: (target: DeployTarget) => Promise<void>;
+  fetchDeployment: () => Promise<void>;
+  unpublish: () => Promise<void>;
   connectTarget: (target: DeployTarget, config: Record<string, string>) => void;
   updateSettings: (settings: Partial<DeployState['settings']>) => void;
   addDomain: (domain: string) => void;
@@ -98,60 +101,99 @@ export const useDeployStore = create<DeployState>()(
       ],
       isDeploying: false,
 
-      deploy: (targetId) => {
-        const id = `dep-${Date.now()}`;
-        const newDeploy: Deployment = {
-          id,
+      // Real deploy: publish the active project's running workspace app at its stable public
+      // URL via the control-plane (POST /projects/{id}/deploy). No fake logs/URLs.
+      deploy: async (targetId) => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        const start = Date.now();
+        const base: Deployment = {
+          id: `dep-${start}`,
           target: targetId,
           environment: get().settings.environment,
-          status: 'building',
-          deployedAt: Date.now(),
+          status: 'deploying',
+          deployedAt: start,
           duration: '0s',
-          commit: 'Manual deployment',
-          logs: ['[build] starting build process...']
+          commit: 'Publish workspace app',
+          logs: ['[deploy] Publishing your workspace app…'],
         };
-
-        set({ isDeploying: true, currentDeployment: newDeploy });
-
-        // Simulate deployment process
-        let step = 0;
-        const steps = [
-          'Installing dependencies...',
-          'Running build command: npm run build',
-          'Optimizing assets...',
-          'Uploading to edge network...',
-          'Provisioning SSL certificates...',
-          'Finalizing deployment...'
-        ];
-
-        const interval = setInterval(() => {
-          if (step < steps.length) {
-            set((state) => ({
-              currentDeployment: state.currentDeployment ? {
-                ...state.currentDeployment,
-                logs: [...state.currentDeployment.logs, `[${Date.now()}] ${steps[step]}`]
-              } : null
-            }));
-            step++;
-          } else {
-            clearInterval(interval);
-            const finalDeploy: Deployment = {
-              ...newDeploy,
-              status: 'success',
-              url: targetId === 'torsor' ? 'https://torsor-app.torsor.app' : 'https://custom-deploy.vercel.app',
-              duration: '45s',
-              logs: [...(get().currentDeployment?.logs || []), '[deploy] Deployment successful!']
-            };
-            set({ 
-              isDeploying: false, 
-              currentDeployment: finalDeploy,
-              history: [finalDeploy, ...get().history]
-            });
-          }
-        }, 1500);
+        if (!projectId) {
+          set({
+            isDeploying: false,
+            currentDeployment: { ...base, status: 'error', logs: ['[deploy] No active project selected'] },
+          });
+          return;
+        }
+        set({ isDeploying: true, currentDeployment: base });
+        try {
+          const res = await apiRequest<{ status: string; url: string }>(
+            `/api/v1/projects/${projectId}/deploy`,
+            { method: 'POST', auth: true }
+          );
+          const done: Deployment = {
+            ...base,
+            status: 'success',
+            url: res.url, // relative /d/{id}/ — resolves against the app origin
+            duration: `${Math.max(1, Math.round((Date.now() - start) / 1000))}s`,
+            logs: [...base.logs, `[deploy] Live at ${res.url}`],
+          };
+          set({ isDeploying: false, currentDeployment: done, history: [done, ...get().history] });
+        } catch (e) {
+          set({
+            isDeploying: false,
+            currentDeployment: {
+              ...base,
+              status: 'error',
+              logs: [...base.logs, `[deploy] Failed: ${e instanceof Error ? e.message : 'error'}`],
+            },
+          });
+        }
       },
 
-      unpublish: () => set({ currentDeployment: null }),
+      // Fetch the active project's current deployment state from the server.
+      fetchDeployment: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) return;
+        try {
+          const res = await apiRequest<{ status: string; url: string; live: boolean }>(
+            `/api/v1/projects/${projectId}/deployment`,
+            { auth: true }
+          );
+          if (res.status === 'running') {
+            set({
+              currentDeployment: {
+                id: `dep-${projectId}`,
+                target: 'torsor',
+                environment: get().settings.environment,
+                status: 'success',
+                url: res.url,
+                deployedAt: Date.now(),
+                duration: '',
+                commit: 'Deployed',
+                logs: [res.live ? '[deploy] App is live' : '[deploy] Published (app not currently reachable)'],
+              },
+            });
+          } else {
+            set({ currentDeployment: null });
+          }
+        } catch {
+          // leave state as-is on a transient error
+        }
+      },
+
+      unpublish: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (projectId) {
+          try {
+            await apiRequest(`/api/v1/projects/${projectId}/deployment/stop`, {
+              method: 'POST',
+              auth: true,
+            });
+          } catch {
+            // ignore; UI still reflects unpublished intent
+          }
+        }
+        set({ currentDeployment: null });
+      },
 
       connectTarget: (targetId, config) => set((state) => ({
         targets: state.targets.map(t => t.id === targetId ? { ...t, connected: true, config } : t)

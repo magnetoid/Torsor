@@ -46,6 +46,11 @@ func (s *Server) Handler() http.Handler {
 	r.Get("/health", s.handleHealth)
 	r.Get("/ready", s.handleReady)
 
+	// Public deployment proxy: serves a deployed project's app at a stable, tokenless URL.
+	// Access is gated on an active deployment row (owner-created), not the caller's identity.
+	r.HandleFunc("/d/{projectID}", s.handleDeployProxy)
+	r.HandleFunc("/d/{projectID}/*", s.handleDeployProxy)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(httprate.LimitByIP(s.cfg.APIRateLimit, time.Minute))
 
@@ -118,6 +123,12 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/checkpoints", s.handleListCheckpoints)
 			r.Post("/projects/{projectID}/checkpoints", s.handleCreateCheckpoint)
 			r.Post("/projects/{projectID}/checkpoints/{checkpointID}/restore", s.handleRestoreCheckpoint)
+
+			// Deploy: expose the project's running workspace app at a stable public URL
+			// (/d/{projectID}/, served by handleDeployProxy below). Owner-only controls.
+			r.Post("/projects/{projectID}/deploy", s.handleDeploy)
+			r.Get("/projects/{projectID}/deployment", s.handleGetDeployment)
+			r.Post("/projects/{projectID}/deployment/stop", s.handleStopDeployment)
 
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
 			// the model edits files and runs commands in the owned project's workspace.

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Rocket, 
   ExternalLink, 
@@ -48,8 +48,9 @@ export default function PublishingTab() {
     targets, 
     settings, 
     updateSettings, 
-    deploy, 
-    unpublish, 
+    deploy,
+    unpublish,
+    fetchDeployment,
     isDeploying,
     customDomains,
     addDomain,
@@ -58,6 +59,11 @@ export default function PublishingTab() {
 
   const [logsOpen, setLogsOpen] = useState(true);
   const [newDomain, setNewDomain] = useState('');
+
+  // Sync the real deployment state for the active project on mount.
+  useEffect(() => {
+    void fetchDeployment();
+  }, [fetchDeployment]);
 
   const handleDeploy = (target: DeployTarget) => {
     deploy(target);
