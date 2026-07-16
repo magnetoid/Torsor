@@ -114,6 +114,11 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
 
+			// Checkpoints: file-tree snapshots for restore/rollback (ownership-scoped).
+			r.Get("/projects/{projectID}/checkpoints", s.handleListCheckpoints)
+			r.Post("/projects/{projectID}/checkpoints", s.handleCreateCheckpoint)
+			r.Post("/projects/{projectID}/checkpoints/{checkpointID}/restore", s.handleRestoreCheckpoint)
+
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
 			// the model edits files and runs commands in the owned project's workspace.
 			r.Post("/projects/{projectID}/agent/stream", s.handleAgentRunSSE)
