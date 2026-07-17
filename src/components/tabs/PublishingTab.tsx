@@ -200,37 +200,43 @@ export default function PublishingTab() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Deployment Targets</h3>
-            <span className="text-[10px] text-secondary font-medium">6 targets available</span>
+            <span className="text-[10px] text-secondary font-medium">Torsor Cloud available now</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {targets.map(target => (
-              <div key={target.id} className="bg-surface border border-default rounded-xl p-4 flex flex-col hover:border-subtle transition-all group relative">
+            {targets.map(target => {
+              // Only Torsor Cloud is wired; the rest are honestly marked "coming soon"
+              // rather than presented as working (deploying to them was a fake success).
+              const available = target.id === 'torsor';
+              return (
+              <div key={target.id} className={cn("bg-surface border border-default rounded-xl p-4 flex flex-col transition-all group relative", available ? "hover:border-subtle" : "opacity-70")}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="w-10 h-10 rounded-lg bg-page border border-default flex items-center justify-center">
                     <TargetIcon id={target.id} />
                   </div>
-                  {target.connected ? (
+                  {available ? (
                     <span className="px-2 py-0.5 bg-success/10 text-[9px] font-bold text-success uppercase rounded border border-success/20">
-                      Connected
+                      Available
                     </span>
                   ) : (
-                    <button className="text-[10px] font-bold text-accent hover:text-accent-hover transition-colors">
-                      Configure
-                    </button>
+                    <span className="px-2 py-0.5 bg-elevated text-[9px] font-bold text-tertiary uppercase rounded border border-default">
+                      Coming soon
+                    </span>
                   )}
                 </div>
                 <h4 className="text-xs font-bold text-primary mb-1">{target.name}</h4>
                 <p className="text-[10px] text-secondary mb-4 flex-1">{target.description}</p>
-                <button 
-                  disabled={isDeploying}
+                <button
+                  disabled={isDeploying || !available}
                   onClick={() => handleDeploy(target.id)}
-                  className="w-full py-2 bg-elevated hover:bg-accent border border-default hover:border-accent-hover text-[11px] font-bold text-primary hover:text-white rounded-lg transition-all flex items-center justify-center gap-2"
+                  title={available ? undefined : `${target.name} deployment is coming soon`}
+                  className="w-full py-2 bg-elevated enabled:hover:bg-accent border border-default enabled:hover:border-accent-hover text-[11px] font-bold text-primary enabled:hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Deploy
-                  <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                  {available ? 'Deploy' : 'Coming soon'}
+                  {available && <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />}
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SectionPreviewNotice } from '../shared/PreviewBanner';
 import * as Separator from '@radix-ui/react-separator';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { Building2, Upload, Trash2, ShieldAlert, ArrowRightLeft } from 'lucide-react';
@@ -34,6 +35,7 @@ export function GeneralTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <SectionPreviewNotice>Workspace settings aren&apos;t saved to a backend yet — changes here are local only.</SectionPreviewNotice>
       {/* Basic Info */}
       <div className="space-y-6">
         <div className="flex items-center gap-6">

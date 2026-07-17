@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Github, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { Input } from '../components/shared/Input';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +17,9 @@ export function AuthPage() {
   const [password, setPassword] = useState(isDev ? 'demo12345' : '');
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { loginWithGitHub, loginWithGoogle, loginWithEmail, signup, isLoading, error } = useAuthStore();
+  // OAuth (GitHub/Google) is not wired yet — the buttons are intentionally not rendered
+  // rather than shown as dead controls that throw. Email/password is the real path.
+  const { loginWithEmail, signup, isLoading, error } = useAuthStore();
   const navigate = useNavigate();
   const from = (location.state as any)?.from?.pathname || '/';
 
@@ -26,26 +28,6 @@ export function AuthPage() {
   }, [routeMode]);
 
   const activeError = useMemo(() => formError || error, [formError, error]);
-
-  const handleGitHubLogin = async () => {
-    try {
-      setFormError(null);
-      await loginWithGitHub();
-      navigate(from, { replace: true });
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'GitHub login is unavailable');
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setFormError(null);
-      await loginWithGoogle();
-      navigate(from, { replace: true });
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Google login is unavailable');
-    }
-  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,30 +76,6 @@ export function AuthPage() {
               <p className="text-sm text-secondary">
                 {isLogin ? 'Sign in to Torsor on app.torsor.dev' : 'Start building with Torsor'}
               </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleGitHubLogin}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 bg-elevated border border-default rounded-xl py-2.5 text-sm font-medium text-primary hover:bg-surface transition-all disabled:opacity-50"
-              >
-                <Github size={18} />
-                Continue with GitHub
-              </button>
-              <button
-                onClick={handleGoogleLogin}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 bg-elevated border border-default rounded-xl py-2.5 text-sm font-medium text-primary hover:bg-surface transition-all disabled:opacity-50"
-              >
-                Continue with Google
-              </button>
-            </div>
-
-            <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-default"></div>
-              <span className="flex-shrink mx-4 text-[10px] font-bold text-tertiary uppercase tracking-widest">or</span>
-              <div className="flex-grow border-t border-default"></div>
             </div>
 
             <form onSubmit={handleEmailAuth} className="space-y-4">

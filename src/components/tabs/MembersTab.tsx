@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SectionPreviewNotice } from '../shared/PreviewBanner';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Select from '@radix-ui/react-select';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -71,6 +72,7 @@ export function MembersTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <SectionPreviewNotice>Team members &amp; invites are a preview — there&apos;s no org backend yet, so nothing is emailed or saved.</SectionPreviewNotice>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

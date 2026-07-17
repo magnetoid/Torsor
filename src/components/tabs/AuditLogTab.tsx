@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SectionPreviewNotice } from '../shared/PreviewBanner';
 import * as Select from '@radix-ui/react-select';
 import { 
   History, 
@@ -55,6 +56,7 @@ export function AuditLogTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <SectionPreviewNotice>Sample audit data — the audit_logs backend isn&apos;t wired yet, so these rows are illustrative.</SectionPreviewNotice>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[200px]">

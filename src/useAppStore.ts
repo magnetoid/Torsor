@@ -98,6 +98,9 @@ interface AppState {
    *  entry advances as a real workspace-lifecycle call completes (see triggerBuild). */
   bootSteps: BootStep[];
   triggerBuild: () => void;
+  /** Stop the running workspace container (POST /workspace/stop). Returns to idle so the
+   *  preview shows the "not running" state; Run boots it again. */
+  stopWorkspace: () => Promise<void>;
   setBuildSuccess: (time: number, filesCount: number) => void;
   setBuildError: () => void;
   togglePreview: (force?: boolean) => void;
@@ -387,6 +390,16 @@ export const useAppStore = create<AppState>()(
             bootSteps: s.bootSteps.map((st) => (st.state === 'active' ? { ...st, state: 'error' as const, sublabel: message } : st)),
           }));
         }
+      },
+      stopWorkspace: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) return;
+        try {
+          await apiRequest(`/api/v1/projects/${projectId}/workspace/stop`, { method: 'POST', auth: true });
+        } catch {
+          // best-effort: reflect stopped state locally even if the call raced
+        }
+        set({ buildStatus: 'idle', previewUrl: '', bootSteps: [], isPreviewOpen: false });
       },
       setBuildSuccess: (time, filesCount) => set({
         buildStatus: 'success',

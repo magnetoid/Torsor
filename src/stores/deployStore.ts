@@ -118,6 +118,19 @@ export const useDeployStore = create<DeployState>()(
           commit: 'Publish workspace app',
           logs: ['[deploy] Publishing your workspace app…'],
         };
+        // Only Torsor Cloud is wired. Refuse other targets honestly instead of deploying
+        // to Torsor and mislabeling the result with the chosen provider.
+        if (targetId !== 'torsor') {
+          set({
+            isDeploying: false,
+            currentDeployment: {
+              ...base,
+              status: 'error',
+              logs: [`[deploy] ${targetId} integration is coming soon — deploy to Torsor Cloud for now.`],
+            },
+          });
+          return;
+        }
         if (!projectId) {
           set({
             isDeploying: false,

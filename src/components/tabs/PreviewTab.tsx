@@ -18,7 +18,7 @@ import {
   Terminal
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { MousePointerClick } from 'lucide-react';
+import { MousePointerClick, Square } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAppStore } from '../../useAppStore';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -30,7 +30,7 @@ import { VisualEditOverlay } from '../preview/VisualEditOverlay';
 import { VisualEditPanel } from '../preview/VisualEditPanel';
 
 export default function PreviewTab() {
-  const { buildStatus, previewUrl, triggerBuild, bootSteps, previewNonce, refreshPreview } = useAppStore();
+  const { buildStatus, previewUrl, triggerBuild, stopWorkspace, bootSteps, previewNonce, refreshPreview } = useAppStore();
   const { openTab } = useLayoutStore();
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
 
@@ -154,12 +154,23 @@ export default function PreviewTab() {
           <button disabled className="p-1 text-tertiary/50 cursor-not-allowed">
             <ArrowRight size={14} />
           </button>
-          <button 
+          <button
             onClick={handleRefresh}
             className="p-1 text-secondary hover:text-primary transition-colors"
           >
             <RotateCw size={14} />
           </button>
+          {/* Stop the running workspace (real: POST /workspace/stop) — shown only while up. */}
+          {previewUrl && (
+            <button
+              onClick={() => { void stopWorkspace(); toast('Workspace stopped'); }}
+              aria-label="Stop the workspace"
+              title="Stop the workspace"
+              className="p-1 text-secondary hover:text-error transition-colors"
+            >
+              <Square size={13} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 flex items-center bg-inset rounded-lg px-3 py-1 gap-2 border border-default/50">

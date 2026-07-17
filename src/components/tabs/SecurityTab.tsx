@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SectionPreviewNotice } from '../shared/PreviewBanner';
 import * as Switch from '@radix-ui/react-switch';
 import * as Select from '@radix-ui/react-select';
 import { 
@@ -41,6 +42,7 @@ export function SecurityTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <SectionPreviewNotice>Security settings aren&apos;t enforced by a backend yet — this is a preview.</SectionPreviewNotice>
       {/* Basic Security */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">

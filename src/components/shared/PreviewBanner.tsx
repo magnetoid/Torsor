@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { FlaskConical } from 'lucide-react';
 
 /**
@@ -13,6 +14,19 @@ export function PreviewBanner({ feature }: { feature: string }) {
         <span className="font-semibold text-primary">Preview</span> — {feature} is a UI mockup.
         Actions here don&apos;t affect a real backend yet.
       </span>
+    </div>
+  );
+}
+
+/**
+ * Lighter inline variant for a section inside an already-real surface (e.g. a mock tab
+ * within the Settings page). Rounded, self-contained — no full-width border.
+ */
+export function SectionPreviewNotice({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-elevated border border-default text-[11px] text-secondary">
+      <FlaskConical size={13} className="text-accent-hover shrink-0" />
+      <span>{children}</span>
     </div>
   );
 }
