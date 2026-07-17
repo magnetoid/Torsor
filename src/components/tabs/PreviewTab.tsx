@@ -12,7 +12,6 @@ import {
   Copy, 
   Pencil, 
   Play,
-  Loader2,
   ChevronUp,
   ChevronDown,
   Trash2,
@@ -22,9 +21,10 @@ import { cn } from '../../lib/utils';
 import { useAppStore } from '../../useAppStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { EmptyState } from '../shared/EmptyState';
+import { BootSteps } from '../shared/BootSteps';
 
 export default function PreviewTab() {
-  const { buildStatus, previewUrl, triggerBuild } = useAppStore();
+  const { buildStatus, previewUrl, triggerBuild, bootSteps } = useAppStore();
   const { openTab } = useLayoutStore();
   
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -74,22 +74,11 @@ export default function PreviewTab() {
 
     if (buildStatus === 'building') {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center gap-3">
-          <div className="relative">
-            <Loader2 size={32} className="text-accent animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-1 h-1 bg-accent rounded-full animate-ping" />
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-secondary">
-            <span>Starting dev server</span>
-            <span className="flex gap-0.5">
-              <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
-              <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
-              <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
-            </span>
-          </div>
-        </div>
+        <BootSteps
+          steps={bootSteps}
+          onRetry={triggerBuild}
+          onOpenTerminal={() => openTab('terminal')}
+        />
       );
     }
 

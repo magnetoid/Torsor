@@ -13,7 +13,9 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { apiRequest } from './lib/api';
+import { apiRequest, previewUrlFor } from './lib/api';
+import { useProjectStore } from './stores/projectStore';
+import type { BootStep } from './components/shared/BootSteps';
 
 // Per-file debounce timers for editor auto-save (module scope: one shared set across the
 // single store instance). Keyed by FileNode.id.
@@ -102,6 +104,9 @@ interface AppState {
   previewUrl: string;
   setPreviewUrl: (url: string) => void;
   isPreviewOpen: boolean;
+  /** Live checklist for the "bring the app up" flow, rendered by the Preview tab. Each
+   *  entry advances as a real workspace-lifecycle call completes (see triggerBuild). */
+  bootSteps: BootStep[];
   triggerBuild: () => void;
   setBuildSuccess: (time: number, filesCount: number) => void;
   setBuildError: () => void;
@@ -304,7 +309,101 @@ export const useAppStore = create<AppState>()(
       previewUrl: '',
       setPreviewUrl: (url) => set({ previewUrl: url }),
       isPreviewOpen: true,
-      triggerBuild: () => set({ buildStatus: 'building' }),
+      bootSteps: [],
+
+      // Bring the active project's app up and drive an honest, in-place step checklist from
+      // the real workspace lifecycle: provision (POST /workspace) → start the dev server
+      // (POST /workspace/start) → poll live status until the app exposes a preview port
+      // (GET /workspace → runtimeStatus.hasPreview) → open the preview. Every step reflects
+      // a genuine backend transition — no timed/fake progress. The Preview tab renders
+      // `bootSteps` while buildStatus === 'building'.
+      triggerBuild: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) {
+          set({
+            buildStatus: 'error',
+            bootSteps: [
+              { id: 'project', label: 'No active project', state: 'error', sublabel: 'Open a project first, then Run.' },
+            ],
+          });
+          return;
+        }
+
+        const steps: BootStep[] = [
+          { id: 'provision', label: 'Provisioning workspace', state: 'active' },
+          { id: 'start', label: 'Starting dev server', state: 'pending' },
+          { id: 'wait', label: 'Waiting for the app to respond', state: 'pending' },
+          { id: 'open', label: 'Opening preview', state: 'pending' },
+        ];
+        set({ buildStatus: 'building', bootSteps: steps, previewUrl: '' });
+
+        // Complete `doneId` and light up `nextId` in one atomic update.
+        const advance = (doneId: string, nextId: string) =>
+          set((s) => ({
+            bootSteps: s.bootSteps.map((st) =>
+              st.id === doneId ? { ...st, state: 'done' as const }
+              : st.id === nextId ? { ...st, state: 'active' as const }
+              : st,
+            ),
+          }));
+        const patch = (id: string, changes: Partial<BootStep>) =>
+          set((s) => ({ bootSteps: s.bootSteps.map((st) => (st.id === id ? { ...st, ...changes } : st)) }));
+
+        try {
+          // 1. Provision (idempotent: ON CONFLICT (project_id) DO UPDATE on the server).
+          await apiRequest(`/api/v1/projects/${projectId}/workspace`, {
+            method: 'POST',
+            auth: true,
+            body: JSON.stringify({}),
+          });
+          advance('provision', 'start');
+
+          // 2. Start the workspace (starts the container/dev process).
+          await apiRequest(`/api/v1/projects/${projectId}/workspace/start`, { method: 'POST', auth: true });
+          advance('start', 'wait');
+
+          // 3. Poll live status until the app actually exposes a preview port.
+          let reachable = false;
+          for (let i = 0; i < 20; i++) {
+            try {
+              const data = await apiRequest<{ runtimeStatus?: { hasPreview?: boolean; status?: string } }>(
+                `/api/v1/projects/${projectId}/workspace`,
+                { auth: true },
+              );
+              if (data.runtimeStatus?.hasPreview) {
+                reachable = true;
+                break;
+              }
+            } catch {
+              // transient during startup — keep polling
+            }
+            await new Promise((r) => setTimeout(r, 1000));
+          }
+
+          if (reachable) {
+            advance('wait', 'open');
+            set({ previewUrl: previewUrlFor(projectId) });
+            patch('open', { state: 'done' });
+            set({ buildStatus: 'success' });
+          } else {
+            // Honest terminal state: the workspace is up, but nothing is serving a web port
+            // yet. Don't fake a preview — tell the user how to start their app.
+            patch('wait', {
+              state: 'info',
+              label: 'Dev server started',
+              sublabel: 'No web server detected on the expected port yet. Start your app in the Terminal, then Retry.',
+            });
+            // 'open' stays pending; buildStatus stays 'building' so the checklist (with its
+            // action row) remains visible instead of collapsing to an error screen.
+          }
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Failed';
+          set((s) => ({
+            buildStatus: 'building',
+            bootSteps: s.bootSteps.map((st) => (st.state === 'active' ? { ...st, state: 'error' as const, sublabel: message } : st)),
+          }));
+        }
+      },
       setBuildSuccess: (time, filesCount) => set({
         buildStatus: 'success',
         buildTime: time,
