@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { apiRequest } from '../lib/api';
 import { useProjectStore } from './projectStore';
 import { useLayoutStore } from './layoutStore';
+import { useNotificationStore } from './notificationStore';
 
 export type DeployStatus = 'idle' | 'building' | 'deploying' | 'success' | 'error';
 export type DeployTarget = 'torsor' | 'vercel' | 'netlify' | 'coolify' | 'gcp' | 'ssh';
@@ -144,14 +145,26 @@ export const useDeployStore = create<DeployState>()(
             actionLabel: 'Open',
             url: res.url,
           });
+          useNotificationStore.getState().addNotification({
+            type: 'deploy_success',
+            title: 'Deploy successful',
+            message: `Your app is live at ${res.url}`,
+            link: res.url,
+          });
         } catch (e) {
+          const detail = e instanceof Error ? e.message : 'error';
           set({
             isDeploying: false,
             currentDeployment: {
               ...base,
               status: 'error',
-              logs: [...base.logs, `[deploy] Failed: ${e instanceof Error ? e.message : 'error'}`],
+              logs: [...base.logs, `[deploy] Failed: ${detail}`],
             },
+          });
+          useNotificationStore.getState().addNotification({
+            type: 'deploy_failed',
+            title: 'Deploy failed',
+            message: detail,
           });
         }
       },

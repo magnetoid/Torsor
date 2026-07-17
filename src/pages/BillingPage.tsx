@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { 
   LayoutGrid, 
@@ -34,6 +34,14 @@ import { useAuthStore } from '../stores/authStore';
 import { usageMock } from '../lib/mockData';
 import { cn } from '../lib/utils';
 import { AccountMenu } from '../components/shared/AccountMenu';
+import { apiUsageSummary, type UsageSummary } from '../lib/api';
+
+/** Compact token formatting for the usage widgets (1.2M / 34.5k / 812). */
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(n);
+}
 
 const NavItem = ({ icon: Icon, label, active, onClick }: { icon: React.ElementType, label: string, active?: boolean, onClick?: () => void }) => (
   <button
@@ -137,6 +145,26 @@ const StatCard = ({ label, value, max, icon: Icon }: { label: string, value: str
 export const BillingPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
+
+  // Real per-user usage from the control plane (usage_events aggregation) — replaces the
+  // previous mock chart data. Null → not loaded / no backend; widgets show an empty state.
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  useEffect(() => {
+    apiUsageSummary().then(setUsage).catch(() => setUsage(null));
+  }, []);
+  const chartData = useMemo(
+    () => (usage?.byDay ?? []).map((d) => ({ date: d.day.slice(5), In: d.tokensIn, Out: d.tokensOut })),
+    [usage],
+  );
+  const totalTokens = (usage?.totals.tokensIn ?? 0) + (usage?.totals.tokensOut ?? 0);
+  const modelBreakdown = useMemo(() => {
+    const rows = (usage?.byModel ?? []).map((m) => ({
+      model: m.model || m.provider,
+      tokens: m.tokensIn + m.tokensOut,
+    }));
+    rows.sort((a, b) => b.tokens - a.tokens);
+    return rows.map((r) => ({ ...r, percentage: totalTokens > 0 ? Math.round((r.tokens / totalTokens) * 100) : 0 }));
+  }, [usage, totalTokens]);
 
   const handleLogout = () => {
     logout();
@@ -277,7 +305,7 @@ export const BillingPage: React.FC = () => {
             <section>
               <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-6">Usage Overview</h3>
               <div className="grid grid-cols-4 gap-4 mb-8">
-                <StatCard label="Tokens Used" value="1.2M" max="2M" icon={TrendingUp} />
+                <StatCard label="Tokens Used" value={formatTokens(totalTokens)} max="2M" icon={TrendingUp} />
                 <StatCard label="Sandbox Hours" value="42" max="100" icon={Clock} />
                 <StatCard label="Projects" value="8" max="25" icon={Box} />
                 <StatCard label="Team Members" value="3" max="unlimited" icon={Users} />
@@ -290,74 +318,75 @@ export const BillingPage: React.FC = () => {
                     <h4 className="text-sm font-bold">Token Usage (Last 30 Days)</h4>
                     <div className="flex gap-4">
                       <div className="flex items-center gap-1.5 text-[10px] text-secondary">
-                        <div className="w-2 h-2 rounded-full bg-accent" /> Claude
+                        <div className="w-2 h-2 rounded-full bg-accent" /> Tokens in
                       </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-secondary">
-                        <div className="w-2 h-2 rounded-full bg-info" /> GPT
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-secondary">
-                        <div className="w-2 h-2 rounded-full bg-warning" /> DeepSeek
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-secondary">
-                        <div className="w-2 h-2 rounded-full bg-success" /> Gemini
+                        <div className="w-2 h-2 rounded-full bg-info" /> Tokens out
                       </div>
                     </div>
                   </div>
                   <div className="h-[300px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={usageMock.chartData}>
-                        <defs>
-                          <linearGradient id="colorClaude" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
-                          </linearGradient>
-                          <linearGradient id="colorGPT" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="var(--info)" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="var(--info)" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <XAxis 
-                          dataKey="date" 
-                          stroke="var(--text-tertiary)" 
-                          fontSize={10} 
-                          tickLine={false} 
-                          axisLine={false}
-                          interval={6}
-                        />
-                        <YAxis 
-                          stroke="var(--text-tertiary)" 
-                          fontSize={10} 
-                          tickLine={false} 
-                          axisLine={false}
-                          tickFormatter={(value) => `${value / 1000}k`}
-                        />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
-                          itemStyle={{ padding: '2px 0' }}
-                        />
-                        <Area type="monotone" dataKey="Claude" stackId="1" stroke="var(--accent)" fill="url(#colorClaude)" />
-                        <Area type="monotone" dataKey="GPT" stackId="1" stroke="var(--info)" fill="url(#colorGPT)" />
-                        <Area type="monotone" dataKey="DeepSeek" stackId="1" stroke="var(--warning)" fillOpacity={0.1} fill="var(--warning)" />
-                        <Area type="monotone" dataKey="Gemini" stackId="1" stroke="var(--success)" fillOpacity={0.1} fill="var(--success)" />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    {chartData.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-xs text-secondary">
+                        No usage recorded yet — run the agent to see tokens here.
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
+                            </linearGradient>
+                            <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="var(--info)" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="var(--info)" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <XAxis
+                            dataKey="date"
+                            stroke="var(--text-tertiary)"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis
+                            stroke="var(--text-tertiary)"
+                            fontSize={10}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(value) => formatTokens(Number(value))}
+                          />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                            itemStyle={{ padding: '2px 0' }}
+                          />
+                          <Area type="monotone" dataKey="In" stackId="1" stroke="var(--accent)" fill="url(#colorIn)" />
+                          <Area type="monotone" dataKey="Out" stackId="1" stroke="var(--info)" fill="url(#colorOut)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </div>
 
                 {/* Cost Breakdown */}
                 <div className="bg-page border border-default rounded-xl p-6">
-                  <h4 className="text-sm font-bold mb-6">Cost Breakdown</h4>
+                  <h4 className="text-sm font-bold mb-6">Model Breakdown</h4>
                   <div className="space-y-4">
-                    {usageMock.tokens.breakdown.map((item) => (
+                    {modelBreakdown.length === 0 && (
+                      <p className="text-xs text-secondary">No model usage yet.</p>
+                    )}
+                    {modelBreakdown.map((item) => (
                       <div key={item.model} className="space-y-2">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-primary">{item.model}</span>
-                          <span className="text-secondary">${item.cost.toFixed(2)}</span>
+                          <span className="text-primary truncate">{item.model}</span>
+                          <span className="text-secondary shrink-0">{formatTokens(item.tokens)}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-1.5 bg-inset rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-accent/50" 
+                            <div
+                              className="h-full bg-accent/50"
                               style={{ width: `${item.percentage}%` }}
                             />
                           </div>
@@ -367,7 +396,7 @@ export const BillingPage: React.FC = () => {
                     ))}
                     <div className="pt-4 border-t border-default flex items-center justify-between">
                       <span className="text-sm font-bold">Total</span>
-                      <span className="text-sm font-bold text-accent">$28.00</span>
+                      <span className="text-sm font-bold text-accent">{formatTokens(totalTokens)} tokens</span>
                     </div>
                   </div>
                 </div>

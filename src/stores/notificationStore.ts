@@ -103,10 +103,16 @@ const MOCK_NOTIFICATIONS: Notification[] = [
   }
 ];
 
+// Ids of the demo seed rows above — used by the persist migration to strip them from
+// existing users' storage so real accounts see real notifications (or the empty state).
+const MOCK_IDS = new Set(MOCK_NOTIFICATIONS.map((n) => n.id));
+
 export const useNotificationStore = create<NotificationState>()(
   persist(
     (set, get) => ({
-      notifications: MOCK_NOTIFICATIONS,
+      // Demo rows only in dev builds; production starts at the real empty state and fills
+      // from real events (deploys, agent runs) via addNotification.
+      notifications: import.meta.env.DEV ? MOCK_NOTIFICATIONS : [],
       
       addNotification: (notification) => {
         const newNotification: Notification = {
@@ -144,6 +150,15 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'torsor-notifications',
+      version: 1,
+      // v0 → v1: drop the fabricated demo rows that used to ship to every account.
+      migrate: (persisted: unknown) => {
+        const state = persisted as { notifications?: Notification[] } | undefined;
+        return {
+          ...(state ?? {}),
+          notifications: (state?.notifications ?? []).filter((n) => !MOCK_IDS.has(n.id)),
+        };
+      },
     }
   )
 );

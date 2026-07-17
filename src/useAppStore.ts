@@ -52,19 +52,6 @@ export interface FileNode {
 }
 
 export type BuildStatus = 'idle' | 'building' | 'success' | 'error';
-export type DeployStatus = 'idle' | 'building' | 'success' | 'error';
-
-export interface DeployEntry {
-  id: string;
-  status: 'success' | 'error' | 'building';
-  target: 'Vercel' | 'Netlify' | 'Coolify' | 'Custom';
-  environment: 'Preview' | 'Staging' | 'Production';
-  duration: string;
-  commit: string;
-  timestamp: string;
-  url: string;
-  logs: string[];
-}
 
 // --- Initial State ---
 
@@ -114,14 +101,6 @@ interface AppState {
   setBuildSuccess: (time: number, filesCount: number) => void;
   setBuildError: () => void;
   togglePreview: (force?: boolean) => void;
-
-  // 7. DEPLOY STATE
-  deployStatus: DeployStatus;
-  deployProgress: number;
-  deployLogs: string[];
-  deployHistory: DeployEntry[];
-  startDeploy: (target: string, env: string, branch: string) => Promise<void>;
-  rollbackDeploy: (id: string) => void;
 
   // 6. SETTINGS
   parallelLimit: number;
@@ -418,87 +397,6 @@ export const useAppStore = create<AppState>()(
       togglePreview: (force) => set((state) => ({ 
         isPreviewOpen: force !== undefined ? force : !state.isPreviewOpen 
       })),
-
-      // 7. DEPLOY STATE
-      deployStatus: 'idle',
-      deployProgress: 0,
-      deployLogs: [],
-      deployHistory: [
-        {
-          id: 'dep-1',
-          status: 'success',
-          target: 'Vercel',
-          environment: 'Production',
-          duration: '42s',
-          commit: 'a1b2c3d',
-          timestamp: '2 hours ago',
-          url: 'https://tesseract-demo.vercel.app',
-          logs: ['→ Installing dependencies...', '✓ 200 OK']
-        },
-        {
-          id: 'dep-2',
-          status: 'error',
-          target: 'Netlify',
-          environment: 'Staging',
-          duration: '15s',
-          commit: 'f5e4d3c',
-          timestamp: '5 hours ago',
-          url: '',
-          logs: ['→ Building application...', 'error: Build failed']
-        }
-      ],
-      startDeploy: async (target, env, branch) => {
-        set({ deployStatus: 'building', deployProgress: 0, deployLogs: [] });
-        
-        const logs = [
-          "→ Installing dependencies...",
-          "  added 847 packages in 12s",
-          "→ Building application...",
-          "  ✓ 23 modules transformed",
-          "  ✓ Bundle size: 142kb (gzipped: 48kb)",
-          "→ Optimizing assets...",
-          "  ✓ Images compressed (saved 34%)",
-          `→ Deploying to ${target}...`,
-          "  ✓ Uploaded 12 files",
-          "  ✓ Edge functions deployed",
-          "→ Running health check...",
-          "  ✓ 200 OK",
-          "",
-          "✅ Deployment successful!",
-          `🔗 https://tesseract-demo.${target.toLowerCase()}.app`
-        ];
-
-        for (let i = 0; i < logs.length; i++) {
-          await new Promise(r => setTimeout(r, 400));
-          set(state => ({ 
-            deployLogs: [...state.deployLogs, logs[i]],
-            deployProgress: Math.min(((i + 1) / logs.length) * 100, 100)
-          }));
-        }
-
-        const newDeploy: DeployEntry = {
-          id: `dep-${Date.now()}`,
-          status: 'success',
-          target: target as any,
-          environment: env as any,
-          duration: '38s',
-          commit: 'g7h8i9j',
-          timestamp: 'Just now',
-          url: `https://tesseract-demo.${target.toLowerCase()}.app`,
-          logs: logs
-        };
-
-        set(state => ({ 
-          deployStatus: 'success',
-          deployHistory: [newDeploy, ...state.deployHistory]
-        }));
-      },
-      rollbackDeploy: (id) => {
-        // Mock rollback
-        set(state => ({
-          deployHistory: state.deployHistory.map(d => d.id === id ? { ...d, timestamp: 'Rolled back just now' } : d)
-        }));
-      },
 
       // 6. SETTINGS
       parallelLimit: 3,

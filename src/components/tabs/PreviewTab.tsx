@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { 
@@ -33,17 +33,35 @@ export default function PreviewTab() {
   const [consoleLogs, setConsoleLogs] = useState<{ type: 'log' | 'error' | 'warn'; text: string; timestamp: number }[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Mock console logs
-  useEffect(() => {
-    if (buildStatus === 'success') {
-      const logs = [
-        { type: 'log', text: '[vite] connecting...', timestamp: Date.now() },
-        { type: 'log', text: '[vite] connected.', timestamp: Date.now() + 100 },
-        { type: 'log', text: 'App initialized.', timestamp: Date.now() + 500 },
-      ];
-      setConsoleLogs(logs as any);
+  // Real console capture: the preview proxy is same-origin by default, so on iframe load we
+  // patch the app's console (and window errors) to mirror into the drawer. A cross-origin
+  // preview (custom VITE_API_URL) throws SecurityError → caught, drawer just stays empty.
+  const attachConsole = () => {
+    try {
+      const w = iframeRef.current?.contentWindow as (Window & typeof globalThis & { __torsorConsoleHooked?: boolean }) | null;
+      if (!w || w.__torsorConsoleHooked) return;
+      w.__torsorConsoleHooked = true;
+      const push = (type: 'log' | 'warn' | 'error', args: unknown[]) => {
+        const text = args
+          .map((a) => {
+            if (typeof a === 'string') return a;
+            try { return JSON.stringify(a); } catch { return String(a); }
+          })
+          .join(' ');
+        setConsoleLogs((l) => [...l.slice(-199), { type, text, timestamp: Date.now() }]);
+      };
+      (['log', 'warn', 'error'] as const).forEach((k) => {
+        const orig = w.console[k]?.bind(w.console);
+        (w.console as unknown as Record<string, (...a: unknown[]) => void>)[k] = (...args: unknown[]) => {
+          push(k, args);
+          orig?.(...(args as []));
+        };
+      });
+      w.addEventListener('error', (e) => push('error', [(e as ErrorEvent)?.message ?? 'Uncaught error']));
+    } catch {
+      /* cross-origin preview — no console access */
     }
-  }, [buildStatus]);
+  };
 
   const handleRefresh = () => {
     // Bump the nonce → the iframe (keyed on it) remounts and reloads the running app.
@@ -96,6 +114,7 @@ export default function PreviewTab() {
             key={previewNonce}
             ref={iframeRef}
             src={previewUrl}
+            onLoad={attachConsole}
             className="w-full h-full border-none"
             title="App Preview"
           />
