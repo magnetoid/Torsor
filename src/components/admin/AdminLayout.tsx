@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../lib/utils';
+import { AccountBar } from '../shared/AccountBar';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -103,8 +104,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-[220px] min-h-screen">
-        <div className="p-8 max-w-7xl mx-auto">
+      <main className="flex-1 ml-[220px] min-h-screen flex flex-col">
+        <AccountBar />
+        <div className="p-8 max-w-7xl mx-auto w-full">
           {children}
         </div>
       </main>

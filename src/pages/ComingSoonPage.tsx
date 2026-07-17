@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, LucideIcon } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { EmptyState } from '../components/shared/EmptyState';
+import { AccountBar } from '../components/shared/AccountBar';
 
 /** Shared shell for sidebar destinations that aren't built yet. The sidebar links to
  *  these routes, so they must land somewhere real (not a 404). */
@@ -19,14 +20,17 @@ export function ComingSoonPage({
   return (
     <div className="flex bg-page min-h-screen">
       <HomeSidebar />
-      <div className="flex-1 min-w-0 flex items-center justify-center animate-in fade-in duration-slow">
-        <EmptyState
-          icon={icon}
-          title={title}
-          description={description}
-          actionLabel="Back to Home"
-          onAction={() => navigate('/')}
-        />
+      <div className="flex-1 min-w-0 flex flex-col animate-in fade-in duration-slow">
+        <AccountBar title={title} />
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState
+            icon={icon}
+            title={title}
+            description={description}
+            actionLabel="Back to Home"
+            onAction={() => navigate('/')}
+          />
+        </div>
       </div>
     </div>
   );

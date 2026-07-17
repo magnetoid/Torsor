@@ -22,6 +22,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { useProjectStore } from '../../stores/projectStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
+import { AccountBar } from '../shared/AccountBar';
 import { cn } from '../../lib/utils';
 
 const PROJECT_TYPES = [
@@ -113,6 +114,7 @@ export function HomeContent() {
   return (
     <Tooltip.Provider delayDuration={200}>
       <main className="flex-1 overflow-y-auto bg-page h-screen">
+        <AccountBar title="Home" />
         <div className="max-w-3xl mx-auto px-6 py-8">
           {/* Workspace Badge */}
           <div className="flex justify-center">

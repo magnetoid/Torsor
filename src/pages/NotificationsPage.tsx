@@ -18,6 +18,7 @@ import {
 import { useNotificationStore, NotificationType } from '../stores/notificationStore';
 import { cn, formatDistanceToNow } from '../lib/utils';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { AccountBar } from '../components/shared/AccountBar';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 const getNotificationIcon = (type: NotificationType) => {
@@ -51,6 +52,7 @@ export const NotificationsPage: React.FC = () => {
       <HomeSidebar />
       
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <AccountBar title="Notifications" />
         {/* Header */}
         <header className="h-16 border-b border-default flex items-center justify-between px-8 shrink-0 bg-surface/50 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-3">

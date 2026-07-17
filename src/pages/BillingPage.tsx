@@ -33,6 +33,7 @@ import {
 import { useAuthStore } from '../stores/authStore';
 import { usageMock } from '../lib/mockData';
 import { cn } from '../lib/utils';
+import { AccountMenu } from '../components/shared/AccountMenu';
 
 const NavItem = ({ icon: Icon, label, active, onClick }: { icon: React.ElementType, label: string, active?: boolean, onClick?: () => void }) => (
   <button
@@ -204,6 +205,7 @@ export const BillingPage: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-14 border-b border-default bg-inset flex items-center justify-between px-8 shrink-0">
           <h2 className="text-xl font-bold tracking-tight">Billing & Usage</h2>
+          <AccountMenu size="md" />
         </header>
 
         <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">

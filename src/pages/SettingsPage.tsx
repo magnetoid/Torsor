@@ -12,6 +12,7 @@ import {
   LayoutGrid
 } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { AccountBar } from '../components/shared/AccountBar';
 import { useActiveWorkspace } from '../stores/workspaceStore';
 import { cn } from '../lib/utils';
 
@@ -42,6 +43,7 @@ export function SettingsPage() {
       <HomeSidebar />
       
       <main className="flex-1 min-w-0 overflow-y-auto h-screen">
+        <AccountBar title="Settings" />
         <div className="max-w-5xl mx-auto px-6 py-8">
           {/* Breadcrumbs / Header */}
           <div className="flex items-center gap-2 text-xs font-bold text-tertiary uppercase tracking-wider mb-2">

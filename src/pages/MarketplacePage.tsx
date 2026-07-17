@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Star, Download, Rocket, BadgeCheck, Box, Loader2 } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { AccountBar } from '../components/shared/AccountBar';
 import { searchRegistryImages, deployImage, type RegistryImage } from '../lib/api';
 import { cn } from '../lib/utils';
 
@@ -54,6 +55,7 @@ export function MarketplacePage() {
     <div className="flex bg-page min-h-screen">
       <HomeSidebar />
       <main className="flex-1 min-w-0 overflow-y-auto h-screen">
+        <AccountBar title="Marketplace" />
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-primary flex items-center gap-2">

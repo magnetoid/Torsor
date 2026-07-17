@@ -19,6 +19,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { AccountBar } from '../components/shared/AccountBar';
 import { useProjectStore } from '../stores/projectStore';
 import { cn } from '../lib/utils';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -86,6 +87,7 @@ export function ProjectsPage() {
       <HomeSidebar />
 
       <main className="flex-1 min-w-0 overflow-y-auto h-screen">
+        <AccountBar title="Projects" />
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between mb-8">
             <div>
