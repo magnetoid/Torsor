@@ -77,28 +77,28 @@ func TestBuildCreateArgsAppModePublishesPortAndRunsImageCommand(t *testing.T) {
 
 func TestResolveImageAllowlistAndValidation(t *testing.T) {
 	// No allowlist: any well-formed image passes; empty falls back to alpine:3.
-	if img, err := resolveImage("node:20", nil); err != nil || img != "node:20" {
+	if img, err := resolveImage("node:20", "", nil); err != nil || img != "node:20" {
 		t.Errorf("permissive resolveImage(node:20) = %q, %v", img, err)
 	}
-	if img, err := resolveImage("", nil); err != nil || img != "alpine:3" {
+	if img, err := resolveImage("", "", nil); err != nil || img != "alpine:3" {
 		t.Errorf("resolveImage(\"\") = %q, %v; want alpine:3", img, err)
 	}
 	// Malformed references are rejected regardless of allowlist.
 	for _, bad := range []string{"node:20; rm -rf /", "a b", "img$(whoami)", "x`id`"} {
-		if _, err := resolveImage(bad, nil); err == nil {
+		if _, err := resolveImage(bad, "", nil); err == nil {
 			t.Errorf("resolveImage(%q) should have been rejected", bad)
 		}
 	}
 	// Allowlist set: only listed images pass.
 	allow := []string{"node:20", "python:3.12"}
-	if _, err := resolveImage("node:20", allow); err != nil {
+	if _, err := resolveImage("node:20", "", allow); err != nil {
 		t.Errorf("allowlisted image rejected: %v", err)
 	}
-	if _, err := resolveImage("ubuntu:latest", allow); err == nil {
+	if _, err := resolveImage("ubuntu:latest", "", allow); err == nil {
 		t.Errorf("non-allowlisted image ubuntu:latest should be rejected")
 	}
 	// With an allowlist, the empty->alpine:3 fallback must itself be allowlisted.
-	if _, err := resolveImage("", allow); err == nil {
+	if _, err := resolveImage("", "", allow); err == nil {
 		t.Errorf("default alpine:3 should be rejected when not in the allowlist")
 	}
 }
@@ -181,5 +181,20 @@ func TestShellQuote(t *testing.T) {
 	// An embedded single quote must be escaped so the script can't break out.
 	if got := shellQuote("it's"); got != `'it'\''s'` {
 		t.Errorf("shellQuote(%q) = %q", "it's", got)
+	}
+}
+
+func TestResolveImageDefault(t *testing.T) {
+	// An empty request uses the configured default image...
+	if img, err := resolveImage("", "node:20-alpine", nil); err != nil || img != "node:20-alpine" {
+		t.Errorf("resolveImage(\"\", node:20-alpine) = %q, %v; want node:20-alpine", img, err)
+	}
+	// ...and an empty default still falls back to alpine:3 (belt-and-suspenders).
+	if img, err := resolveImage("", "", nil); err != nil || img != "alpine:3" {
+		t.Errorf("resolveImage(\"\", \"\") = %q, %v; want alpine:3", img, err)
+	}
+	// A default is a fallback only — an explicit request still wins.
+	if img, err := resolveImage("python:3.12", "node:20-alpine", nil); err != nil || img != "python:3.12" {
+		t.Errorf("explicit image should win over default, got %q, %v", img, err)
 	}
 }

@@ -108,6 +108,14 @@ services:
       TORSOR_WORKSPACE_RUNTIME_PLUGINS: /app/mock-runtime,/app/docker-runtime
       TORSOR_DEFAULT_RUNTIME: ${TORSOR_DEFAULT_RUNTIME:-docker}
       TORSOR_WS_IMAGE_ALLOWLIST: ${TORSOR_WS_IMAGE_ALLOWLIST:-}
+      # Live preview / deploy: a fresh workspace runs this image (node so a JS/TS dev
+      # server works out of the box) and publishes this port to a random loopback host
+      # port that the preview + deploy proxies target. Without APP_PORT nothing is
+      # published and the preview can never reach the app. The agent is told to bind its
+      # server to 0.0.0.0 on this port.
+      TORSOR_WS_DEFAULT_IMAGE: ${TORSOR_WS_DEFAULT_IMAGE:-node:20-alpine}
+      TORSOR_WS_APP_PORT: ${TORSOR_WS_APP_PORT:-3000}
+      TORSOR_WS_MEMORY: ${TORSOR_WS_MEMORY:-1g}
     expose:
       - "3001"
     volumes:

@@ -75,9 +75,13 @@ type limits struct {
 	// container stays up for `docker exec`. Set false ("app" deploys) to run the image's
 	// own entrypoint (e.g. nginx serving). Default true.
 	keepAlive bool
-	// appPort is the container port to publish + preview (e.g. "80"). When set, the port
+	// appPort is the container port to publish + preview (e.g. "3000"). When set, the port
 	// is published to a random 127.0.0.1 host port and reported as the preview target.
 	appPort string
+	// defaultImage is used when the caller supplies no image (TORSOR_WS_DEFAULT_IMAGE).
+	// Defaults to node:20-alpine so a fresh workspace can run a JS/TS dev server out of
+	// the box; bare alpine had no runtime to serve anything.
+	defaultImage string
 }
 
 func envOr(key, def string) string {
@@ -89,14 +93,15 @@ func envOr(key, def string) string {
 
 func limitsFromEnv() limits {
 	return limits{
-		memory:    envOr("TORSOR_WS_MEMORY", "512m"),
-		cpus:      envOr("TORSOR_WS_CPUS", "1"),
-		pids:      envOr("TORSOR_WS_PIDS", "256"),
-		network:   envOr("TORSOR_WS_NETWORK", "bridge"),
-		hardened:  envOr("TORSOR_WS_HARDENED", "true") != "false",
-		allowlist: parseAllowlist(envOr("TORSOR_WS_IMAGE_ALLOWLIST", "")),
-		keepAlive: envOr("TORSOR_WS_KEEPALIVE", "true") != "false",
-		appPort:   strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")),
+		memory:       envOr("TORSOR_WS_MEMORY", "1g"),
+		cpus:         envOr("TORSOR_WS_CPUS", "1"),
+		pids:         envOr("TORSOR_WS_PIDS", "256"),
+		network:      envOr("TORSOR_WS_NETWORK", "bridge"),
+		hardened:     envOr("TORSOR_WS_HARDENED", "true") != "false",
+		allowlist:    parseAllowlist(envOr("TORSOR_WS_IMAGE_ALLOWLIST", "")),
+		keepAlive:    envOr("TORSOR_WS_KEEPALIVE", "true") != "false",
+		appPort:      strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")),
+		defaultImage: envOr("TORSOR_WS_DEFAULT_IMAGE", "node:20-alpine"),
 	}
 }
 
@@ -115,8 +120,11 @@ func parseAllowlist(csv string) []string {
 // the image to run (falling back to alpine:3 when none is given) or an error if the image
 // is malformed or not permitted. Keeping this separate makes it unit-testable and ensures
 // every workspace create runs the same gate.
-func resolveImage(requested string, allowlist []string) (string, error) {
+func resolveImage(requested, defaultImage string, allowlist []string) (string, error) {
 	image := strings.TrimSpace(requested)
+	if image == "" {
+		image = strings.TrimSpace(defaultImage)
+	}
 	if image == "" {
 		image = "alpine:3"
 	}
@@ -141,7 +149,7 @@ func resolveImage(requested string, allowlist []string) (string, error) {
 // Extracted (and env iterated in sorted order) so it is deterministic and unit-testable
 // without a Docker daemon. Returns an error if the requested image is rejected.
 func buildCreateArgs(name string, spec plugin.WorkspaceSpec, lim limits) ([]string, error) {
-	image, err := resolveImage(spec.Image, lim.allowlist)
+	image, err := resolveImage(spec.Image, lim.defaultImage, lim.allowlist)
 	if err != nil {
 		return nil, err
 	}

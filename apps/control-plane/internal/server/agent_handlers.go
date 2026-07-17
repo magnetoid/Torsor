@@ -17,6 +17,16 @@ import (
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
 
+// previewPort is the container port the live preview watches (TORSOR_WS_APP_PORT),
+// defaulting to 3000 to match the docker-runtime default. Passed to the agent so it knows
+// which port to serve on for its app to appear in the preview.
+func previewPort() string {
+	if p := strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")); p != "" {
+		return p
+	}
+	return "3000"
+}
+
 // checkAppProbe builds the agent's check_app tool: an HTTP GET against the workspace's
 // preview target (the exact address the live preview proxies to), so the agent can verify
 // "the app actually responds" after its edits. Probe failures return as observation text
@@ -225,6 +235,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		Plan:        body.ApprovedPlan,
 		Tools:       toolRouter,
 		CheckApp:    checkAppProbe(rt, ws.ProjectID),
+		PreviewPort: previewPort(),
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).

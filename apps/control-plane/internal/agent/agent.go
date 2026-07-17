@@ -85,6 +85,10 @@ type Config struct {
 	// observation text (nil error) so the agent can react and fix rather than abort.
 	// Wired by the server from the workspace runtime's status; nil hides the tool.
 	CheckApp func(ctx context.Context) (string, error)
+	// PreviewPort is the container port the live preview watches (TORSOR_WS_APP_PORT).
+	// The agent is told to bind its web/dev server to 0.0.0.0:PreviewPort so the app
+	// shows up in the preview and is deployable. Empty = no preview-port guidance.
+	PreviewPort string
 }
 
 // ExternalTool is a tool contributed from outside the built-in set (an MCP server today).
@@ -173,6 +177,16 @@ Rules:
   responds. Fix what you find, then re-verify. Only then return "final".
 - When the task is done and verified, return a "final" message. Do not loop forever.`
 
+// previewPortPromptFmt tells the agent how to make its app visible in the live preview.
+// The single %[1]s is the preview port (indexed so one arg fills every slot). Appended to
+// the system prompt.
+const previewPortPromptFmt = `
+
+LIVE PREVIEW: the workspace has a live preview that shows a web server running on port %[1]s. To make your app appear there (and be deployable), your app MUST listen on 0.0.0.0:%[1]s. Start the server in the BACKGROUND so this loop can continue, e.g.:
+- Node/Vite: run with --host 0.0.0.0 --port %[1]s (append " &" so it runs in the background)
+- Static files: python3 -m http.server %[1]s --bind 0.0.0.0 &  (or: npx --yes serve -l %[1]s &)
+Always background the server (end the command with &) and then continue — never let a foreground server block the loop. After starting it, use check_app to confirm it responds.`
+
 // checkAppPrompt advertises the self-verification probe when the server wires one up.
 // Appended to the system prompt (models treat appendices as part of the tool list).
 const checkAppPrompt = `
@@ -234,6 +248,12 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	if planning {
 		system = planSystemPrompt
 	} else {
+		if r.cfg.PreviewPort != "" {
+			// Tell the agent how to make its app appear in the live preview (and be
+			// deployable): serve on 0.0.0.0:<PreviewPort>, in the background so the loop
+			// continues. This is the difference between a running env and a visible app.
+			system += fmt.Sprintf(previewPortPromptFmt, r.cfg.PreviewPort)
+		}
 		if r.cfg.CheckApp != nil {
 			// Advertise the self-verification probe (reflection loop): edit → verify → fix.
 			system += checkAppPrompt
