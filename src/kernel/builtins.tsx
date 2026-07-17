@@ -48,18 +48,18 @@ const BUILTIN_TABS: TabContribution[] = [
   { type: 'code', label: 'Code Editor', component: CodeEditorTab, source: 'core' },
   { type: 'terminal', label: 'Terminal', component: TerminalTab, source: 'core' },
   { type: 'database', label: 'Database', component: withPreview(DatabaseTab, 'the Database explorer'), source: 'core' },
-  { type: 'security', label: 'Security Scan', component: SecurityScanTab, source: 'core' },
-  { type: 'integrations', label: 'Integrations', component: IntegrationsTab, source: 'core' },
-  { type: 'skills', label: 'Agent Skills', component: AgentSkillsTab, source: 'core' },
+  { type: 'security', label: 'Security Scan', component: withPreview(SecurityScanTab, 'the Security Scan'), source: 'core' },
+  { type: 'integrations', label: 'Integrations', component: withPreview(IntegrationsTab, 'Integrations'), source: 'core' },
+  { type: 'skills', label: 'Agent Skills', component: withPreview(AgentSkillsTab, 'Agent Skills'), source: 'core' },
   { type: 'secrets', label: 'Secrets', component: SecretsTab, source: 'core' },
   { type: 'storage', label: 'App Storage', component: withPreview(AppStorageTab, 'App Storage'), source: 'core' },
-  { type: 'auth', label: 'Authentication', component: AuthTab, source: 'core' },
+  { type: 'auth', label: 'Authentication', component: withPreview(AuthTab, 'the Authentication manager'), source: 'core' },
   { type: 'publishing', label: 'Publishing', component: PublishingTab, source: 'core' },
-  { type: 'validation', label: 'Validation', component: ValidationTab, source: 'core' },
+  { type: 'validation', label: 'Validation', component: withPreview(ValidationTab, 'Validation'), source: 'core' },
   { type: 'git', label: 'Git', component: withPreview(GitTab, 'the Git panel'), source: 'core' },
   { type: 'checkpoints', label: 'Checkpoints', component: CheckpointsTab, source: 'core' },
-  { type: 'workflow', label: 'Workflows', component: WorkflowsTab, source: 'core' },
-  { type: 'canvas', label: 'Canvas', component: CanvasTab, source: 'core' },
+  { type: 'workflow', label: 'Workflows', component: withPreview(WorkflowsTab, 'Workflows'), source: 'core' },
+  { type: 'canvas', label: 'Canvas', component: withPreview(CanvasTab, 'the Canvas'), source: 'core' },
   { type: 'testing', label: 'App Testing', component: withPreview(AppTestingTab, 'App Testing'), source: 'core' },
   { type: 'runs', label: 'Agent Runs', component: AgentRunsTab, source: 'core' },
   { type: 'usage', label: 'Usage', component: UsageTab, source: 'core' },
@@ -79,11 +79,13 @@ import {
   Play, Code2, Terminal, Database, Shield, Puzzle, Sparkles, Lock, HardDrive, UserCheck,
   Rocket, CheckCircle, GitBranch, History, Workflow, Frame, MonitorPlay, Settings,
   PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save, Activity, BarChart3, Plug,
+  SunMoon,
 } from 'lucide-react';
 import { useLayoutStore, type TabType } from '../stores/layoutStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useCheckpointStore } from '../stores/checkpointStore';
 import { useDeployStore } from '../stores/deployStore';
+import { useThemeStore } from '../lib/theme';
 
 type RailDef = { id: TabType; label: string; icon: React.ComponentType<{ size?: number; className?: string }>; pinned?: boolean };
 
@@ -142,6 +144,10 @@ contributions.registerCommand({
 contributions.registerCommand({
   id: 'view.search', title: 'Global search', icon: Search, group: 'View', shortcut: '⌘⇧F',
   run: () => useLayoutStore.getState().setRightPanelView('search'), source: 'core',
+});
+contributions.registerCommand({
+  id: 'view.toggleTheme', title: 'Toggle light / dark theme', icon: SunMoon, group: 'View', shortcut: '⌘⇧L',
+  run: () => useThemeStore.getState().toggleTheme(), source: 'core',
 });
 contributions.registerCommand({
   id: 'agent.deploy', title: 'Deploy this project', icon: DeployIcon, group: 'Actions', keywords: 'publish ship live',

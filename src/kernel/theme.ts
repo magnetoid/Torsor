@@ -31,59 +31,27 @@ export interface Theme {
   id: string;
   name: string;
   appearance: ThemeAppearance;
-  tokens: ThemeTokens;
+  /** Token pack written as inline CSS variables when the theme is applied. OMIT for
+   *  CSS-driven built-ins: their values live in src/index.css (the single source of
+   *  truth), selected via the `data-theme` attribute — duplicating them here caused
+   *  silent drift where stale inline styles overrode the stylesheet. */
+  tokens?: ThemeTokens;
   /** Optional id of the plugin that contributed this theme. */
   source?: string;
 }
 
-// Built-in themes. `dark` and `light` mirror the values in src/index.css exactly, so
-// routing the live theme through this registry is behavior-preserving.
+// Built-in themes are CSS-driven: no token literals here. src/index.css `:root` (dark)
+// and `[data-theme="light"]` own the values, so a calm-pass edit there is the one edit.
 export const darkTheme: Theme = {
   id: 'dark',
   name: 'Dark',
   appearance: 'dark',
-  tokens: {
-    'bg-page': '#202023',
-    'bg-surface': '#303034',
-    'bg-elevated': '#3E3E43',
-    'bg-inset': '#27272B',
-    border: '#48484E',
-    'border-subtle': '#3B3B41',
-    'text-primary': '#F6F6F8',
-    'text-secondary': '#A1A1A8',
-    'text-tertiary': '#6D6D74',
-    accent: '#8577F2',
-    'accent-hover': '#9C8EF7',
-    'accent-muted': 'rgba(133,119,242,0.14)',
-    success: '#3DD263',
-    warning: '#FFA71F',
-    error: '#FF5449',
-    info: '#64CDFB',
-  },
 };
 
 export const lightTheme: Theme = {
   id: 'light',
   name: 'Light',
   appearance: 'light',
-  tokens: {
-    'bg-page': '#F8F8FA',
-    'bg-surface': '#FFFFFF',
-    'bg-elevated': '#F1F1F5',
-    'bg-inset': '#EAEAEF',
-    border: '#E2E2E8',
-    'border-subtle': '#ECECF1',
-    'text-primary': '#18181B',
-    'text-secondary': '#62626B',
-    'text-tertiary': '#A0A0AA',
-    accent: '#6B5CE7',
-    'accent-hover': '#5A4BD6',
-    'accent-muted': 'rgba(107,92,231,0.08)',
-    success: '#30B850',
-    warning: '#E8920A',
-    error: '#E8372E',
-    info: '#3AA8E0',
-  },
 };
 
 // A demonstration third-party-style skin proving runtime theme swap / extensibility.
@@ -133,12 +101,17 @@ class ThemeRegistry {
 export const themes = new ThemeRegistry();
 themes.register(darkTheme).register(lightTheme).register(midnightTheme);
 
-/** Apply a theme by writing its tokens to the document root as CSS variables. */
+/** Apply a theme. Custom packs write their tokens as inline CSS variables; CSS-driven
+ *  built-ins (no `tokens`) instead CLEAR any inline overrides so src/index.css rules. */
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
   for (const name of THEME_TOKEN_NAMES) {
-    root.style.setProperty(`--${name}`, theme.tokens[name]);
+    if (theme.tokens) {
+      root.style.setProperty(`--${name}`, theme.tokens[name]);
+    } else {
+      root.style.removeProperty(`--${name}`);
+    }
   }
-  // Keep data-theme in sync so appearance-keyed CSS selectors still work.
+  // data-theme selects the stylesheet-side token set and appearance-keyed selectors.
   root.setAttribute('data-theme', theme.appearance);
 }

@@ -15,6 +15,7 @@ import {
   Terminal,
   ExternalLink
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useNotificationStore, NotificationType } from '../stores/notificationStore';
 import { cn, formatDistanceToNow } from '../lib/utils';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
@@ -37,7 +38,8 @@ const getNotificationIcon = (type: NotificationType) => {
 };
 
 export const NotificationsPage: React.FC = () => {
-  const { notifications, markAsRead, markAllRead, clearAll } = useNotificationStore();
+  const navigate = useNavigate();
+  const { notifications, markAsRead, markAllRead, removeNotification, clearAll } = useNotificationStore();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -151,19 +153,16 @@ export const NotificationsPage: React.FC = () => {
                           {notification.message}
                         </p>
 
-                        {notification.type === 'invite_received' && !notification.isRead && (
-                          <div className="flex items-center gap-2">
-                            <button className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-lg transition-all">
-                              Accept
-                            </button>
-                            <button className="px-3 py-1.5 bg-elevated hover:bg-inset text-primary text-xs font-bold rounded-lg border border-default transition-all">
-                              Decline
-                            </button>
-                          </div>
-                        )}
-
+                        {/* Real notifications carry a link (agent runs, deploys) — follow it.
+                            (The old Accept/Decline invite theater had no backend and is gone.) */}
                         {notification.link && (
-                          <button className="text-xs font-bold text-accent hover:text-accent-hover transition-colors flex items-center gap-1 mt-2">
+                          <button
+                            onClick={() => {
+                              markAsRead(notification.id);
+                              navigate(notification.link!);
+                            }}
+                            className="text-xs font-bold text-accent hover:text-accent-hover transition-colors flex items-center gap-1 mt-2"
+                          >
                             View details
                             <ExternalLink size={12} />
                           </button>
@@ -187,11 +186,10 @@ export const NotificationsPage: React.FC = () => {
                                   <Check size={14} /> Mark as read
                                 </DropdownMenu.Item>
                               )}
-                              <DropdownMenu.Item className="flex items-center gap-2 px-3 py-2 text-xs text-primary hover:bg-elevated rounded-lg cursor-pointer outline-none">
-                                <Bell size={14} /> Mute similar
-                              </DropdownMenu.Item>
-                              <DropdownMenu.Separator className="h-[1px] bg-subtle my-1" />
-                              <DropdownMenu.Item className="flex items-center gap-2 px-3 py-2 text-xs text-error hover:bg-error/10 rounded-lg cursor-pointer outline-none">
+                              <DropdownMenu.Item
+                                onSelect={() => removeNotification(notification.id)}
+                                className="flex items-center gap-2 px-3 py-2 text-xs text-error hover:bg-error/10 rounded-lg cursor-pointer outline-none"
+                              >
                                 <Trash2 size={14} /> Delete
                               </DropdownMenu.Item>
                             </DropdownMenu.Content>

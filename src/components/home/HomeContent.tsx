@@ -12,7 +12,6 @@ import {
   Plus, 
   ArrowUp, 
   RefreshCw, 
-  ChevronDown, 
   ChevronLeft, 
   ChevronRight,
   Lock,
@@ -118,14 +117,14 @@ export function HomeContent() {
       <main className="flex-1 overflow-y-auto bg-page h-screen">
         <AccountBar title="Home" />
         <div className="max-w-3xl mx-auto px-6 py-8">
-          {/* Workspace Badge */}
+          {/* Workspace badge — a calm, non-interactive label (switching lives in the
+              sidebar's WorkspaceSwitcher; a fake chevron here just teased a dropdown). */}
           <div className="flex justify-center">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-default rounded-full text-sm text-secondary cursor-pointer hover:border-accent/30 transition-colors">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-default rounded-full text-sm text-secondary">
               <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-white text-[10px] font-bold">
                 {activeWorkspace?.name.charAt(0)}
               </div>
               <span>{activeWorkspace?.name}</span>
-              <ChevronDown size={14} />
             </div>
           </div>
 
@@ -153,10 +152,7 @@ export function HomeContent() {
                 placeholder="Describe your idea, Agent will bring it to life..."
                 className="w-full bg-transparent border-none outline-none text-primary text-base placeholder-tertiary resize-none min-h-[44px] max-h-[120px] py-1"
               />
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-default">
-                <button type="button" className="p-1.5 text-secondary hover:text-primary hover:bg-elevated rounded-md transition-colors">
-                  <Plus size={18} />
-                </button>
+              <div className="flex items-center justify-end mt-2 pt-2 border-t border-default">
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-secondary">Plan</span>

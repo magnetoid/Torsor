@@ -17,16 +17,9 @@ export interface AISettings {
     alertThreshold: number;
   };
   allowedModels: Record<string, boolean>;
-  byok: {
-    enabled: boolean;
-    keys: {
-      anthropic: string;
-      openai: string;
-      google: string;
-      openrouter: string;
-    };
-    shared: Record<string, boolean>;
-  };
+  // NOTE: BYO API keys deliberately do NOT live here. Plaintext keys in localStorage were
+  // a liability with zero writers — the real path is Settings → API Keys (encrypted
+  // server-side secrets, see secretsStore).
   routingRules: RoutingRule[];
 }
 
@@ -62,8 +55,6 @@ interface SettingsState {
   addRoutingRule: (rule: RoutingRule) => void;
   removeRoutingRule: (id: string) => void;
   toggleModel: (modelId: string) => void;
-  setBYOKKey: (provider: string, key: string) => void;
-  toggleBYOKShared: (provider: string) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -88,21 +79,6 @@ export const useSettingsStore = create<SettingsState>()(
           'gpt-4o': true,
           'deepseek-v3': true,
           'gemini-1.5-pro': true,
-        },
-        byok: {
-          enabled: false,
-          keys: {
-            anthropic: '',
-            openai: '',
-            google: '',
-            openrouter: '',
-          },
-          shared: {
-            anthropic: false,
-            openai: false,
-            google: false,
-            openrouter: false,
-          },
         },
         routingRules: [
           { id: '1', taskType: 'Code Gen', preferredModel: 'claude-3.5-sonnet', fallbackModel: 'gpt-4o' },
@@ -137,27 +113,18 @@ export const useSettingsStore = create<SettingsState>()(
           }
         }
       })),
-      setBYOKKey: (provider, key) => set((state) => ({
-        ai: {
-          ...state.ai,
-          byok: {
-            ...state.ai.byok,
-            keys: { ...state.ai.byok.keys, [provider]: key }
-          }
-        }
-      })),
-      toggleBYOKShared: (provider) => set((state) => ({
-        ai: {
-          ...state.ai,
-          byok: {
-            ...state.ai.byok,
-            shared: { ...state.ai.byok.shared, [provider]: !state.ai.byok.shared[provider] }
-          }
-        }
-      })),
     }),
     {
       name: 'tesseract-settings',
+      version: 1,
+      migrate: (persisted, version) => {
+        // v0 → v1: scrub the abandoned plaintext BYOK block from localStorage.
+        if (version < 1 && persisted && typeof persisted === 'object') {
+          const ai = (persisted as { ai?: Record<string, unknown> }).ai;
+          if (ai && 'byok' in ai) delete ai.byok;
+        }
+        return persisted as SettingsState;
+      },
     }
   )
 );

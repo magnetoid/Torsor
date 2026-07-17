@@ -1,58 +1,29 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import {
-  Play,
-  Search,
-  MessageSquare,
-  Share2,
-  MoreHorizontal,
-  ChevronRight,
-  ChevronDown,
-  Plus,
-  Settings,
-  Shield,
-  Zap,
-  Lock,
-  User as UserIcon,
-  LogOut,
-  FolderTree
-} from 'lucide-react';
+import { Play, Loader2, Search, FolderTree } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { popoverMotion } from '../../lib/motion';
 import { useLayoutStore } from '../../stores/layoutStore';
-import { useAuthStore } from '../../stores/authStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { useAppStore } from '../../useAppStore';
 import { WorkspaceSwitcher } from '../shared/WorkspaceSwitcher';
 import { Segmented } from '../shared/ui';
 import { PresenceAvatars } from '../shared/PresenceAvatars';
 import { AccountMenu } from '../shared/AccountMenu';
 import { TabBar } from './TabBar';
-import { usePlanGate } from '../../hooks/usePlanGate';
-import { UpgradeDialog } from '../shared/UpgradeDialog';
 
 export function TopBar() {
-  const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const { toggleLeftPanel, uiMode, setUiMode, openTab, setCommandPalette, fileManagerOpen, toggleFileManager } = useLayoutStore();
   const focus = uiMode === 'focus';
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } finally {
-      navigate('/login');
-    }
+  // Real run flow: provision → start → poll preview readiness (useAppStore.triggerBuild).
+  // The Preview tab's BootSteps checklist is the feedback surface, so Run opens it.
+  const { buildStatus, triggerBuild } = useAppStore();
+  const building = buildStatus === 'building';
+  const handleRun = () => {
+    openTab('preview');
+    if (!building) triggerBuild();
   };
-  const { getActiveWorkspace } = useWorkspaceStore();
-  const activeWorkspace = getActiveWorkspace();
-  
-  const { checkFeature } = usePlanGate();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Real project name (the bar used to show a hardcoded placeholder). Double-click to
   // rename; persists via PATCH /projects/{id}.
@@ -60,7 +31,6 @@ export function TopBar() {
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const [draftName, setDraftName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [economyMode, setEconomyMode] = useState<'turbo' | 'balanced' | 'max'>('balanced');
 
   const startEditing = () => {
     if (!activeProject) return;
@@ -75,19 +45,6 @@ export function TopBar() {
       void updateProject(activeProject.id, { name });
     }
   };
-
-  const handleModeChange = (mode: 'turbo' | 'balanced' | 'max') => {
-    if (mode === 'max') {
-      const gate = checkFeature('max_power_mode');
-      if (!gate.allowed) {
-        setUpgradeOpen(true);
-        return;
-      }
-    }
-    setEconomyMode(mode);
-  };
-
-  const maxGated = !checkFeature('max_power_mode').allowed;
 
   return (
     <header className="h-10 bg-surface border-b border-default flex items-center px-2 gap-2 shrink-0 z-50">
@@ -125,13 +82,18 @@ export function TopBar() {
         <Tooltip.Provider delayDuration={200}>
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
-              <button className="w-6 h-6 rounded-md bg-success/10 text-success flex items-center justify-center hover:bg-success/20 transition-all">
-                <Play size={12} fill="currentColor" />
+              <button
+                onClick={handleRun}
+                disabled={building}
+                aria-label={building ? 'Starting the dev server' : 'Run project'}
+                className="w-6 h-6 rounded-md bg-success/10 text-success flex items-center justify-center hover:bg-success/20 transition-all disabled:opacity-60"
+              >
+                {building ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} fill="currentColor" />}
               </button>
             </Tooltip.Trigger>
             <Tooltip.Portal>
               <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
-                Run Project
+                {building ? 'Starting… (see Preview)' : 'Run project'}
                 <Tooltip.Arrow className="fill-default" />
               </Tooltip.Content>
             </Tooltip.Portal>
@@ -162,31 +124,11 @@ export function TopBar() {
         {/* Live collaborators — a calm dot in Focus, stacked avatars in IDE. */}
         <PresenceAvatars focus={focus} />
 
-        {/* Advanced controls — hidden in Focus; the ⌘K palette still reaches them. */}
+        {/* Advanced controls — hidden in Focus; the ⌘K palette still reaches them.
+            (The old model-tier Segmented was a local-state placebo — the real model
+            choice is the provider dropdown in the chat composer.) */}
         {!focus && (
           <>
-            <Segmented
-              size="sm"
-              aria-label="Model tier"
-              value={economyMode}
-              onChange={handleModeChange}
-              options={[
-                { value: 'turbo', label: 'Turbo' },
-                { value: 'balanced', label: 'Balance' },
-                {
-                  value: 'max',
-                  label: maxGated ? (
-                    <span className="inline-flex items-center gap-1">Max<Lock size={8} className="text-tertiary" /></span>
-                  ) : (
-                    'Max'
-                  ),
-                  title: maxGated ? 'Upgrade to unlock Max power' : undefined,
-                },
-              ]}
-            />
-
-            <Separator.Root className="w-[1px] h-4 bg-default" />
-
             <button
               onClick={() => openTab('publishing')}
               className="bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20"
@@ -232,8 +174,6 @@ export function TopBar() {
 
         <AccountMenu size="sm" />
       </div>
-
-      <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </header>
   );
 }

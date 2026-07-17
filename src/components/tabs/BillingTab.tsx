@@ -126,6 +126,9 @@ export function BillingTab() {
           <div className="flex items-center gap-2">
             <TrendingUp className="text-accent" size={20} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Token Usage (30 Days)</h3>
+            {/* Honest label: this chart + the invoices below are not backend-driven yet
+                (real usage lives in the Usage tab / Billing page summary). */}
+            <span className="text-[10px] font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
@@ -259,7 +262,10 @@ export function BillingTab() {
 
       {/* Invoice History */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
+          <span className="text-[10px] font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
+        </div>
         <div className="bg-surface border border-default rounded-2xl overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>

@@ -435,7 +435,11 @@ export const BillingPage: React.FC = () => {
               </div>
 
               <div className="col-span-2">
-                <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-4">Invoice History</h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
+                  {/* Honest label: invoices have no billing backend yet. */}
+                  <span className="text-[10px] font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
+                </div>
                 <div className="bg-page border border-default rounded-xl overflow-hidden">
                   <table className="w-full text-left text-sm">
                     <thead>

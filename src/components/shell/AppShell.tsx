@@ -10,7 +10,6 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { CommandPalette } from '../shared/CommandPalette';
 import { DisclosureBar } from '../shared/DisclosureBar';
-import { ToastProvider, useToast } from '../shared/ToastProvider';
 import { cn } from '../../lib/utils';
 
 export function AppShell() {
@@ -27,7 +26,6 @@ export function AppShell() {
     closeTab,
     openTab,
     setRightPanelView,
-    setCommandPalette,
     fileManagerOpen,
     panelWidths,
     setPanelWidth
@@ -55,7 +53,7 @@ export function AppShell() {
     'cmd+shift+b': () => toggleRightPanel(),
     'cmd+w': () => activeTabId && closeTab(activeTabId),
     'cmd+t': () => openTab('preview'), // Default to preview for now
-    'cmd+k': () => setCommandPalette(true),
+    // ⌘K is owned by CommandPalette itself (single listener, toggle semantics).
     'cmd+`': () => openTab('terminal'),
     'cmd+shift+f': () => setRightPanelView('search'),
     'cmd+shift+m': () => toggleUiMode(),
@@ -66,7 +64,7 @@ export function AppShell() {
   });
 
   return (
-    <ToastProvider>
+    <>
       <div className="flex flex-col h-screen bg-page text-primary font-sans overflow-hidden transition-colors duration-300">
         <TopBar />
         <div className="flex flex-1 min-h-0 overflow-hidden relative">
@@ -141,6 +139,6 @@ export function AppShell() {
         </div>
         <CommandPalette />
       </div>
-    </ToastProvider>
+    </>
   );
 }

@@ -5,23 +5,19 @@ import { useProjectStore } from '../stores/projectStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import { OnboardingStep1 } from './steps/OnboardingStep1';
 import { OnboardingStep2 } from './steps/OnboardingStep2';
-import { OnboardingStep3 } from './steps/OnboardingStep3';
 import { OnboardingStep4 } from './steps/OnboardingStep4';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function OnboardingPage() {
+  // Three steps: who you are → how you'll use it → first prompt. (The old model-tier +
+  // API-keys step collected data the app then discarded — keys belong in Settings →
+  // API Keys, encrypted server-side, and the model choice lives in the chat composer.)
   const [step, setStep] = useState(1);
   const [data, setData] = useState({
     name: '',
     workspaceName: '',
     role: '',
-    economyMode: 'balanced',
-    apiKeys: {
-      anthropic: '',
-      openai: '',
-      google: '',
-    },
     prompt: '',
     templateId: '',
   });
@@ -37,7 +33,7 @@ export function OnboardingPage() {
     }
   }, [user]);
 
-  const nextStep = () => setStep(s => Math.min(s + 1, 4));
+  const nextStep = () => setStep(s => Math.min(s + 1, 3));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
   const handleComplete = async (finalData?: typeof data) => {
@@ -75,7 +71,7 @@ export function OnboardingPage() {
       <div className="w-full max-w-xl bg-surface border border-default rounded-3xl shadow-xl overflow-hidden flex flex-col">
         {/* Progress Bar */}
         <div className="p-8 pb-0 flex justify-center gap-3">
-          {[1, 2, 3, 4].map((i) => (
+          {[1, 2, 3].map((i) => (
             <div
               key={i}
               className={cn(
@@ -115,17 +111,9 @@ export function OnboardingPage() {
                 />
               )}
               {step === 3 && (
-                <OnboardingStep3 
-                  data={data} 
-                  updateData={updateData} 
-                  onNext={nextStep} 
-                  onBack={prevStep}
-                />
-              )}
-              {step === 4 && (
-                <OnboardingStep4 
-                  data={data} 
-                  updateData={updateData} 
+                <OnboardingStep4
+                  data={data}
+                  updateData={updateData}
                   onComplete={handleComplete}
                   onBack={prevStep}
                 />

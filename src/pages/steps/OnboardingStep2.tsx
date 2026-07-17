@@ -10,18 +10,17 @@ interface StepProps {
 }
 
 const ROLES = [
-  { id: 'solo', label: 'Solo builder', description: "I'm building projects on my own", icon: User, economy: 'balanced' },
-  { id: 'team', label: 'Team lead', description: "I'm building with a team", icon: Users, economy: 'balanced' },
-  { id: 'agency', label: 'Agency', description: "I build for clients", icon: Building, economy: 'max-power' },
-  { id: 'student', label: 'Student', description: "I'm learning to code", icon: GraduationCap, economy: 'turbo' },
+  { id: 'solo', label: 'Solo builder', description: "I'm building projects on my own", icon: User },
+  { id: 'team', label: 'Team lead', description: "I'm building with a team", icon: Users },
+  { id: 'agency', label: 'Agency', description: "I build for clients", icon: Building },
+  { id: 'student', label: 'Student', description: "I'm learning to code", icon: GraduationCap },
 ];
 
 export function OnboardingStep2({ data, updateData, onNext, onBack }: StepProps) {
   const [role, setRole] = React.useState(data.role || '');
 
   const handleNext = () => {
-    const selectedRole = ROLES.find(r => r.id === role);
-    updateData({ role, economyMode: selectedRole?.economy || 'balanced' });
+    updateData({ role });
     onNext();
   };
 
