@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useChatStore } from './stores/chatStore';
 import { useProjectStore } from './stores/projectStore';
+import { useLayoutStore } from './stores/layoutStore';
 import { ChatMessage } from './components/chat/ChatMessage';
 import { ChatInput } from './components/chat/ChatInput';
 import { EmptyState } from './components/shared/EmptyState';
@@ -26,6 +27,7 @@ const SUGGESTIONS = [
 export default function ChatPanel() {
   const { messages, currentThread, isAgentWorking, agentStep, sendMessage, runAgent } = useChatStore();
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const { openTab, uiMode, setUiMode } = useLayoutStore();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Inside a project, a suggestion runs the coding agent; on the plain chat it completes.
@@ -54,10 +56,20 @@ export default function ChatPanel() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button className="p-1.5 text-secondary hover:text-primary transition-colors">
+            <button
+              onClick={() => openTab('runs')}
+              aria-label="Run history"
+              title="Run history"
+              className="p-1.5 text-secondary hover:text-primary transition-colors"
+            >
               <History size={14} />
             </button>
-            <button className="p-1.5 text-secondary hover:text-primary transition-colors">
+            <button
+              onClick={() => setUiMode(uiMode === 'focus' ? 'ide' : 'focus')}
+              aria-label={uiMode === 'focus' ? 'Exit focus mode' : 'Focus on chat'}
+              title={uiMode === 'focus' ? 'Exit focus mode' : 'Focus on chat'}
+              className="p-1.5 text-secondary hover:text-primary transition-colors"
+            >
               <Maximize2 size={14} />
             </button>
           </div>

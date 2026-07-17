@@ -3,6 +3,7 @@ import { ApiError, apiRequest, apiStream, apiAgentStream, type AgentEvent } from
 import { useSettingsStore } from './settingsStore';
 import { useAppStore } from '../useAppStore';
 import { useLayoutStore } from './layoutStore';
+import { useNotificationStore } from './notificationStore';
 
 export type ContextType = 'file' | 'code' | 'canvas';
 
@@ -167,6 +168,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
 
+    // Attached context is per-message: inline any content-bearing items into the prompt
+    // (plain chat has no workspace tools to read files with), then clear the chips.
+    const attached = get().selectedContext;
+    const contextBlocks = attached
+      .filter((c) => c.content)
+      .map((c) => `Attached file ${c.name}:\n\`\`\`\n${(c.content ?? '').slice(0, 4000)}\n\`\`\``);
+    const promptText = contextBlocks.length ? `${contextBlocks.join('\n\n')}\n\n${trimmed}` : trimmed;
+    if (attached.length) set({ selectedContext: [] });
+
     const agentMessageId = `msg-agent-${Date.now()}`;
     appendMessage({ id: agentMessageId, type: 'agent', content: '', timestamp: Date.now() });
     const appendDelta = (delta: string) =>
@@ -180,7 +190,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       await apiStream(
         `/api/v1/providers/models/${encodeURIComponent(provider)}/complete/stream`,
-        { prompt: buildPrompt(history, trimmed), system: SYSTEM_PROMPT, maxTokens: 2048 },
+        { prompt: buildPrompt(history, promptText), system: SYSTEM_PROMPT, maxTokens: 2048 },
         {
           auth: true,
           signal: abortController.signal,
@@ -221,6 +231,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!trimmed || get().isAgentWorking) return;
     // Plan mode only when the toggle is on AND we're not already executing an approved plan.
     const planning = get().planning && !opts?.approvedPlan;
+
+    // Attached context is per-message: fold the attached workspace paths into the task the
+    // agent receives (it reads them with its read_file tool), then clear the chips. The
+    // visible user message stays exactly what the user typed.
+    const attached = get().selectedContext;
+    const agentTask = attached.length
+      ? `${trimmed}\n\nThe user attached these workspace files as context — read them first with read_file:\n${attached.map((c) => `- ${c.id}`).join('\n')}`
+      : trimmed;
+    if (attached.length) set({ selectedContext: [] });
 
     const appendMessage = (msg: ChatMessageData) =>
       set((state) => ({ messages: [...state.messages, msg] }));
@@ -287,15 +306,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     abortController = new AbortController();
+    let errored = false;
+    let wasAborted = false;
     try {
       await apiAgentStream(
         projectId,
-        { task: trimmed, provider, mode: planning ? 'plan' : undefined, approvedPlan: opts?.approvedPlan },
+        { task: agentTask, provider, mode: planning ? 'plan' : undefined, approvedPlan: opts?.approvedPlan },
         { auth: true, signal: abortController.signal, onEvent }
       );
     } catch (err) {
-      const aborted = err instanceof DOMException && err.name === 'AbortError';
-      if (!aborted) {
+      wasAborted = err instanceof DOMException && err.name === 'AbortError';
+      if (!wasAborted) {
+        errored = true;
         const detail = err instanceof ApiError || err instanceof Error ? err.message : 'Unknown error';
         appendMessage({ id: `msg-error-${Date.now()}`, type: 'error', content: `Agent run failed: ${detail}`, timestamp: Date.now() });
       }
@@ -311,6 +333,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
         /* tree refresh is best-effort */
       }
       if (filesChanged) useAppStore.getState().refreshPreview();
+      // A run that ended on its own (not user-stopped) lands in the notification feed, so
+      // closing the tab mid-run still leaves a visible record.
+      if (!wasAborted && !planning) {
+        useNotificationStore.getState().addNotification({
+          type: 'agent_complete',
+          title: errored ? 'Agent run failed' : 'Agent run finished',
+          message: trimmed.slice(0, 100),
+          link: `/project/${projectId}`,
+        });
+      }
       // Surface one calm "advanced on demand" offer based on what happened.
       const layout = useLayoutStore.getState();
       if (lastRunFailed) {

@@ -14,12 +14,14 @@ import {
 import { cn } from '../../lib/utils';
 import { ChatMessageData, useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useDeployStore } from '../../stores/deployStore';
 
 interface ChatMessageProps {
   message: ChatMessageData;
 }
 
 export function ChatMessage({ message }: ChatMessageProps) {
+  const deployUrl = useDeployStore((s) => s.currentDeployment?.url);
   const isUser = message.type === 'user';
   const isAgent = message.type === 'agent';
   const isWork = message.type === 'work';
@@ -117,9 +119,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <div className="space-y-1">
           <p className="text-xs font-bold text-success">Deployment Successful</p>
           <p className="text-xs text-success/80 leading-relaxed">{message.content}</p>
-          <button className="mt-2 text-[10px] font-bold text-success underline underline-offset-2">
-            View Live App
-          </button>
+          {deployUrl && (
+            <a
+              href={deployUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-2 text-[10px] font-bold text-success underline underline-offset-2"
+            >
+              View Live App
+            </a>
+          )}
         </div>
       </div>
     );
