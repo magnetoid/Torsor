@@ -6,6 +6,7 @@ import { cn } from '../../lib/utils';
 import { tooltipMotion, popoverMotion } from '../../lib/motion';
 import { useLayoutStore, TabType } from '../../stores/layoutStore';
 import { useThemeStore } from '../../lib/theme';
+import { useRunsStore } from '../../stores/runsStore';
 import { contributions, type IconComponent } from '../../kernel/contributions';
 
 interface RailIconProps {
@@ -50,6 +51,14 @@ export function Rail({ className }: { className?: string }) {
   const { leftPanelOpen, toggleLeftPanel, openTab, centerTabs, activeTabId } = useLayoutStore();
   const { theme, toggleTheme } = useThemeStore();
 
+  // Presence of background work: a subtle pulse on the Runs launcher while any run is
+  // processing. One cheap list fetch on mount keeps it honest across reloads.
+  const runningCount = useRunsStore((s) => s.runs.filter((r) => r.status === 'processing').length);
+  const loadRuns = useRunsStore((s) => s.loadRuns);
+  React.useEffect(() => {
+    void loadRuns();
+  }, [loadRuns]);
+
   const activeTab = centerTabs.find((t) => t.id === activeTabId);
 
   // Rail launchers come straight from the tab registry (ADR 0008): pinned tabs show
@@ -70,13 +79,17 @@ export function Rail({ className }: { className?: string }) {
 
       {pinned.map((tab) =>
         tab.icon ? (
-          <RailIcon
-            key={tab.type}
-            icon={tab.icon}
-            label={tab.label}
-            active={activeTab?.type === tab.type}
-            onClick={() => openTab(tab.type as TabType)}
-          />
+          <div key={tab.type} className="relative">
+            <RailIcon
+              icon={tab.icon}
+              label={tab.type === 'runs' && runningCount > 0 ? `${tab.label} — ${runningCount} running` : tab.label}
+              active={activeTab?.type === tab.type}
+              onClick={() => openTab(tab.type as TabType)}
+            />
+            {tab.type === 'runs' && runningCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-accent animate-pulse-accent pointer-events-none" />
+            )}
+          </div>
         ) : null
       )}
 

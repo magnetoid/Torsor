@@ -4,6 +4,7 @@ import {
   Loader2,
   Play,
   RefreshCw,
+  RotateCcw,
   StopCircle,
   Wrench,
   CheckCircle2,
@@ -220,11 +221,23 @@ export default function AgentRunsTab() {
                   </span>
                 )}
               </div>
-              {detail && !selectedTerminal && (
-                <Button size="sm" variant="ghost" onClick={() => void cancel(detail.id)}>
-                  <StopCircle size={12} /> Cancel
-                </Button>
-              )}
+              <div className="flex items-center gap-1.5">
+                {detail && selectedTerminal && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title="Start a fresh background run with the same prompt"
+                    onClick={() => void useRunsStore.getState().startRun(detail.project_id, detail.prompt)}
+                  >
+                    <RotateCcw size={12} /> Re-run
+                  </Button>
+                )}
+                {detail && !selectedTerminal && (
+                  <Button size="sm" variant="ghost" onClick={() => void cancel(detail.id)}>
+                    <StopCircle size={12} /> Cancel
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="flex-1 min-h-0 space-y-2 overflow-y-auto p-4">
               {detail && (

@@ -17,7 +17,7 @@ export type UiMode = 'focus' | 'ide';
  *  edited files, a command failed, the app deployed). Calm discipline: at most one visible. */
 export interface Disclosure {
   id: string;
-  kind: 'files-changed' | 'run-failed' | 'preview-ready';
+  kind: 'files-changed' | 'run-failed' | 'preview-ready' | 'run-delegated';
   label: string;
   actionLabel: string;
   /** Tab to open when the user accepts the offer (escalates Focus→IDE). */

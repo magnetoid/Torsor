@@ -11,13 +11,16 @@ import {
   Cpu,
   Paperclip,
   Code2,
-  Layout
+  Layout,
+  UploadCloud
 } from 'lucide-react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAppStore } from '../../useAppStore';
+import { useRunsStore } from '../../stores/runsStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 
 export function ChatInput() {
   const [input, setInput] = useState('');
@@ -226,6 +229,29 @@ export function ChatInput() {
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+
+            {/* Delegate: run this task server-side in the background — closing the tab
+                loses nothing; follow it in Agent Runs (async-delegation pattern). */}
+            {activeProjectId && input.trim() && !isAgentWorking && (
+              <button
+                onClick={() => {
+                  const task = input.trim();
+                  setInput('');
+                  void useRunsStore.getState().startRun(activeProjectId, task);
+                  useLayoutStore.getState().pushDisclosure({
+                    kind: 'run-delegated',
+                    label: 'Delegated to a background run.',
+                    actionLabel: 'Open runs',
+                    tab: 'runs',
+                  });
+                }}
+                title="Run in background (keeps going if you leave)"
+                aria-label="Run in background"
+                className="w-7 h-7 rounded-lg flex items-center justify-center bg-elevated text-secondary hover:text-accent hover:bg-accent-muted transition-all"
+              >
+                <UploadCloud size={13} />
+              </button>
+            )}
 
             <button
               onClick={handleSend}
