@@ -24,7 +24,7 @@ import { EmptyState } from '../shared/EmptyState';
 import { BootSteps } from '../shared/BootSteps';
 
 export default function PreviewTab() {
-  const { buildStatus, previewUrl, triggerBuild, bootSteps } = useAppStore();
+  const { buildStatus, previewUrl, triggerBuild, bootSteps, previewNonce, refreshPreview } = useAppStore();
   const { openTab } = useLayoutStore();
   
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -45,9 +45,8 @@ export default function PreviewTab() {
   }, [buildStatus]);
 
   const handleRefresh = () => {
-    if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;
-    }
+    // Bump the nonce → the iframe (keyed on it) remounts and reloads the running app.
+    refreshPreview();
   };
 
   const handleCopyUrl = () => {
@@ -82,24 +81,6 @@ export default function PreviewTab() {
       );
     }
 
-    if (buildStatus === 'error') {
-      return (
-        <div className="flex-1 flex flex-col">
-          <div className="bg-error/10 border-b border-error/20 px-4 py-2 flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-error animate-pulse" />
-            <span className="text-xs font-bold text-error uppercase tracking-wider">Build Failed</span>
-            <span className="text-xs text-error/80 truncate">Module not found: Can't resolve './components/AuthLanding'</span>
-          </div>
-          <div className="flex-1 opacity-40 pointer-events-none grayscale">
-             {/* Show last successful or empty */}
-             <div className="w-full h-full flex items-center justify-center">
-                <Monitor size={48} className="text-subtle" />
-             </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
         <div 
@@ -110,9 +91,10 @@ export default function PreviewTab() {
             "w-[375px] h-[667px] max-h-full"
           )}
         >
-          <iframe 
+          <iframe
+            key={previewNonce}
             ref={iframeRef}
-            src={previewUrl} 
+            src={previewUrl}
             className="w-full h-full border-none"
             title="App Preview"
           />
@@ -147,12 +129,12 @@ export default function PreviewTab() {
         </div>
 
         <div className="flex-1 flex items-center bg-inset rounded-lg px-3 py-1 gap-2 border border-default/50">
-          <span className="text-[10px] text-tertiary font-mono">localhost:3000 /</span>
-          <input 
-            type="text" 
-            readOnly 
-            value="" 
-            className="bg-transparent text-[10px] text-secondary outline-none w-full"
+          <input
+            type="text"
+            readOnly
+            value={previewUrl ? previewUrl.split('?')[0] : ''}
+            placeholder="Run your app to see the live preview"
+            className="bg-transparent text-[10px] text-secondary font-mono outline-none w-full"
           />
         </div>
 

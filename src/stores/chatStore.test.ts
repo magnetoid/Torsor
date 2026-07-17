@@ -27,9 +27,14 @@ vi.mock('./settingsStore', () => ({
 }));
 
 // useAppStore uses persist(localStorage), which isn't available in the node test env, and
-// runAgent calls its loadWorkspaceFiles to refresh the tree — mock it out.
+// runAgent calls its loadWorkspaceFiles (tree refresh) + refreshPreview (reload iframe) — mock them.
 vi.mock('../useAppStore', () => ({
-  useAppStore: { getState: () => ({ loadWorkspaceFiles: vi.fn().mockResolvedValue(undefined) }) },
+  useAppStore: {
+    getState: () => ({
+      loadWorkspaceFiles: vi.fn().mockResolvedValue(undefined),
+      refreshPreview: vi.fn(),
+    }),
+  },
 }));
 
 import { useChatStore } from './chatStore';

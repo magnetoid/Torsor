@@ -241,9 +241,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let filesChanged = false;
     let lastRunFailed = false;
 
+    // Mark all in-progress "work" steps as done. Called whenever a new step arrives (the
+    // previous step has finished) and at run end, so completed steps show a ✓ instead of
+    // spinning forever.
+    const markWorkDone = () =>
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.type === 'work' && !m.metadata?.done ? { ...m, metadata: { ...m.metadata, done: true } } : m
+        ),
+      }));
+
     // Map one agent step event to a chat message. thoughts + tool calls read as "work",
     // tool results as terminal output, and the final answer as the agent's reply.
     const onEvent = (e: AgentEvent) => {
+      markWorkDone();
       const base = { id: `msg-agent-${e.step}-${e.kind}-${Date.now()}`, timestamp: Date.now() };
       if (e.kind === 'plan' && e.plan?.length) {
         // Spec mode: show the proposed plan card, awaiting the user's approval.
@@ -255,11 +266,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const args = e.args ? Object.entries(e.args).map(([k, v]) => `${k}=${v.length > 60 ? v.slice(0, 60) + '…' : v}`).join(' ') : '';
         appendMessage({ ...base, type: 'work', content: `${e.tool}(${args})`, metadata: { tool: e.tool } });
       } else if (e.kind === 'tool_result') {
+        let failed = false;
         if (e.tool === 'run') {
           const m = /(?:^|\n)exit=(\d+)/.exec(e.result ?? '');
-          lastRunFailed = m ? m[1] !== '0' : false;
+          failed = m ? m[1] !== '0' : false;
+          lastRunFailed = failed;
         }
-        appendMessage({ ...base, type: 'terminal', content: e.result ?? '', metadata: { tool: e.tool } });
+        appendMessage({ ...base, type: 'terminal', content: e.result ?? '', metadata: { tool: e.tool, failed } });
       } else if (e.kind === 'final' && e.text) {
         appendMessage({ ...base, type: 'agent', content: e.text });
       } else if (e.kind === 'error' && e.text) {
@@ -283,12 +296,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } finally {
       abortController = null;
       set({ isAgentWorking: false });
-      // Reflect any files the agent created/changed in the IDE tree.
+      markWorkDone();
+      // Reflect any files the agent created/changed in the IDE tree, and reload the live
+      // preview so the running app shows the edits instead of stale output.
       try {
         await useAppStore.getState().loadWorkspaceFiles(projectId);
       } catch {
         /* tree refresh is best-effort */
       }
+      if (filesChanged) useAppStore.getState().refreshPreview();
       // Surface one calm "advanced on demand" offer based on what happened.
       const layout = useLayoutStore.getState();
       if (lastRunFailed) {
@@ -301,9 +317,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       } else if (filesChanged) {
         layout.pushDisclosure({
           kind: 'files-changed',
-          label: 'The agent edited files in your workspace.',
-          actionLabel: 'Review',
-          tab: 'code',
+          label: 'The agent updated your app.',
+          actionLabel: 'Open preview',
+          tab: 'preview',
         });
       }
     }

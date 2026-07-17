@@ -29,9 +29,12 @@ export function ChatMessage({ message }: ChatMessageProps) {
   const isDeploy = message.type === 'deploy';
 
   if (isWork) {
+    const done = message.metadata?.done;
     return (
       <div className="flex items-center gap-2 py-1.5 px-2 bg-surface/50 rounded-lg border border-default mb-2">
-        <Loader2 size={12} className="text-accent animate-spin" />
+        {done
+          ? <CheckCircle2 size={12} className="text-success shrink-0" />
+          : <Loader2 size={12} className="text-accent animate-spin shrink-0" />}
         <span className="text-[11px] text-secondary font-medium">{message.content}</span>
       </div>
     );
@@ -80,13 +83,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
   }
 
   if (isTerminal) {
+    const failed = message.metadata?.failed;
     return (
       <div className="bg-page border border-default rounded-lg mb-4 overflow-hidden">
         <div className="bg-surface px-2 py-1 border-b border-default flex items-center gap-2">
-          <Terminal size={10} className="text-secondary" />
+          <Terminal size={10} className={failed ? 'text-error' : 'text-secondary'} />
           <span className="text-[10px] font-mono text-secondary">terminal</span>
+          {failed && <span className="text-[10px] font-mono font-bold text-error ml-auto">failed</span>}
         </div>
-        <pre className="p-2 text-[11px] font-mono text-success overflow-x-auto">
+        <pre className={cn('p-2 text-[11px] font-mono overflow-x-auto', failed ? 'text-error' : 'text-success')}>
           <code>{message.content}</code>
         </pre>
       </div>

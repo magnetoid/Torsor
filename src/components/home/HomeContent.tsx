@@ -21,6 +21,7 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { useProjectStore } from '../../stores/projectStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
+import { useAuthStore } from '../../stores/authStore';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
 import { AccountBar } from '../shared/AccountBar';
 import { cn } from '../../lib/utils';
@@ -55,6 +56,7 @@ export function HomeContent() {
   const navigate = useNavigate();
   const { createProject, fetchProjects, getProjectsByWorkspace } = useProjectStore();
   const { getActiveWorkspace } = useWorkspaceStore();
+  const firstName = useAuthStore((s) => s.user?.name?.split(' ')[0]);
   const activeWorkspace = getActiveWorkspace();
   const workspaceProjects = getProjectsByWorkspace(activeWorkspace?.id || '');
   
@@ -129,7 +131,7 @@ export function HomeContent() {
 
           {/* Greeting */}
           <h1 className="text-3xl font-medium text-primary text-center mt-6">
-            Hi Marko, what do you want to make?
+            Hi {firstName || 'there'}, what do you want to make?
           </h1>
 
           {/* Chat Input */}

@@ -103,6 +103,9 @@ interface AppState {
   totalTokens: number;
   previewUrl: string;
   setPreviewUrl: (url: string) => void;
+  /** Bumped to force the preview iframe to reload (e.g. after the agent edits files). */
+  previewNonce: number;
+  refreshPreview: () => void;
   isPreviewOpen: boolean;
   /** Live checklist for the "bring the app up" flow, rendered by the Preview tab. Each
    *  entry advances as a real workspace-lifecycle call completes (see triggerBuild). */
@@ -308,6 +311,8 @@ export const useAppStore = create<AppState>()(
       totalTokens: 0,
       previewUrl: '',
       setPreviewUrl: (url) => set({ previewUrl: url }),
+      previewNonce: 0,
+      refreshPreview: () => set((s) => ({ previewNonce: s.previewNonce + 1 })),
       isPreviewOpen: true,
       bootSteps: [],
 
@@ -321,7 +326,7 @@ export const useAppStore = create<AppState>()(
         const projectId = useProjectStore.getState().activeProjectId;
         if (!projectId) {
           set({
-            buildStatus: 'error',
+            buildStatus: 'building',
             bootSteps: [
               { id: 'project', label: 'No active project', state: 'error', sublabel: 'Open a project first, then Run.' },
             ],
