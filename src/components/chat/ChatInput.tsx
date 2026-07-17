@@ -61,6 +61,17 @@ export function ChatInput() {
     });
   }, [loadProviders]);
 
+  // One-shot composer pre-fill (e.g. Visual Edits drafting an agent instruction):
+  // consume it into the input, focus, and clear the slot. Never auto-sends.
+  const composerDraft = useChatStore((s) => s.composerDraft);
+  useEffect(() => {
+    if (composerDraft !== null) {
+      setInput(composerDraft);
+      useChatStore.getState().setComposerDraft(null);
+      textareaRef.current?.focus();
+    }
+  }, [composerDraft]);
+
   const activeProvider = providers.find((p) => p.name === selectedProvider);
 
   const handleSend = () => {

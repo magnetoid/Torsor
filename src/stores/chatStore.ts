@@ -63,6 +63,9 @@ interface ChatState {
   currentActivity: string | null;
   /** The last task sent to the agent — powers one-click Retry on a failed run. */
   lastAgentTask: string | null;
+  /** One-shot composer pre-fill (Visual Edits' agent fallback). ChatInput consumes+clears. */
+  composerDraft: string | null;
+  setComposerDraft: (text: string | null) => void;
   currentThread: { id: string; title: string } | null;
   selectedContext: ContextItem[];
   planning: boolean;
@@ -95,6 +98,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   runStartedAt: null,
   currentActivity: null,
   lastAgentTask: null,
+  composerDraft: null,
+  setComposerDraft: (text) => set({ composerDraft: text }),
   currentThread: null,
   selectedContext: [],
   planning: false,

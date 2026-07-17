@@ -18,20 +18,30 @@ import {
   Terminal
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { MousePointerClick } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAppStore } from '../../useAppStore';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { EmptyState } from '../shared/EmptyState';
 import { BootSteps } from '../shared/BootSteps';
+import { useVisualEdit } from '../preview/useVisualEdit';
+import { VisualEditOverlay } from '../preview/VisualEditOverlay';
+import { VisualEditPanel } from '../preview/VisualEditPanel';
 
 export default function PreviewTab() {
   const { buildStatus, previewUrl, triggerBuild, bootSteps, previewNonce, refreshPreview } = useAppStore();
   const { openTab } = useLayoutStore();
-  
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+
   const [viewport, setViewport] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<{ type: 'log' | 'error' | 'warn'; text: string; timestamp: number }[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Visual Edits: click an element in the (same-origin) preview → edit its text with
+  // instant feedback → persist via a real source splice or a drafted agent instruction.
+  const ve = useVisualEdit(iframeRef, activeProjectId);
 
   // Real console capture: the preview proxy is same-origin by default, so on iframe load we
   // patch the app's console (and window errors) to mirror into the drawer. A cross-origin
@@ -102,11 +112,11 @@ export default function PreviewTab() {
 
     return (
       <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-        <div 
+        <div
           className={cn(
-            "bg-white rounded-lg shadow-2xl overflow-hidden transition-all duration-300 ease-in-out",
-            viewport === 'desktop' ? "w-full h-full" : 
-            viewport === 'tablet' ? "w-[768px] h-[1024px] max-h-full" : 
+            "relative bg-white rounded-lg shadow-2xl overflow-hidden transition-all duration-300 ease-in-out",
+            viewport === 'desktop' ? "w-full h-full" :
+            viewport === 'tablet' ? "w-[768px] h-[1024px] max-h-full" :
             "w-[375px] h-[667px] max-h-full"
           )}
         >
@@ -114,10 +124,14 @@ export default function PreviewTab() {
             key={previewNonce}
             ref={iframeRef}
             src={previewUrl}
-            onLoad={attachConsole}
+            onLoad={() => {
+              attachConsole();
+              ve.onIframeLoad();
+            }}
             className="w-full h-full border-none"
             title="App Preview"
           />
+          <VisualEditOverlay hoverRect={ve.hoverRect} selectionRect={ve.selection?.rect ?? null} />
         </div>
       </div>
     );
@@ -162,9 +176,37 @@ export default function PreviewTab() {
 
         <div className="flex items-center gap-1">
           <Tooltip.Provider delayDuration={200}>
+            {/* Visual Edits: click-to-select elements in the live preview. Disabled (with
+                an honest tooltip) when the preview is cross-origin or not running. */}
             <Tooltip.Root>
               <Tooltip.Trigger asChild>
-                <button 
+                <button
+                  onClick={ve.toggleSelectMode}
+                  disabled={!previewUrl || !ve.available}
+                  aria-pressed={ve.selectMode}
+                  aria-label="Visual edit — select an element in the preview"
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors disabled:opacity-40',
+                    ve.selectMode ? 'text-accent bg-accent-muted' : 'text-secondary hover:text-primary'
+                  )}
+                >
+                  <MousePointerClick size={14} />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
+                  {!ve.available
+                    ? 'Visual edits need the same-origin preview'
+                    : ve.selectMode
+                      ? 'Exit visual edit (Esc)'
+                      : 'Visual edit — click an element to change it'}
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
                   onClick={() => openTab('code')}
                   className="p-1.5 text-secondary hover:text-primary transition-colors"
                 >
@@ -242,6 +284,18 @@ export default function PreviewTab() {
       <div className="flex-1 flex flex-col relative overflow-hidden">
         {renderContent()}
       </div>
+
+      {/* VISUAL EDIT PANEL — docked above the console while an element is selected */}
+      {ve.selection && (
+        <VisualEditPanel
+          selection={ve.selection}
+          status={ve.status}
+          onDraft={ve.setDraft}
+          onApply={() => void ve.applyToSource()}
+          onAskAgent={ve.askAgent}
+          onDiscard={ve.discard}
+        />
+      )}
 
       {/* CONSOLE DRAWER */}
       <div className={cn(
