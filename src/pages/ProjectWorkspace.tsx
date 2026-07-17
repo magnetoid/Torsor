@@ -28,7 +28,12 @@ export function ProjectWorkspace() {
   }, [id, fetchProject, fetchProjectFiles, loadWorkspaceFiles, setPreviewUrl, setActiveProject]);
 
   if (isLoading && !project) {
-    return <div className="flex items-center justify-center h-screen bg-page text-secondary">Loading project…</div>;
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-page gap-3">
+        <div className="w-6 h-6 border-2 border-default border-t-accent rounded-full animate-spin" />
+        <span className="text-secondary text-sm">Loading project…</span>
+      </div>
+    );
   }
 
   if (!project) {

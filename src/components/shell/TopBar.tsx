@@ -37,7 +37,7 @@ export function TopBar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const { toggleLeftPanel, uiMode, setUiMode } = useLayoutStore();
+  const { toggleLeftPanel, uiMode, setUiMode, openTab, setCommandPalette } = useLayoutStore();
   const focus = uiMode === 'focus';
 
   const handleLogout = async () => {
@@ -186,11 +186,18 @@ export function TopBar() {
 
             <Separator.Root className="w-[1px] h-4 bg-default" />
 
-            <button className="bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20">
+            <button
+              onClick={() => openTab('publishing')}
+              className="bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20"
+            >
               Publish
             </button>
 
-            <button className="p-1.5 text-secondary hover:text-primary transition-colors">
+            <button
+              onClick={() => setCommandPalette(true)}
+              aria-label="Search (⌘K)"
+              className="p-1.5 text-secondary hover:text-primary transition-colors"
+            >
               <Search size={16} />
             </button>
           </>
