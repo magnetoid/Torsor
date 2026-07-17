@@ -15,11 +15,12 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/auth/ProtectedRoute';
 import { useThemeStore } from './lib/theme';
+import { Toaster } from 'sonner';
 import { useEffect } from 'react';
 import { useAuthStore } from './stores/authStore';
 
 export default function App() {
-  const { toggleTheme } = useThemeStore();
+  const { toggleTheme, theme } = useThemeStore();
   const initialize = useAuthStore((state) => state.initialize);
 
   useEffect(() => {
@@ -189,6 +190,9 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
+      {/* App-wide toast host — the ~10 sonner toast() callers had no <Toaster> mounted,
+          so their feedback was silently dropped. Theme-aware via the theme store. */}
+      <Toaster position="bottom-right" theme={theme} richColors closeButton />
     </ErrorBoundary>
   );
 }

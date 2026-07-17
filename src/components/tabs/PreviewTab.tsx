@@ -17,6 +17,7 @@ import {
   Trash2,
   Terminal
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '../../lib/utils';
 import { useAppStore } from '../../useAppStore';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -51,7 +52,7 @@ export default function PreviewTab() {
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(previewUrl);
-    // In a real app, show a toast here
+    toast.success('Preview URL copied');
   };
 
   const renderContent = () => {
