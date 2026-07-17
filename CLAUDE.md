@@ -109,6 +109,11 @@ A project-specific `torsor-helper` MCP server is available (tools like `map_repo
   `user_id` and 404 on a miss. Never weaken this. All SQL is parameterized.
 - **Sessions are validated, not just signed.** Auth checks the `sessions` row (exists +
   unexpired) so logout/revocation is real. Never fall back to stateless-only JWT checks.
+- **Super-admin features live on the Super Admin page (ADR 0012).** Every super-admin-only
+  capability lives under `src/components/admin/**`, reached via the `/admin` route tree
+  (frontend `AdminRoute`, backend `requireRole(super_admin)`). Other surfaces may *link* to
+  it (e.g. the account menu's "Admin Panel") but never *embed* super-admin controls or gate
+  feature UI on the `super_admin` role outside the admin module.
 - **Theming is a token pack, not a fork.** UI stays on CSS-variable design tokens so
   white-labeling is drop-in and requires no component changes.
 - **Respect the `[now]` / `[partial]` / `[target]` doc tags.** Much of the architecture
