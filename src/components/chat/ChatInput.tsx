@@ -63,7 +63,9 @@ export function ChatInput() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Enter sends only when idle. During a run the field stays editable so the user can
+    // draft the next message; Enter just inserts a newline (Stop is the send button).
+    if (e.key === 'Enter' && !e.shiftKey && !isAgentWorking) {
       e.preventDefault();
       handleSend();
     }
@@ -101,8 +103,7 @@ export function ChatInput() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isAgentWorking ? "Agent is working..." : "Make, test, iterate..."}
-          disabled={isAgentWorking}
+          placeholder={isAgentWorking ? "Agent is working — draft your next message…" : "Make, test, iterate..."}
           className="w-full bg-transparent text-sm text-primary placeholder-tertiary resize-none outline-none min-h-[36px] max-h-[120px] px-1 py-1"
         />
 

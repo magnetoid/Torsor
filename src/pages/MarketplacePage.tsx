@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Star, Download, Rocket, BadgeCheck, Box, Loader2 } from 'lucide-react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { AccountBar } from '../components/shared/AccountBar';
+import { EmptyState } from '../components/shared/EmptyState';
 import { searchRegistryImages, deployImage, type RegistryImage } from '../lib/api';
 import { cn } from '../lib/utils';
 
@@ -138,9 +139,13 @@ export function MarketplacePage() {
                 </div>
               ))}
               {images.length === 0 && (
-                <div className="text-center py-20 text-secondary text-sm">
-                  No images found. Try a different search.
-                </div>
+                <EmptyState
+                  icon={Box}
+                  title="No images found"
+                  description={query ? `No results for "${query}". Try a different term.` : 'Search Docker Hub for a base image to deploy as a workspace.'}
+                  actionLabel={query ? 'Browse popular' : undefined}
+                  onAction={query ? () => { setQuery(''); void runSearch(''); } : undefined}
+                />
               )}
             </div>
           )}
