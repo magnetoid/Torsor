@@ -17,7 +17,8 @@ import {
   Zap,
   Lock,
   User as UserIcon,
-  LogOut
+  LogOut,
+  FolderTree
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { popoverMotion } from '../../lib/motion';
@@ -37,7 +38,7 @@ export function TopBar() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
-  const { toggleLeftPanel, uiMode, setUiMode, openTab, setCommandPalette } = useLayoutStore();
+  const { toggleLeftPanel, uiMode, setUiMode, openTab, setCommandPalette, fileManagerOpen, toggleFileManager } = useLayoutStore();
   const focus = uiMode === 'focus';
 
   const handleLogout = async () => {
@@ -214,6 +215,20 @@ export function TopBar() {
             { value: 'ide', label: 'IDE' },
           ]}
         />
+
+        {/* Project files — toggles the left file-manager panel; sits right beside the
+            account menu so it's reachable from both Focus and IDE modes. */}
+        <button
+          onClick={toggleFileManager}
+          aria-label={fileManagerOpen ? 'Close project files' : 'Open project files'}
+          title="Project files"
+          className={cn(
+            'p-1.5 rounded-md transition-colors',
+            fileManagerOpen ? 'text-accent bg-accent-muted' : 'text-secondary hover:text-primary'
+          )}
+        >
+          <FolderTree size={15} />
+        </button>
 
         <AccountMenu size="sm" />
       </div>

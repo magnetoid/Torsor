@@ -59,6 +59,11 @@ interface LayoutState {
   leftPanelOpen: boolean;
   rightPanelOpen: boolean;
   rightPanelView: 'files' | 'library' | 'search';
+  /** The left "Files" panel (project file manager), toggled from the TopBar button next to
+   *  the account menu. Independent of the right panel's files view. */
+  fileManagerOpen: boolean;
+  /** Widths (px) of the resizable shell panels — dragged via PanelResizer, persisted. */
+  panelWidths: { fileManager: number; left: number; right: number };
   centerTabs: Tab[];
   activeTabId: string;
   secondaryTabId: string | null;
@@ -71,6 +76,9 @@ interface LayoutState {
   // Actions
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
+  toggleFileManager: () => void;
+  /** Set a panel's width (px); clamped to sane bounds so a drag can't lose a panel. */
+  setPanelWidth: (panel: 'fileManager' | 'left' | 'right', width: number) => void;
   setRightPanelView: (view: 'files' | 'library' | 'search') => void;
   openTab: (type: TabType) => void;
   closeTab: (id: string) => void;
@@ -124,6 +132,8 @@ export const useLayoutStore = create<LayoutState>()(
       leftPanelOpen: true,
       rightPanelOpen: true,
       rightPanelView: 'files',
+      fileManagerOpen: false,
+      panelWidths: { fileManager: 240, left: 380, right: 260 },
       centerTabs: [
         { id: 'tab-preview', type: 'preview', label: 'Preview', closable: false }
       ],
@@ -137,6 +147,11 @@ export const useLayoutStore = create<LayoutState>()(
 
       toggleLeftPanel: () => set((state) => ({ leftPanelOpen: !state.leftPanelOpen })),
       toggleRightPanel: () => set((state) => ({ rightPanelOpen: !state.rightPanelOpen })),
+      toggleFileManager: () => set((state) => ({ fileManagerOpen: !state.fileManagerOpen })),
+      setPanelWidth: (panel, width) =>
+        set((state) => ({
+          panelWidths: { ...state.panelWidths, [panel]: Math.min(560, Math.max(180, Math.round(width))) },
+        })),
       setRightPanelView: (view) => set({ rightPanelView: view, rightPanelOpen: true }),
       
       openTab: (type) => {

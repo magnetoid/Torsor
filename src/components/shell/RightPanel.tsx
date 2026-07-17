@@ -13,12 +13,14 @@ import SearchView from '../right-panel/SearchView';
 import LibraryView from '../right-panel/LibraryView';
 
 export function RightPanel({ className }: { className?: string }) {
-  const { 
-    rightPanelOpen, 
-    toggleRightPanel, 
-    rightPanelView, 
-    setRightPanelView 
+  const {
+    rightPanelOpen,
+    toggleRightPanel,
+    rightPanelView,
+    setRightPanelView,
+    panelWidths
   } = useLayoutStore();
+  const width = panelWidths.right;
 
   const renderContent = () => {
     switch (rightPanelView) {
@@ -38,12 +40,14 @@ export function RightPanel({ className }: { className?: string }) {
       {rightPanelOpen && (
         <motion.aside
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 260, opacity: 1 }}
+          animate={{ width, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          // Width nearly instant so PanelResizer drags track the cursor; opacity keeps the
+          // gentle open/close fade.
+          transition={{ width: { duration: 0.06 }, opacity: { duration: 0.2, ease: 'easeOut' } }}
           className={cn("bg-surface border-l border-default flex flex-col overflow-hidden shrink-0", className)}
         >
-          <div className="w-[260px] h-full flex flex-col">
+          <div style={{ width }} className="h-full flex flex-col">
             <header className="h-9 px-3 flex items-center justify-between border-b border-default shrink-0">
               <span className="text-xs font-medium text-primary capitalize">
                 {rightPanelView === 'files' ? 'File tree' : rightPanelView}

@@ -4,6 +4,8 @@ import { Rail } from './Rail';
 import { LeftPanel } from './LeftPanel';
 import { CenterWorkArea } from './CenterWorkArea';
 import { RightPanel } from './RightPanel';
+import { FileManagerPanel } from './FileManagerPanel';
+import { PanelResizer } from '../shared/PanelResizer';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useKeyboardShortcut } from '../../hooks/useKeyboardShortcut';
 import { CommandPalette } from '../shared/CommandPalette';
@@ -25,7 +27,10 @@ export function AppShell() {
     closeTab,
     openTab,
     setRightPanelView,
-    setCommandPalette
+    setCommandPalette,
+    fileManagerOpen,
+    panelWidths,
+    setPanelWidth
   } = useLayoutStore();
 
   // Focus mode: the calm, minimal surface (chat + live preview). Advanced chrome (rail,
@@ -82,6 +87,18 @@ export function AppShell() {
             "transition-all duration-300 flex flex-1 min-w-0 overflow-hidden",
             isTablet && leftPanelOpen ? "translate-x-0" : isTablet ? "-translate-x-0" : ""
           )}>
+            {/* Left file manager (TopBar toggle, next to the account menu) + drag handle. */}
+            {!isMobile && fileManagerOpen && (
+              <>
+                <FileManagerPanel />
+                <PanelResizer
+                  width={panelWidths.fileManager}
+                  onWidth={(w) => setPanelWidth('fileManager', w)}
+                  ariaLabel="Resize files panel"
+                />
+              </>
+            )}
+
             <LeftPanel className={cn(
               // Focus: chat gets a bit more room and a centered, roomier feel.
               focus && !isTablet && "flex-1 max-w-[520px] mx-auto",
@@ -89,7 +106,26 @@ export function AppShell() {
               isTablet && !leftPanelOpen && "-translate-x-full"
             )} />
 
+            {/* Chat ↔ center drag handle (desktop IDE only — Focus centers the chat). */}
+            {!isMobile && !isTablet && !focus && leftPanelOpen && (
+              <PanelResizer
+                width={panelWidths.left}
+                onWidth={(w) => setPanelWidth('left', w)}
+                ariaLabel="Resize chat panel"
+              />
+            )}
+
             <CenterWorkArea />
+
+            {/* Center ↔ right drag handle (sign -1: dragging left grows the right panel). */}
+            {!isMobile && !isTablet && !focus && rightPanelOpen && (
+              <PanelResizer
+                width={panelWidths.right}
+                onWidth={(w) => setPanelWidth('right', w)}
+                sign={-1}
+                ariaLabel="Resize side panel"
+              />
+            )}
 
             {/* Files/library/search side panel is IDE-only. */}
             {!isMobile && !focus && (
