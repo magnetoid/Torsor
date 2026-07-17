@@ -1,14 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router';
-import { 
-  LayoutGrid, 
-  Layers, 
-  Users, 
-  CreditCard, 
-  Settings, 
-  LogOut, 
-  ChevronDown,
+import {
+  CreditCard,
   Check,
+  Users,
   Download,
   Sparkles,
   CreditCard as CardIcon,
@@ -18,22 +12,21 @@ import {
   Box,
   ArrowUpRight
 } from 'lucide-react';
-import * as Select from '@radix-ui/react-select';
 import * as Progress from '@radix-ui/react-progress';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { useAuthStore } from '../stores/authStore';
 import { usageMock } from '../lib/mockData';
 import { cn } from '../lib/utils';
-import { AccountMenu } from '../components/shared/AccountMenu';
+import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { AccountBar } from '../components/shared/AccountBar';
 import { apiUsageSummary, type UsageSummary } from '../lib/api';
 
 /** Compact token formatting for the usage widgets (1.2M / 34.5k / 812). */
@@ -43,22 +36,7 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
-const NavItem = ({ icon: Icon, label, active, onClick }: { icon: React.ElementType, label: string, active?: boolean, onClick?: () => void }) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      "w-full flex items-center gap-3 px-4 py-2 text-sm font-medium transition-all duration-200",
-      active 
-        ? "bg-accent/10 text-accent border-l-2 border-accent" 
-        : "text-secondary hover:text-primary hover:bg-surface"
-    )}
-  >
-    <Icon size={18} />
-    {label}
-  </button>
-);
-
-const PlanCard = ({ 
+const PlanCard = ({
   title, 
   price, 
   features, 
@@ -143,9 +121,6 @@ const StatCard = ({ label, value, max, icon: Icon }: { label: string, value: str
 };
 
 export const BillingPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
-
   // Real per-user usage from the control plane (usage_events aggregation) — replaces the
   // previous mock chart data. Null → not loaded / no backend; widgets show an empty state.
   const [usage, setUsage] = useState<UsageSummary | null>(null);
@@ -166,75 +141,16 @@ export const BillingPage: React.FC = () => {
     return rows.map((r) => ({ ...r, percentage: totalTokens > 0 ? Math.round((r.tokens / totalTokens) * 100) : 0 }));
   }, [usage, totalTokens]);
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   return (
-    <div className="flex h-screen bg-inset text-primary font-sans overflow-hidden">
-      {/* Sidebar */}
-      <aside className="w-56 bg-page border-r border-default flex flex-col shrink-0">
-        <div className="p-4">
-          <Select.Root defaultValue="personal">
-            <Select.Trigger className="w-full flex items-center justify-between px-3 py-2 bg-surface border border-default rounded-md text-sm font-medium outline-none hover:border-accent/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 bg-accent rounded flex items-center justify-center text-[10px] text-white">T</div>
-                <Select.Value />
-              </div>
-              <Select.Icon>
-                <ChevronDown size={14} className="text-secondary" />
-              </Select.Icon>
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Content className="bg-surface border border-default rounded-md shadow-xl z-50 overflow-hidden">
-                <Select.Viewport className="p-1">
-                  <Select.Item value="personal" className="flex items-center px-3 py-2 text-sm text-primary hover:bg-accent-hover rounded cursor-pointer outline-none">
-                    <Select.ItemText>Personal Workspace</Select.ItemText>
-                  </Select.Item>
-                  <Select.Item value="team" className="flex items-center px-3 py-2 text-sm text-primary hover:bg-accent-hover rounded cursor-pointer outline-none">
-                    <Select.ItemText>Acme Team</Select.ItemText>
-                  </Select.Item>
-                </Select.Viewport>
-              </Select.Content>
-            </Select.Portal>
-          </Select.Root>
-        </div>
+    // Standard page shell (HomeSidebar + AccountBar) — this page used to carry its own
+    // third navigation system (fake workspace picker, private nav, its own user footer).
+    <div className="flex bg-page min-h-screen text-primary font-sans">
+      <HomeSidebar />
 
-        <nav className="flex-1 mt-4">
-          <NavItem icon={LayoutGrid} label="Projects" onClick={() => navigate('/projects')} />
-          <NavItem icon={CreditCard} label="Billing" active />
-          <NavItem icon={Settings} label="Settings" onClick={() => navigate('/settings')} />
-        </nav>
+      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto h-screen">
+        <AccountBar title="Billing & Usage" />
 
-        <div className="p-4 border-t border-default">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center overflow-hidden">
-              <img src={user?.avatarUrl || `https://ui-avatars.com/api/?name=${user?.name}`} alt="" className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user?.name}</p>
-              <p className="text-[10px] text-secondary truncate">Pro Plan</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-secondary hover:text-error hover:bg-error/5 rounded transition-all"
-          >
-            <LogOut size={14} />
-            Sign Out
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-14 border-b border-default bg-inset flex items-center justify-between px-8 shrink-0">
-          <h2 className="text-xl font-bold tracking-tight">Billing & Usage</h2>
-          <AccountMenu size="md" />
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <div className="flex-1 p-8 custom-scrollbar">
           <div className="max-w-6xl mx-auto space-y-12">
             
             {/* Plan Cards */}
