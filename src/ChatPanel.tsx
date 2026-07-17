@@ -24,7 +24,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPanel() {
-  const { messages, currentThread, isAgentWorking, sendMessage, runAgent } = useChatStore();
+  const { messages, currentThread, isAgentWorking, agentStep, sendMessage, runAgent } = useChatStore();
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -103,7 +103,9 @@ export default function ChatPanel() {
                   <span className="w-1 h-1 rounded-full bg-accent animate-pulse" style={{ animationDelay: '150ms' }} />
                   <span className="w-1 h-1 rounded-full bg-accent animate-pulse" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span className="text-[10px] font-bold text-accent uppercase tracking-widest animate-pulse">Torsor Agent Thinking</span>
+                <span className="text-[10px] font-bold text-accent uppercase tracking-widest animate-pulse">
+                  Torsor Agent Thinking{agentStep > 0 ? ` · step ${agentStep}` : ''}
+                </span>
               </div>
             )}
           </div>

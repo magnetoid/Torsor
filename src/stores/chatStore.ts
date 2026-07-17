@@ -52,6 +52,9 @@ let abortController: AbortController | null = null;
 interface ChatState {
   messages: ChatMessageData[];
   isAgentWorking: boolean;
+  /** Number of tool actions the current/last agent run has taken (drives the live "step N"
+   *  indicator). Reset at the start of each run. */
+  agentStep: number;
   currentThread: { id: string; title: string } | null;
   selectedContext: ContextItem[];
   planning: boolean;
@@ -80,6 +83,7 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isAgentWorking: false,
+  agentStep: 0,
   currentThread: null,
   selectedContext: [],
   planning: false,
@@ -224,6 +228,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     appendMessage({ id: `msg-${Date.now()}`, type: 'user', content: trimmed, timestamp: Date.now() });
     set((state) => ({
       isAgentWorking: true,
+      agentStep: 0,
       currentThread: state.currentThread || { id: `thread-${Date.now()}`, title: trimmed.slice(0, 50) },
     }));
 
@@ -263,6 +268,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         appendMessage({ ...base, type: 'work', content: e.text });
       } else if (e.kind === 'tool_call') {
         if (e.tool === 'write_file') filesChanged = true;
+        set((s) => ({ agentStep: s.agentStep + 1 }));
         const args = e.args ? Object.entries(e.args).map(([k, v]) => `${k}=${v.length > 60 ? v.slice(0, 60) + '…' : v}`).join(' ') : '';
         appendMessage({ ...base, type: 'work', content: `${e.tool}(${args})`, metadata: { tool: e.tool } });
       } else if (e.kind === 'tool_result') {
