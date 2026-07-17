@@ -198,3 +198,22 @@ func TestResolveImageDefault(t *testing.T) {
 		t.Errorf("explicit image should win over default, got %q, %v", img, err)
 	}
 }
+
+func TestBuildCreateArgsPublishHost(t *testing.T) {
+	// A configured publishHost binds the workspace port there (so a containerized
+	// control-plane can reach it via the bridge gateway).
+	lim := limits{keepAlive: true, appPort: "3000", publishHost: "10.0.0.1"}
+	args, err := buildCreateArgs("torsor-p", plugin.WorkspaceSpec{ID: "p", Image: "node:20-alpine"}, lim)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if s := argString(args); !strings.Contains(s, " -p 10.0.0.1::3000 ") {
+		t.Errorf("expected publish on 10.0.0.1, got: %s", s)
+	}
+	// Empty publishHost falls back to 127.0.0.1.
+	lim2 := limits{keepAlive: true, appPort: "3000"}
+	args2, _ := buildCreateArgs("torsor-q", plugin.WorkspaceSpec{ID: "q", Image: "node:20-alpine"}, lim2)
+	if s := argString(args2); !strings.Contains(s, " -p 127.0.0.1::3000 ") {
+		t.Errorf("expected default publish on 127.0.0.1, got: %s", s)
+	}
+}

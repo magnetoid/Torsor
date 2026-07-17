@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/exec"
 	"regexp"
@@ -82,6 +83,9 @@ type limits struct {
 	// Defaults to node:20-alpine so a fresh workspace can run a JS/TS dev server out of
 	// the box; bare alpine had no runtime to serve anything.
 	defaultImage string
+	// publishHost is the host interface the workspace app port is published on
+	// (TORSOR_WS_PUBLISH_HOST, default 127.0.0.1). See buildCreateArgsForImage.
+	publishHost string
 }
 
 func envOr(key, def string) string {
@@ -102,7 +106,30 @@ func limitsFromEnv() limits {
 		keepAlive:    envOr("TORSOR_WS_KEEPALIVE", "true") != "false",
 		appPort:      strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")),
 		defaultImage: envOr("TORSOR_WS_DEFAULT_IMAGE", "node:20-alpine"),
+		publishHost:  resolvePublishHost(),
 	}
+}
+
+// resolvePublishHost decides which host interface the workspace app port is published on
+// (see buildCreateArgsForImage). Precedence:
+//  1. TORSOR_WS_PUBLISH_HOST if set (explicit override).
+//  2. Whatever host.docker.internal resolves to — this is EXACTLY the address a
+//     containerized control-plane reaches the host at (the docker bridge gateway), so
+//     publishing there makes the workspace reachable from the sibling control-plane while
+//     staying off the public internet. Zero-config on the standard containerized deploy.
+//  3. 127.0.0.1 (control-plane runs directly on the host).
+func resolvePublishHost() string {
+	if v := strings.TrimSpace(os.Getenv("TORSOR_WS_PUBLISH_HOST")); v != "" {
+		return v
+	}
+	if addrs, err := net.LookupHost("host.docker.internal"); err == nil {
+		for _, a := range addrs {
+			if a != "" {
+				return a
+			}
+		}
+	}
+	return "127.0.0.1"
 }
 
 // parseAllowlist splits a CSV image allowlist, trimming blanks.
@@ -194,10 +221,18 @@ func buildCreateArgsForImage(name, image string, spec plugin.WorkspaceSpec, lim 
 			args = append(args, "--cap-drop", "ALL")
 		}
 	}
-	// Publish the app port to a random loopback host port so the control-plane can proxy
-	// a live preview to it (127.0.0.1 only — never exposed on all interfaces).
+	// Publish the app port to a random host port on lim.publishHost so the control-plane
+	// can proxy a live preview to it. Default 127.0.0.1 (safe when the control-plane runs
+	// ON the host). When the control-plane itself runs in a container it cannot reach the
+	// host's 127.0.0.1 — set TORSOR_WS_PUBLISH_HOST to the docker bridge gateway (the same
+	// address host.docker.internal resolves to) so sibling containers can reach it while it
+	// stays off the public internet.
 	if lim.appPort != "" {
-		args = append(args, "-p", "127.0.0.1::"+lim.appPort)
+		host := lim.publishHost
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		args = append(args, "-p", host+"::"+lim.appPort)
 	}
 	// Survive docker daemon restarts (deploys, host reboots): a running workspace comes
 	// back on its own; one the user explicitly stopped stays stopped.
