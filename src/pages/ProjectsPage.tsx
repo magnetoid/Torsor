@@ -28,6 +28,7 @@ import { usePlanGate } from '../hooks/usePlanGate';
 import { UpgradeDialog } from '../components/shared/UpgradeDialog';
 import { EmptyState } from '../components/shared/EmptyState';
 import { ProjectCardSkeleton } from '../components/shared/Skeleton';
+import { popoverMotion } from '../lib/motion';
 
 const PROJECT_TYPES = [
   { id: 'website', icon: Globe, label: 'Website' },
@@ -42,7 +43,7 @@ const PROJECT_TYPES = [
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { deleteProject, getProjectsByWorkspace, fetchProjects, createProject, isLoading, error } = useProjectStore();
+  const { deleteProject, getProjectsByWorkspace, fetchProjects, createProject, isLoading, error, starredIds } = useProjectStore();
 
   const { checkFeature } = usePlanGate();
   const projectGate = checkFeature('create_project');
@@ -50,7 +51,10 @@ export function ProjectsPage() {
   const [creating, setCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState<'all' | 'my' | 'shared' | 'archived'>('all');
+  // Real filters (the old All/My/Shared tabs were display-only): Starred ties into the
+  // pin list, Archived shows what the card menu archives.
+  const [activeTab, setActiveTab] = useState<'all' | 'starred' | 'archived'>('all');
+  const [sortBy, setSortBy] = useState<'updated' | 'name'>('updated');
 
   useEffect(() => {
     void fetchProjects();
@@ -58,10 +62,21 @@ export function ProjectsPage() {
 
   const workspaceProjects = getProjectsByWorkspace('server-default');
 
-  const filteredProjects = useMemo(() => workspaceProjects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase()),
-  ), [workspaceProjects, searchQuery]);
+  const filteredProjects = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const rows = workspaceProjects.filter((p) => {
+      if (!(p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))) return false;
+      if (activeTab === 'starred') return starredIds.includes(p.id);
+      if (activeTab === 'archived') return !!p.isArchived;
+      return !p.isArchived;
+    });
+    rows.sort((a, b) =>
+      sortBy === 'name'
+        ? a.name.localeCompare(b.name)
+        : (Date.parse(b.lastModified ?? '') || 0) - (Date.parse(a.lastModified ?? '') || 0)
+    );
+    return rows;
+  }, [workspaceProjects, searchQuery, activeTab, sortBy, starredIds]);
 
   const handleNewProject = async () => {
     if (!projectGate.allowed) {
@@ -105,8 +120,8 @@ export function ProjectsPage() {
                 />
               </div>
               <div className="flex items-center bg-surface border border-default rounded-xl p-0.5">
-                <button onClick={() => setViewMode('grid')} className={cn('p-1.5 rounded-lg transition-colors', viewMode === 'grid' ? 'bg-elevated text-primary shadow-sm' : 'text-secondary hover:text-primary')}><Grid size={16} /></button>
-                <button onClick={() => setViewMode('list')} className={cn('p-1.5 rounded-lg transition-colors', viewMode === 'list' ? 'bg-elevated text-primary shadow-sm' : 'text-secondary hover:text-primary')}><List size={16} /></button>
+                <button onClick={() => setViewMode('grid')} aria-label="Grid view" aria-pressed={viewMode === 'grid'} className={cn('p-1.5 rounded-lg transition-colors', viewMode === 'grid' ? 'bg-elevated text-primary shadow-sm' : 'text-secondary hover:text-primary')}><Grid size={16} /></button>
+                <button onClick={() => setViewMode('list')} aria-label="List view" aria-pressed={viewMode === 'list'} className={cn('p-1.5 rounded-lg transition-colors', viewMode === 'list' ? 'bg-elevated text-primary shadow-sm' : 'text-secondary hover:text-primary')}><List size={16} /></button>
               </div>
 
               <Tooltip.Provider>
@@ -132,18 +147,47 @@ export function ProjectsPage() {
 
           <div className="flex items-center justify-between border-b border-default mb-6">
             <div className="flex gap-6">
-              {['all', 'my', 'shared', 'archived'].map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab as any)} className={cn('pb-3 text-sm font-medium capitalize transition-colors relative', activeTab === tab ? 'text-primary' : 'text-secondary hover:text-primary')}>
-                  {tab === 'all' ? 'All' : tab === 'my' ? 'My Projects' : tab}
-                  {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />}
+              {([['all', 'All'], ['starred', 'Starred'], ['archived', 'Archived']] as const).map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn('pb-3 text-sm font-medium transition-colors relative', activeTab === tab ? 'text-primary' : 'text-secondary hover:text-primary')}
+                >
+                  {label}
+                  <span
+                    className={cn(
+                      'absolute bottom-0 left-0 right-0 h-0.5 bg-accent origin-center transition-transform duration-base ease-standard',
+                      activeTab === tab ? 'scale-x-100' : 'scale-x-0'
+                    )}
+                  />
                 </button>
               ))}
             </div>
-            <button className="flex items-center gap-2 text-xs text-secondary mb-3 transition-colors">
-              <Filter size={14} />
-              <span>Sort: Updated</span>
-              <ChevronDown size={14} />
-            </button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button className="flex items-center gap-2 text-xs text-secondary hover:text-primary mb-3 transition-colors">
+                  <Filter size={14} />
+                  <span>Sort: {sortBy === 'updated' ? 'Updated' : 'Name'}</span>
+                  <ChevronDown size={14} />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content align="end" className={cn('bg-elevated border border-default rounded-lg p-1 shadow-xl z-50 min-w-[140px]', popoverMotion)}>
+                  {([['updated', 'Last updated'], ['name', 'Name (A–Z)']] as const).map(([key, label]) => (
+                    <DropdownMenu.Item
+                      key={key}
+                      onSelect={() => setSortBy(key)}
+                      className={cn(
+                        'px-2.5 py-1.5 text-xs rounded-md cursor-pointer outline-none hover:bg-accent hover:text-white',
+                        sortBy === key ? 'text-accent font-medium' : 'text-primary'
+                      )}
+                    >
+                      {label}
+                    </DropdownMenu.Item>
+                  ))}
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
           </div>
 
           {error && <div className="mb-4 rounded-xl border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">{error}</div>}

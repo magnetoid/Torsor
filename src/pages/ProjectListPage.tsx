@@ -5,6 +5,7 @@ import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { AccountBar } from '../components/shared/AccountBar';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useProjectStore, type Project } from '../stores/projectStore';
+import { Skeleton } from '../components/shared/Skeleton';
 import { cn } from '../lib/utils';
 
 /**
@@ -35,7 +36,21 @@ export function ProjectListPage({ mode }: { mode: 'recent' | 'starred' }) {
       <main className="flex-1 min-w-0 flex flex-col overflow-y-auto h-screen animate-in fade-in duration-slow">
         <AccountBar title={title} />
         <div className="max-w-3xl w-full mx-auto px-6 py-8">
-          {rows.length === 0 && !isLoading ? (
+          {isLoading && rows.length === 0 ? (
+            // Shaped loading: the list has a knowable silhouette, so no spinner.
+            <div className="flex flex-col gap-2" aria-hidden>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3 bg-surface border border-default rounded-xl">
+                  <Skeleton className="w-9 h-9 rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-40 rounded" />
+                    <Skeleton className="h-3 w-64 rounded" />
+                  </div>
+                  <Skeleton className="h-3 w-14 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
             <div className="pt-16">
               <EmptyState
                 icon={mode === 'recent' ? Clock : Star}

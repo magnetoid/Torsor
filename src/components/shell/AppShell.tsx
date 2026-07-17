@@ -81,10 +81,9 @@ export function AppShell() {
             />
           )}
 
-          <div className={cn(
-            "transition-all duration-300 flex flex-1 min-w-0 overflow-hidden",
-            isTablet && leftPanelOpen ? "translate-x-0" : isTablet ? "-translate-x-0" : ""
-          )}>
+          {/* No transition-all here: animating layout on this wrapper made every panel
+              drag/toggle reflow the whole row through an easing curve (jank). */}
+          <div className="flex flex-1 min-w-0 overflow-hidden">
             {/* Left file manager (TopBar toggle, next to the account menu) + drag handle. */}
             {!isMobile && fileManagerOpen && (
               <>

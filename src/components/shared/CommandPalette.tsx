@@ -6,6 +6,9 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useAppStore } from '../../useAppStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { contributions, TAB_GROUPS } from '../../kernel/contributions';
+import { cn } from '../../lib/utils';
+import { overlayMotion, dialogMotion } from '../../lib/motion';
+import { Kbd } from './Kbd';
 
 export function CommandPalette() {
   const { commandPaletteOpen, setCommandPalette } = useLayoutStore();
@@ -50,8 +53,8 @@ export function CommandPalette() {
   return (
     <Dialog.Root open={commandPaletteOpen} onOpenChange={setCommandPalette}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-in fade-in duration-200" />
-        <Dialog.Content className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-lg bg-surface border border-default rounded-xl shadow-2xl z-[101] overflow-hidden animate-in zoom-in-95 duration-200">
+        <Dialog.Overlay className={cn('fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]', overlayMotion)} />
+        <Dialog.Content className={cn('fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-lg bg-surface border border-default rounded-xl shadow-2xl z-[101] overflow-hidden', dialogMotion)}>
           <Command className="flex flex-col h-full">
             <div className="flex items-center px-4 border-b border-default">
               <Search className="mr-3 text-tertiary" size={18} />
@@ -100,7 +103,7 @@ export function CommandPalette() {
                       onSelect={() => run(() => openFile(file.id))}
                       icon={<FileCode size={14} />}
                       label={file.name}
-                      shortcut={file.extension}
+                      meta={file.extension}
                     />
                   ))}
                 </Command.Group>
@@ -117,12 +120,16 @@ function Item({
   icon,
   label,
   shortcut,
+  meta,
   value,
   onSelect,
 }: {
   icon: React.ReactNode;
   label: string;
+  /** A real keybinding — rendered as keycaps. */
   shortcut?: string;
+  /** Non-keybinding trailing hint (e.g. a file extension) — rendered as plain text. */
+  meta?: string;
   value?: string;
   onSelect: () => void;
 }) {
@@ -134,7 +141,8 @@ function Item({
     >
       <span className="text-secondary">{icon}</span>
       <span className="flex-1">{label}</span>
-      {shortcut && <span className="text-[10px] text-tertiary font-mono">{shortcut}</span>}
+      {shortcut && <Kbd>{shortcut}</Kbd>}
+      {meta && <span className="text-[10px] text-tertiary font-mono">{meta}</span>}
     </Command.Item>
   );
 }
