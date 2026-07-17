@@ -186,6 +186,7 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 		MaxSteps:    backgroundMaxSteps,
 		APIKey:      apiKey,
 		Tools:       toolRouter,
+		CheckApp:    checkAppProbe(rt, ws.ProjectID),
 	})
 	result, runErr := runner.Run(taskCtx, prompt, onEvent)
 	s.recordUsage(uid, providerName, result.Model, result.TokensIn, result.TokensOut)

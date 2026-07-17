@@ -79,6 +79,12 @@ type Config struct {
 	// advertised to the model alongside the built-ins and dispatched via CallExternal. Nil
 	// means built-in tools only.
 	Tools ToolRouter
+	// CheckApp, when set, enables the check_app tool: an HTTP probe of the project's
+	// running app (the same target the live preview proxies to). It returns a short
+	// observation like "status=200\n<body head>"; probe failures should come back as
+	// observation text (nil error) so the agent can react and fix rather than abort.
+	// Wired by the server from the workspace runtime's status; nil hides the tool.
+	CheckApp func(ctx context.Context) (string, error)
 }
 
 // ExternalTool is a tool contributed from outside the built-in set (an MCP server today).
@@ -167,6 +173,15 @@ Rules:
   responds. Fix what you find, then re-verify. Only then return "final".
 - When the task is done and verified, return a "final" message. Do not loop forever.`
 
+// checkAppPrompt advertises the self-verification probe when the server wires one up.
+// Appended to the system prompt (models treat appendices as part of the tool list).
+const checkAppPrompt = `
+
+One more tool is available in this run:
+- check_app    {}                                          -> HTTP-probes the project's running app (the live-preview target) and returns its status code + the first bytes of the response
+
+Self-verification rule: after your edits, run the build/tests if the project has them, then call check_app to confirm the app actually responds (status 2xx/3xx). If it fails or errors, fix the cause and re-verify. Only return "final" after check_app succeeds — and mention the verification result in your final message.`
+
 // planSystemPrompt drives the spec-mode planning phase: the model proposes a short plan and
 // nothing else, so the user can approve/refine before any file is touched.
 const planSystemPrompt = `You are Torsor Agent in PLANNING mode. Do NOT take any action or edit any files yet.
@@ -218,9 +233,15 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	system := systemPrompt
 	if planning {
 		system = planSystemPrompt
-	} else if r.cfg.Tools != nil {
-		// Advertise connected external (MCP) tools to the model alongside the built-ins.
-		system += externalToolsPrompt(r.cfg.Tools.ExternalTools())
+	} else {
+		if r.cfg.CheckApp != nil {
+			// Advertise the self-verification probe (reflection loop): edit → verify → fix.
+			system += checkAppPrompt
+		}
+		if r.cfg.Tools != nil {
+			// Advertise connected external (MCP) tools to the model alongside the built-ins.
+			system += externalToolsPrompt(r.cfg.Tools.ExternalTools())
+		}
 	}
 
 	for i := 1; i <= r.cfg.MaxSteps; i++ {
@@ -368,6 +389,16 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 			return "error: " + err.Error()
 		}
 		return fmt.Sprintf("wrote %d bytes to %s", len(a.Args["content"]), a.Args["path"])
+
+	case "check_app":
+		if r.cfg.CheckApp == nil {
+			return "error: check_app is not available in this run"
+		}
+		obs, err := r.cfg.CheckApp(ctx)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return obs
 
 	case "run":
 		cmd := strings.TrimSpace(a.Args["command"])

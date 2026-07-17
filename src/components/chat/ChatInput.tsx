@@ -174,11 +174,15 @@ export function ChatInput() {
               </Popover.Portal>
             </Popover.Root>
             
-            <div className="flex items-center gap-2 ml-2">
-              <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Plan</span>
-              <Switch.Root 
+            <div
+              className="flex items-center gap-2 ml-2"
+              title="Plan first: the agent proposes steps you approve (and can edit) before it touches code"
+            >
+              <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Plan first</span>
+              <Switch.Root
                 checked={planning}
                 onCheckedChange={setPlanning}
+                aria-label="Plan first — approve the steps before the agent builds"
                 className="w-7 h-4 bg-elevated rounded-full relative data-[state=checked]:bg-accent transition-colors outline-none cursor-pointer"
               >
                 <Switch.Thumb className="block w-2.5 h-2.5 bg-white rounded-full transition-transform duration-100 translate-x-0.5 will-change-transform data-[state=checked]:translate-x-3.5" />

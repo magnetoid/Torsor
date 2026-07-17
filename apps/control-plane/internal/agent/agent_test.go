@@ -283,3 +283,80 @@ func TestRunDispatchesExternalTool(t *testing.T) {
 		t.Errorf("expected a final message")
 	}
 }
+
+// The self-verification (reflection) flow: the agent edits, then probes the running app
+// with check_app before finishing. The probe is Config-injected so tests fake it freely.
+func TestRunSelfVerifiesWithCheckApp(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"create the page","action":{"tool":"write_file","args":{"path":"index.html","content":"<h1>hi</h1>"}}}`,
+		`{"thought":"verify the app responds","action":{"tool":"check_app","args":{}}}`,
+		`{"thought":"verified","final":"Wrote index.html; check_app returned status 200."}`,
+	}}
+	ws := newMemWorkspace()
+
+	probeCalls := 0
+	cfg := Config{
+		WorkspaceID: "p1",
+		CheckApp: func(_ context.Context) (string, error) {
+			probeCalls++
+			return "status=200\n<h1>hi</h1>", nil
+		},
+	}
+
+	var events []Event
+	result, err := NewRunner(model, ws, cfg).Run(context.Background(), "make a page", collect(&events))
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if probeCalls != 1 {
+		t.Errorf("check_app probe called %d times, want 1", probeCalls)
+	}
+	// The probe observation must be fed back to the model's next prompt.
+	if len(model.prompts) < 3 || !strings.Contains(model.prompts[2], "status=200") {
+		t.Errorf("check_app observation not fed back; got %q", model.prompts[len(model.prompts)-1])
+	}
+	// The tool must be advertised only because CheckApp was configured.
+	if len(model.systems) == 0 || !strings.Contains(model.systems[0], "check_app") {
+		t.Errorf("check_app not advertised in system prompt")
+	}
+	var sawResult bool
+	for _, e := range events {
+		if e.Kind == EventToolResult && e.Tool == "check_app" && strings.Contains(e.Result, "status=200") {
+			sawResult = true
+		}
+	}
+	if !sawResult {
+		t.Errorf("check_app tool_result not surfaced in events: %v", events)
+	}
+	if !strings.Contains(result.Final, "status 200") {
+		t.Errorf("unexpected final: %q", result.Final)
+	}
+}
+
+// Without a configured probe, calling check_app degrades to an observation (the agent can
+// route around it), and the tool is not advertised in the system prompt.
+func TestCheckAppUnavailable(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"try to verify","action":{"tool":"check_app","args":{}}}`,
+		`{"thought":"no probe here","final":"Done without app verification."}`,
+	}}
+	ws := newMemWorkspace()
+
+	var events []Event
+	_, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "verify", collect(&events))
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if len(model.systems) == 0 || strings.Contains(model.systems[0], "check_app") {
+		t.Errorf("check_app should not be advertised when no probe is configured")
+	}
+	var sawUnavailable bool
+	for _, e := range events {
+		if e.Kind == EventToolResult && strings.Contains(e.Result, "not available") {
+			sawUnavailable = true
+		}
+	}
+	if !sawUnavailable {
+		t.Errorf("expected an 'not available' observation, events: %v", events)
+	}
+}

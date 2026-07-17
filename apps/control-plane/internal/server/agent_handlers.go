@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -12,6 +14,35 @@ import (
 	"github.com/magnetoid/torsor/control-plane/internal/agent"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
+
+// checkAppProbe builds the agent's check_app tool: an HTTP GET against the workspace's
+// preview target (the exact address the live preview proxies to), so the agent can verify
+// "the app actually responds" after its edits. Probe failures return as observation text
+// (nil error) so the agent reacts and fixes instead of aborting the run.
+func checkAppProbe(rt plugin.WorkspaceRuntime, projectID string) func(ctx context.Context) (string, error) {
+	return func(ctx context.Context) (string, error) {
+		st, err := rt.StatusWorkspace(ctx, projectID)
+		if err != nil {
+			return "app status unavailable: " + err.Error(), nil
+		}
+		if st.PreviewHost == "" || st.PreviewPort == 0 {
+			return "app is not reachable yet: the workspace exposes no preview address. Start the dev server with the run tool (in the background) and try check_app again.", nil
+		}
+		cctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+		defer cancel()
+		req, err := http.NewRequestWithContext(cctx, http.MethodGet, fmt.Sprintf("http://%s:%d/", st.PreviewHost, st.PreviewPort), nil)
+		if err != nil {
+			return "", err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "app did not respond: " + err.Error(), nil
+		}
+		defer resp.Body.Close()
+		head, _ := io.ReadAll(io.LimitReader(resp.Body, 600))
+		return fmt.Sprintf("status=%d\n%s", resp.StatusCode, string(head)), nil
+	}
+}
 
 // agentBody is the request for an agent run: a task plus an optional provider override.
 type agentBody struct {
@@ -178,6 +209,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		Mode:        body.Mode,
 		Plan:        body.ApprovedPlan,
 		Tools:       toolRouter,
+		CheckApp:    checkAppProbe(rt, ws.ProjectID),
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).

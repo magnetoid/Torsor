@@ -28,12 +28,15 @@ func (provider) Info(_ context.Context) (plugin.ModelInfo, error) {
 }
 
 // script is the fixed sequence of JSON steps, one per prompt the agent sends. Each entry
-// is a complete agent step object.
+// is a complete agent step object. The tail exercises the self-verification (reflection)
+// flow: after editing and running, the agent probes the live app with check_app before
+// declaring the task done — the same edit → verify → finish contract real runs follow.
 var script = []string{
 	`{"thought":"Let me see what's already in the workspace.","action":{"tool":"list_files","args":{"path":""}}}`,
 	`{"thought":"I'll create a small hello program.","action":{"tool":"write_file","args":{"path":"hello.js","content":"console.log('Hello from Torsor Agent');"}}}`,
 	`{"thought":"Run it to verify it works.","action":{"tool":"run","args":{"command":"node hello.js"}}}`,
-	`{"thought":"It ran successfully; the task is complete.","final":"Created hello.js and verified it runs. This is a real agent loop over your workspace."}`,
+	`{"thought":"Finally, verify the app itself responds before finishing.","action":{"tool":"check_app","args":{}}}`,
+	`{"thought":"Everything checks out; the task is complete.","final":"Created hello.js, ran it, and verified the app endpoint. This is a real agent loop over your workspace."}`,
 }
 
 func (provider) Complete(_ context.Context, req plugin.CompleteRequest) (plugin.CompleteResult, error) {

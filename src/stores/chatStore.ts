@@ -59,6 +59,10 @@ interface ChatState {
   /** Epoch ms when the current run/completion started; null when idle. Drives the elapsed
    *  timer in the thinking indicator so long runs visibly advance instead of looking hung. */
   runStartedAt: number | null;
+  /** Human phrase for what the agent is doing right now ("writing src/App.tsx"). */
+  currentActivity: string | null;
+  /** The last task sent to the agent — powers one-click Retry on a failed run. */
+  lastAgentTask: string | null;
   currentThread: { id: string; title: string } | null;
   selectedContext: ContextItem[];
   planning: boolean;
@@ -89,6 +93,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isAgentWorking: false,
   agentStep: 0,
   runStartedAt: null,
+  currentActivity: null,
+  lastAgentTask: null,
   currentThread: null,
   selectedContext: [],
   planning: false,
@@ -169,7 +175,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           '(e.g. TORSOR_MODEL_PLUGINS pointing at the ollama-model binary) and try again.',
         timestamp: Date.now(),
       });
-      set({ isAgentWorking: false, runStartedAt: null });
+      set({ isAgentWorking: false, runStartedAt: null, currentActivity: null });
       return;
     }
 
@@ -227,7 +233,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } finally {
       abortController = null;
-      set({ isAgentWorking: false, runStartedAt: null });
+      set({ isAgentWorking: false, runStartedAt: null, currentActivity: null });
     }
   },
 
@@ -254,6 +260,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       isAgentWorking: true,
       agentStep: 0,
       runStartedAt: Date.now(),
+      currentActivity: null,
+      lastAgentTask: trimmed,
       currentThread: state.currentThread || { id: `thread-${Date.now()}`, title: trimmed.slice(0, 50) },
     }));
 
@@ -270,6 +278,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // command fail? One calm offer is surfaced at the end of the run (see finally).
     let filesChanged = false;
     let lastRunFailed = false;
+    // Self-verification (check_app): the final message carries a binary confidence signal.
+    let appVerified: 'ok' | 'fail' | null = null;
+
+    // Proactive status: name the current tool + target instead of a silent spinner.
+    const activityFor = (tool?: string, args?: Record<string, string>): string | null => {
+      switch (tool) {
+        case 'write_file': return `writing ${args?.path ?? 'a file'}`;
+        case 'read_file': return `reading ${args?.path ?? 'a file'}`;
+        case 'list_files': return `listing ${args?.path || 'the project files'}`;
+        case 'run': return `running ${(args?.command ?? '').slice(0, 48) || 'a command'}`;
+        case 'check_app': return 'verifying the app responds';
+        default: return tool ? `calling ${tool}` : null;
+      }
+    };
 
     // Mark all in-progress "work" steps as done. Called whenever a new step arrives (the
     // previous step has finished) and at run end, so completed steps show a ✓ instead of
@@ -293,7 +315,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         appendMessage({ ...base, type: 'work', content: e.text });
       } else if (e.kind === 'tool_call') {
         if (e.tool === 'write_file') filesChanged = true;
-        set((s) => ({ agentStep: s.agentStep + 1 }));
+        set((s) => ({ agentStep: s.agentStep + 1, currentActivity: activityFor(e.tool, e.args) }));
         const args = e.args ? Object.entries(e.args).map(([k, v]) => `${k}=${v.length > 60 ? v.slice(0, 60) + '…' : v}`).join(' ') : '';
         appendMessage({ ...base, type: 'work', content: `${e.tool}(${args})`, metadata: { tool: e.tool } });
       } else if (e.kind === 'tool_result') {
@@ -303,9 +325,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
           failed = m ? m[1] !== '0' : false;
           lastRunFailed = failed;
         }
+        if (e.tool === 'check_app') {
+          // status=2xx/3xx counts as "the app responds"; anything else is an honest fail.
+          appVerified = /^status=[23]/.test(e.result ?? '') ? 'ok' : 'fail';
+        }
         appendMessage({ ...base, type: 'terminal', content: e.result ?? '', metadata: { tool: e.tool, failed } });
       } else if (e.kind === 'final' && e.text) {
-        appendMessage({ ...base, type: 'agent', content: e.text });
+        appendMessage({ ...base, type: 'agent', content: e.text, metadata: appVerified ? { verified: appVerified } : undefined });
       } else if (e.kind === 'error' && e.text) {
         appendMessage({ ...base, type: 'error', content: e.text });
       }
@@ -329,7 +355,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } finally {
       abortController = null;
-      set({ isAgentWorking: false, runStartedAt: null });
+      set({ isAgentWorking: false, runStartedAt: null, currentActivity: null });
       markWorkDone();
       // Reflect any files the agent created/changed in the IDE tree, and reload the live
       // preview so the running app shows the edits instead of stale output.

@@ -25,7 +25,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPanel() {
-  const { messages, currentThread, isAgentWorking, agentStep, runStartedAt, sendMessage, runAgent } = useChatStore();
+  const { messages, currentThread, isAgentWorking, agentStep, runStartedAt, currentActivity, sendMessage, runAgent } = useChatStore();
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const { openTab, uiMode, setUiMode } = useLayoutStore();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -128,7 +128,9 @@ export default function ChatPanel() {
                   <span className="w-1 h-1 rounded-full bg-accent animate-pulse" style={{ animationDelay: '300ms' }} />
                 </div>
                 <span className="text-[10px] font-bold text-accent uppercase tracking-widest animate-pulse">
-                  Torsor Agent Thinking{agentStep > 0 ? ` · step ${agentStep}` : ''}{elapsed > 2 ? ` · ${elapsedLabel}` : ''}
+                  {/* Proactive status: name what's happening, not just that time passes. */}
+                  {currentActivity ? `Torsor Agent — ${currentActivity}` : 'Torsor Agent Thinking'}
+                  {agentStep > 0 ? ` · step ${agentStep}` : ''}{elapsed > 2 ? ` · ${elapsedLabel}` : ''}
                 </span>
               </div>
             )}
