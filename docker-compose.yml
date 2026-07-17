@@ -89,7 +89,10 @@ services:
       # Model providers: the free local default via Ollama. Point OLLAMA_HOST at your
       # Ollama server (the optional `ollama` service below, or one on the host), and pull
       # a coding model (e.g. `ollama pull qwen3-coder` / `devstral`).
-      TORSOR_MODEL_PLUGINS: /app/ollama-model
+      # Hosted providers are BYO-key: they load without any host key and unlock per user
+      # once a key is saved in Settings → API Keys (encrypted secrets: ANTHROPIC_API_KEY,
+      # OPENAI_API_KEY, GOOGLE_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY).
+      TORSOR_MODEL_PLUGINS: /app/ollama-model,/app/anthropic-model,/app/openai-model,/app/gemini-model,/app/deepseek-model,/app/openrouter-model
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3-coder}
       # Workspace runtimes: mock (in-memory, safe anywhere) + docker (real containers).

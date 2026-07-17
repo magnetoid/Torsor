@@ -5,7 +5,10 @@
 //
 // Configuration (environment):
 //
-//	ANTHROPIC_API_KEY  required — the plugin refuses to start without it
+//	ANTHROPIC_API_KEY  optional host-wide default key. The plugin starts WITHOUT it —
+//	                   per-user BYO keys (CompleteRequest.APIKey, from encrypted secrets)
+//	                   are the normal path; requests fail with a clear message when
+//	                   neither is present.
 //	ANTHROPIC_MODEL    model id (default claude-opus-4-8)
 package main
 
@@ -24,16 +27,16 @@ import (
 const defaultModel = "claude-opus-4-8"
 
 type provider struct {
-	client anthropic.Client
-	model  string
+	hostKey string // optional host-wide default; "" => BYO-key only
+	model   string
 }
 
 func newProvider(apiKey, model string) provider {
-	return provider{
-		client: anthropic.NewClient(option.WithAPIKey(apiKey)),
-		model:  model,
-	}
+	return provider{hostKey: apiKey, model: model}
 }
+
+// errNoKey is what a keyless request gets — it tells the user exactly how to fix it.
+var errNoKey = fmt.Errorf("anthropic: no API key — add your Anthropic key in Settings → API Keys (hosted models are BYO-key)")
 
 func (p provider) Info(_ context.Context) (plugin.ModelInfo, error) {
 	return plugin.ModelInfo{
@@ -69,16 +72,23 @@ func (p provider) params(req plugin.CompleteRequest) anthropic.MessageNewParams 
 }
 
 // clientFor returns a client using the caller's per-request BYO key when provided,
-// otherwise the plugin's host-env client. This is what makes hosted models opt-in per user.
-func (p provider) clientFor(req plugin.CompleteRequest) anthropic.Client {
+// otherwise the plugin's optional host-env key. This is what makes hosted models opt-in
+// per user — the server operator never needs a key of their own.
+func (p provider) clientFor(req plugin.CompleteRequest) (anthropic.Client, error) {
 	if key := strings.TrimSpace(req.APIKey); key != "" {
-		return anthropic.NewClient(option.WithAPIKey(key))
+		return anthropic.NewClient(option.WithAPIKey(key)), nil
 	}
-	return p.client
+	if p.hostKey != "" {
+		return anthropic.NewClient(option.WithAPIKey(p.hostKey)), nil
+	}
+	return anthropic.Client{}, errNoKey
 }
 
 func (p provider) Complete(ctx context.Context, req plugin.CompleteRequest) (plugin.CompleteResult, error) {
-	client := p.clientFor(req)
+	client, err := p.clientFor(req)
+	if err != nil {
+		return plugin.CompleteResult{}, err
+	}
 	msg, err := client.Messages.New(ctx, p.params(req))
 	if err != nil {
 		return plugin.CompleteResult{}, fmt.Errorf("anthropic: %w", err)
@@ -98,7 +108,10 @@ func (p provider) Complete(ctx context.Context, req plugin.CompleteRequest) (plu
 }
 
 func (p provider) CompleteStream(ctx context.Context, req plugin.CompleteRequest, onChunk func(plugin.Chunk) error) error {
-	client := p.clientFor(req)
+	client, err := p.clientFor(req)
+	if err != nil {
+		return err
+	}
 	stream := client.Messages.NewStreaming(ctx, p.params(req))
 	var tokensOut int64
 	for stream.Next() {
@@ -121,11 +134,10 @@ func (p provider) CompleteStream(ctx context.Context, req plugin.CompleteRequest
 }
 
 func main() {
+	// The host key is OPTIONAL: without it the plugin still serves, and each user's
+	// encrypted BYO key (passed per request) unlocks it. Free/local default remains
+	// cmd/ollama-model; hosted providers are opt-in, never required.
 	apiKey := strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY"))
-	if apiKey == "" {
-		fmt.Fprintln(os.Stderr, "anthropic-model: ANTHROPIC_API_KEY is required (hosted models are BYO-key; use cmd/ollama-model for the free local default)")
-		os.Exit(1)
-	}
 	model := strings.TrimSpace(os.Getenv("ANTHROPIC_MODEL"))
 	if model == "" {
 		model = defaultModel

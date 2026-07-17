@@ -57,6 +57,31 @@ func (s *Server) recordUsage(userID, providerName, model string, tokensIn, token
 	}
 }
 
+// handleTestModelProvider verifies the caller can actually use a provider: it runs a tiny
+// real completion with the caller's BYO key (or the host default). Success proves the key
+// + provider work end-to-end; failure surfaces the provider's own message (e.g. "no API
+// key — add your key in Settings → API Keys", or the vendor's invalid-key error).
+func (s *Server) handleTestModelProvider(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	provider, ok := s.host.ModelProvider(name)
+	if !ok {
+		writeError(w, http.StatusNotFound, "Model provider not found")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	res, err := provider.Complete(ctx, plugin.CompleteRequest{
+		Prompt:    "Reply with the single word: ok",
+		MaxTokens: 8,
+		APIKey:    s.providerAPIKey(ctx, userID(r), name),
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "model": res.Model})
+}
+
 // handleComplete invokes a named model provider plugin for a single completion.
 func (s *Server) handleComplete(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")

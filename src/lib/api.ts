@@ -578,6 +578,15 @@ export async function apiModelCatalog(provider: string): Promise<ModelCatalog> {
   });
 }
 
+/** Test a model provider end-to-end with the caller's BYO key: the server runs a tiny real
+ *  completion and returns {ok, model}, or an error with the provider's own message. */
+export async function apiTestModelProvider(name: string): Promise<{ ok: boolean; model: string }> {
+  return apiRequest<{ ok: boolean; model: string }>(
+    `/api/v1/providers/models/${encodeURIComponent(name)}/test`,
+    { method: 'POST', auth: true }
+  );
+}
+
 // --- Workspace snapshots / fork (Phase 6) ------------------------------------------------
 
 export interface WorkspaceSnapshot {

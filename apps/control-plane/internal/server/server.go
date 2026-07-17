@@ -166,6 +166,7 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/providers/models", s.handleListModelProviders)
 			r.Get("/providers/models/{name}/catalog", s.handleModelCatalog)
+			r.Post("/providers/models/{name}/test", s.handleTestModelProvider)
 			r.Post("/providers/models/{name}/complete", s.handleComplete)
 			r.Post("/providers/models/{name}/complete/stream", s.handleCompleteSSE)
 
