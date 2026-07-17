@@ -210,12 +210,14 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": s.toUserPayload(u)})
 }
 
-// handleUpdateMe patches the current user's profile. Today it persists the onboarding
-// flag so the client stops re-running onboarding on reload; extend with name/avatar later.
+// handleUpdateMe patches the current user's profile: the onboarding flag (so the client
+// stops re-running onboarding on reload) and the display name. Both fields are optional;
+// only those present in the body are updated.
 func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 	claims, _ := auth.FromContext(r.Context())
 	var body struct {
-		Onboarded *bool `json:"onboarded"`
+		Onboarded *bool   `json:"onboarded"`
+		Name      *string `json:"name"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -227,6 +229,17 @@ func (s *Server) handleUpdateMe(w http.ResponseWriter, r *http.Request) {
 			claims.UserID, *body.Onboarded); err != nil {
 			s.fail(w, r, err)
 			return
+		}
+	}
+	if body.Name != nil {
+		name := strings.TrimSpace(*body.Name)
+		if name != "" && len(name) <= 100 {
+			if _, err := s.pool.Exec(r.Context(),
+				`UPDATE users SET name = $2, updated_at = NOW() WHERE id = $1`,
+				claims.UserID, name); err != nil {
+				s.fail(w, r, err)
+				return
+			}
 		}
 	}
 	u, err := s.auth.SanitizeUserByID(r.Context(), claims.UserID)

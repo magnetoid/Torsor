@@ -32,6 +32,8 @@ interface AuthState {
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setOnboarded: (onboarded: boolean) => void;
+  /** Update the current user's profile (optimistic local + best-effort PATCH /auth/me). */
+  updateProfile: (updates: { name?: string }) => void;
 }
 
 const normalizeUser = (user: any): User => ({
@@ -147,6 +149,18 @@ export const useAuthStore = create<AuthState>()(
           method: 'PATCH',
           auth: true,
           body: JSON.stringify({ onboarded }),
+        }).catch(() => {
+          /* keep the optimistic local state */
+        });
+      },
+      updateProfile: (updates) => {
+        // Optimistic local update, then persist server-side (best-effort, same pattern as
+        // setOnboarded). Only known-safe fields (name) are sent.
+        set((state) => ({ user: state.user ? { ...state.user, ...updates } : null }));
+        void apiRequest('/api/v1/auth/me', {
+          method: 'PATCH',
+          auth: true,
+          body: JSON.stringify(updates),
         }).catch(() => {
           /* keep the optimistic local state */
         });

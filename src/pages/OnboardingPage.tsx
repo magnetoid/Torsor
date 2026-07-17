@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useWorkspaceStore } from '../stores/workspaceStore';
 import { OnboardingStep1 } from './steps/OnboardingStep1';
 import { OnboardingStep2 } from './steps/OnboardingStep2';
 import { OnboardingStep3 } from './steps/OnboardingStep3';
@@ -25,7 +26,7 @@ export function OnboardingPage() {
     templateId: '',
   });
 
-  const { user, setOnboarded } = useAuthStore();
+  const { user, setOnboarded, updateProfile } = useAuthStore();
   const createProject = useProjectStore((state) => state.createProject);
   const navigate = useNavigate();
 
@@ -42,6 +43,16 @@ export function OnboardingPage() {
   const handleComplete = async (finalData?: typeof data) => {
     const currentData = finalData || data;
     setOnboarded(true);
+
+    // Persist the safe onboarding fields. (API keys are intentionally NOT persisted here —
+    // they belong in the encrypted secrets store via Settings → API Keys, not localStorage.)
+    const name = currentData.name?.trim();
+    if (name && name !== user?.name) updateProfile({ name });
+    const workspaceName = currentData.workspaceName?.trim();
+    if (workspaceName) {
+      const ws = useWorkspaceStore.getState();
+      ws.updateWorkspace(ws.activeWorkspaceId, { name: workspaceName });
+    }
 
     if (currentData.prompt || currentData.templateId) {
       const projectId = await createProject({
