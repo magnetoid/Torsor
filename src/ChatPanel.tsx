@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { 
   MessageSquare, 
   History, 
@@ -25,10 +25,22 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatPanel() {
-  const { messages, currentThread, isAgentWorking, agentStep, sendMessage, runAgent } = useChatStore();
+  const { messages, currentThread, isAgentWorking, agentStep, runStartedAt, sendMessage, runAgent } = useChatStore();
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const { openTab, uiMode, setUiMode } = useLayoutStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 1s ticker while the agent works, so the indicator shows climbing elapsed time — a slow
+  // local model then reads as "still going" rather than hung.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isAgentWorking) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [isAgentWorking]);
+  const elapsed = isAgentWorking && runStartedAt ? Math.max(0, Math.floor((now - runStartedAt) / 1000)) : 0;
+  const elapsedLabel = elapsed >= 60 ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` : `${elapsed}s`;
 
   // Inside a project, a suggestion runs the coding agent; on the plain chat it completes.
   const submit = (text: string) => {
@@ -116,7 +128,7 @@ export default function ChatPanel() {
                   <span className="w-1 h-1 rounded-full bg-accent animate-pulse" style={{ animationDelay: '300ms' }} />
                 </div>
                 <span className="text-[10px] font-bold text-accent uppercase tracking-widest animate-pulse">
-                  Torsor Agent Thinking{agentStep > 0 ? ` · step ${agentStep}` : ''}
+                  Torsor Agent Thinking{agentStep > 0 ? ` · step ${agentStep}` : ''}{elapsed > 2 ? ` · ${elapsedLabel}` : ''}
                 </span>
               </div>
             )}

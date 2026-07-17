@@ -23,9 +23,10 @@ export function ComingSoonPage({
       <div className="flex-1 min-w-0 flex flex-col animate-in fade-in duration-slow">
         <AccountBar title={title} />
         <div className="flex-1 flex items-center justify-center">
+          {/* Page title lives in the AccountBar; the hero says what state this is. */}
           <EmptyState
             icon={icon}
-            title={title}
+            title="Coming soon"
             description={description}
             actionLabel="Back to Home"
             onAction={() => navigate('/')}

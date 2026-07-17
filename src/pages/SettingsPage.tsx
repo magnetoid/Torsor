@@ -43,16 +43,15 @@ export function SettingsPage() {
       <HomeSidebar />
       
       <main className="flex-1 min-w-0 overflow-y-auto h-screen">
-        <AccountBar title="Settings" />
+        <AccountBar title="Workspace Settings" />
         <div className="max-w-5xl mx-auto px-6 py-8">
-          {/* Breadcrumbs / Header */}
-          <div className="flex items-center gap-2 text-xs font-bold text-tertiary uppercase tracking-wider mb-2">
+          {/* Breadcrumbs (the page title lives in the AccountBar) */}
+          <div className="flex items-center gap-2 text-xs font-bold text-tertiary uppercase tracking-wider mb-6">
             <LayoutGrid size={14} />
             <span>Workspaces</span>
             <ChevronRight size={12} />
             <span className="text-secondary">{activeWorkspace?.name}</span>
           </div>
-          <h1 className="text-2xl font-bold text-primary mb-8">Workspace Settings</h1>
 
           <Tabs.Root defaultValue="general" className="flex flex-col">
             <Tabs.List className="flex gap-1 border-b border-default mb-8 overflow-x-auto no-scrollbar">

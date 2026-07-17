@@ -105,7 +105,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 ml-[220px] min-h-screen flex flex-col">
-        <AccountBar />
+        <AccountBar title={navItems.find((i) => location.pathname === i.href)?.label ?? 'Admin'} />
         <div className="p-8 max-w-7xl mx-auto w-full">
           {children}
         </div>

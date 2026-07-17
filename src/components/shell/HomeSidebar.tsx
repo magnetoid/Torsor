@@ -67,19 +67,22 @@ export function HomeSidebar() {
   const activeWorkspace = getActiveWorkspace();
   const workspaceProjects = projects.filter(p => p.workspaceId === activeWorkspace?.id);
 
-  const navItems = [
+  // `soon` marks destinations that land on a ComingSoonPage — rendered with a subtle
+  // "Soon" chip so placeholder targets are legible before the click (they still navigate).
+  type SidebarItem = { to: string; icon: React.ElementType; label: string; soon?: boolean };
+  const navItems: SidebarItem[] = [
     { to: '/', icon: Home, label: 'Home' },
     { to: '/projects', icon: Grid, label: 'Projects' },
     { to: '/marketplace', icon: Box, label: 'Marketplace' },
-    { to: '/recent', icon: Clock, label: 'Recent' },
-    { to: '/starred', icon: Star, label: 'Starred' },
-    { to: '/shared', icon: Users, label: 'Shared with me' },
+    { to: '/recent', icon: Clock, label: 'Recent', soon: true },
+    { to: '/starred', icon: Star, label: 'Starred', soon: true },
+    { to: '/shared', icon: Users, label: 'Shared with me', soon: true },
   ];
 
-  const settingsItems = [
+  const settingsItems: SidebarItem[] = [
     { to: '/settings', icon: Settings, label: 'Settings' },
     { to: '/billing', icon: CreditCard, label: 'Billing' },
-    { to: '/help', icon: HelpCircle, label: 'Help & Support' },
+    { to: '/help', icon: HelpCircle, label: 'Help & Support', soon: true },
   ];
 
   const projectLimit = activeWorkspace?.limits.maxProjects || 3;
@@ -178,6 +181,11 @@ export function HomeSidebar() {
               >
                 <item.icon size={18} className="shrink-0" />
                 {!collapsed && <span className="text-sm font-medium truncate">{item.label}</span>}
+                {!collapsed && item.soon && (
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-tertiary bg-elevated border border-default rounded px-1 py-0.5 shrink-0">
+                    Soon
+                  </span>
+                )}
               </NavLink>
             </CollapsedTip>
           ))}
@@ -224,6 +232,11 @@ export function HomeSidebar() {
               >
                 <item.icon size={18} className="shrink-0" />
                 {!collapsed && <span className="text-sm font-medium truncate">{item.label}</span>}
+                {!collapsed && item.soon && (
+                  <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-tertiary bg-elevated border border-default rounded px-1 py-0.5 shrink-0">
+                    Soon
+                  </span>
+                )}
               </NavLink>
             </CollapsedTip>
           ))}

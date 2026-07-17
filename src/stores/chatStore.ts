@@ -56,6 +56,9 @@ interface ChatState {
   /** Number of tool actions the current/last agent run has taken (drives the live "step N"
    *  indicator). Reset at the start of each run. */
   agentStep: number;
+  /** Epoch ms when the current run/completion started; null when idle. Drives the elapsed
+   *  timer in the thinking indicator so long runs visibly advance instead of looking hung. */
+  runStartedAt: number | null;
   currentThread: { id: string; title: string } | null;
   selectedContext: ContextItem[];
   planning: boolean;
@@ -85,6 +88,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isAgentWorking: false,
   agentStep: 0,
+  runStartedAt: null,
   currentThread: null,
   selectedContext: [],
   planning: false,
@@ -140,6 +144,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: [...state.messages, userMessage],
       isAgentWorking: true,
+      runStartedAt: Date.now(),
       currentThread: state.currentThread || { id: `thread-${Date.now()}`, title: trimmed.slice(0, 50) },
     }));
 
@@ -164,7 +169,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           '(e.g. TORSOR_MODEL_PLUGINS pointing at the ollama-model binary) and try again.',
         timestamp: Date.now(),
       });
-      set({ isAgentWorking: false });
+      set({ isAgentWorking: false, runStartedAt: null });
       return;
     }
 
@@ -222,7 +227,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } finally {
       abortController = null;
-      set({ isAgentWorking: false });
+      set({ isAgentWorking: false, runStartedAt: null });
     }
   },
 
@@ -248,6 +253,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       isAgentWorking: true,
       agentStep: 0,
+      runStartedAt: Date.now(),
       currentThread: state.currentThread || { id: `thread-${Date.now()}`, title: trimmed.slice(0, 50) },
     }));
 
@@ -323,7 +329,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     } finally {
       abortController = null;
-      set({ isAgentWorking: false });
+      set({ isAgentWorking: false, runStartedAt: null });
       markWorkDone();
       // Reflect any files the agent created/changed in the IDE tree, and reload the live
       // preview so the running app shows the edits instead of stale output.

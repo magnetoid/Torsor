@@ -279,10 +279,13 @@ export function HomeContent() {
                 </Link>
               ))}
               {workspaceProjects.length === 0 && (
-                <div className="col-span-3 py-12 flex flex-col items-center justify-center text-tertiary border border-dashed border-default rounded-xl">
+                <button
+                  onClick={() => textareaRef.current?.focus()}
+                  className="col-span-3 py-12 flex flex-col items-center justify-center text-tertiary border border-dashed border-default rounded-xl hover:border-accent/40 hover:text-secondary transition-colors cursor-text"
+                >
                   <Plus size={32} className="mb-2 opacity-20" />
-                  <p className="text-sm">No projects in this workspace yet.</p>
-                </div>
+                  <p className="text-sm">No projects yet — describe your first app above to start.</p>
+                </button>
               )}
             </div>
           </div>

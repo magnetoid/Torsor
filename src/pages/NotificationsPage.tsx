@@ -19,6 +19,7 @@ import { useNotificationStore, NotificationType } from '../stores/notificationSt
 import { cn, formatDistanceToNow } from '../lib/utils';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { AccountBar } from '../components/shared/AccountBar';
+import { EmptyState } from '../components/shared/EmptyState';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 const getNotificationIcon = (type: NotificationType) => {
@@ -201,24 +202,18 @@ export const NotificationsPage: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="p-12 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 bg-inset rounded-full flex items-center justify-center text-tertiary mb-4">
-                    <Bell size={32} />
-                  </div>
-                  <h3 className="text-lg font-bold text-primary mb-1">No notifications found</h3>
-                  <p className="text-sm text-secondary max-w-xs">
-                    {searchQuery 
-                      ? `We couldn't find any notifications matching "${searchQuery}"`
-                      : "You're all caught up! New notifications will appear here."}
-                  </p>
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery('')}
-                      className="mt-4 text-sm font-bold text-accent hover:underline"
-                    >
-                      Clear search
-                    </button>
-                  )}
+                <div className="p-12">
+                  <EmptyState
+                    icon={Bell}
+                    title={searchQuery ? 'No notifications found' : "You're all caught up"}
+                    description={
+                      searchQuery
+                        ? `Nothing matches "${searchQuery}".`
+                        : 'Deploys and agent runs will show up here as they happen.'
+                    }
+                    actionLabel={searchQuery ? 'Clear search' : undefined}
+                    onAction={searchQuery ? () => setSearchQuery('') : undefined}
+                  />
                 </div>
               )}
             </div>
