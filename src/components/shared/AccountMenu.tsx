@@ -89,7 +89,7 @@ export function AccountMenu({ size = 'sm' }: { size?: 'sm' | 'md' }) {
                 className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-accent rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-accent-muted"
               >
                 <Shield size={15} className="shrink-0" />
-                Admin Panel
+                {user?.role === 'super_admin' ? 'Super Admin' : 'Admin Panel'}
               </DropdownMenu.Item>
             </>
           )}
