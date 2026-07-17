@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -55,8 +57,16 @@ type agentBody struct {
 	ApprovedPlan []string `json:"approvedPlan"`
 }
 
-// pickModelProvider resolves the model provider for an agent run: the named one, else the
-// sole loaded provider. Returns the provider, its name, and ok.
+// pickModelProvider resolves the model provider for an agent run:
+//  1. the explicitly named provider (frontend dropdown), else
+//  2. the sole loaded provider, else
+//  3. TORSOR_DEFAULT_MODEL if it names a loaded provider (the free-local default is
+//     "ollama"), else
+//  4. failure.
+//
+// Step 3 is essential: background/delegated runs (worker.go) and any run where the user
+// hasn't picked a provider pass name=="" — without a default they'd fail whenever more
+// than one provider plugin is loaded (the shipped image loads six).
 func (s *Server) pickModelProvider(name string) (plugin.ModelProvider, string, bool) {
 	if name != "" {
 		p, ok := s.host.ModelProvider(name)
@@ -66,6 +76,11 @@ func (s *Server) pickModelProvider(name string) (plugin.ModelProvider, string, b
 	if len(infos) == 1 {
 		p, ok := s.host.ModelProvider(infos[0].Name)
 		return p, infos[0].Name, ok
+	}
+	if def := strings.TrimSpace(os.Getenv("TORSOR_DEFAULT_MODEL")); def != "" {
+		if p, ok := s.host.ModelProvider(def); ok {
+			return p, def, true
+		}
 	}
 	return nil, "", false
 }

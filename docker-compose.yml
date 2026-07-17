@@ -88,13 +88,17 @@ services:
       TORSOR_SECRET_KEY: ${TORSOR_SECRET_KEY:-}
       # Model providers: the free local default via Ollama. Point OLLAMA_HOST at your
       # Ollama server (the optional `ollama` service below, or one on the host), and pull
-      # a coding model (e.g. `ollama pull qwen3-coder` / `devstral`).
+      # the matching model (`ollama pull qwen2.5-coder:3b`). qwen2.5-coder:3b (~2GB) runs
+      # on CPU-only hosts; on a bigger box use :7b or qwen3-coder and set OLLAMA_MODEL.
       # Hosted providers are BYO-key: they load without any host key and unlock per user
       # once a key is saved in Settings → API Keys (encrypted secrets: ANTHROPIC_API_KEY,
       # OPENAI_API_KEY, GOOGLE_API_KEY, DEEPSEEK_API_KEY, OPENROUTER_API_KEY).
       TORSOR_MODEL_PLUGINS: /app/ollama-model,/app/anthropic-model,/app/openai-model,/app/gemini-model,/app/deepseek-model,/app/openrouter-model
       OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3-coder}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:3b}
+      # Default provider for agent runs when the caller names none — background/delegated
+      # runs always take this path. "ollama" keeps the free-local promise (no key required).
+      TORSOR_DEFAULT_MODEL: ${TORSOR_DEFAULT_MODEL:-ollama}
       # Workspace runtimes: mock (in-memory, safe anywhere) + docker (real containers).
       # Default to docker so terminals/preview/agent-exec are REAL. This requires the
       # Docker socket mounted below. SECURITY: mounting the socket gives this container
