@@ -174,9 +174,7 @@ export const BillingPage: React.FC = () => {
         </div>
 
         <nav className="flex-1 mt-4">
-          <NavItem icon={LayoutGrid} label="Projects" onClick={() => navigate('/dashboard')} />
-          <NavItem icon={Sparkles} label="Model Arena" onClick={() => navigate('/arena')} />
-          <NavItem icon={Users} label="Team" onClick={() => navigate('/team')} />
+          <NavItem icon={LayoutGrid} label="Projects" onClick={() => navigate('/projects')} />
           <NavItem icon={CreditCard} label="Billing" active />
           <NavItem icon={Settings} label="Settings" onClick={() => navigate('/settings')} />
         </nav>

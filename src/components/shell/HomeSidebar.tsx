@@ -56,7 +56,7 @@ export function HomeSidebar() {
   const isActive = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
   const { homeSidebarCollapsed: collapsed, toggleHomeSidebar } = useLayoutStore();
   const { getActiveWorkspace } = useWorkspaceStore();
-  const { projects } = useProjectStore();
+  const { projects, createProject } = useProjectStore();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
@@ -90,12 +90,18 @@ export function HomeSidebar() {
   const tokenUsage = activeWorkspace?.usage.tokensUsedThisMonth || 0;
   const tokenProgress = (tokenUsage / tokenLimit) * 100;
 
-  const handleNewProject = () => {
+  const handleNewProject = async () => {
     if (!projectGate.allowed) {
       setUpgradeDialogOpen(true);
       return;
     }
-    navigate('/projects?new=true');
+    // Create a real project and open it, mirroring the Projects dashboard — the old
+    // navigate('/projects?new=true') was a no-op (nothing read the query param).
+    const projectId = await createProject(
+      { name: `New Project ${workspaceProjects.length + 1}`, description: 'Created from the sidebar.', type: 'website' },
+      'server-default',
+    );
+    navigate(`/project/${projectId}`);
   };
 
   // Shared row geometry: identical height in both states so nothing jumps while the

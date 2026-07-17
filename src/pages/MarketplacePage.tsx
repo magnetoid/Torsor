@@ -58,10 +58,6 @@ export function MarketplacePage() {
         <AccountBar title="Marketplace" />
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
-              <Box size={22} className="text-accent" />
-              Image Marketplace
-            </h1>
             <p className="text-sm text-secondary mt-1">
               Browse container images from Docker Hub and deploy one as a new workspace.
             </p>

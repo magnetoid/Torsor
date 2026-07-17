@@ -52,36 +52,27 @@ export const NotificationsPage: React.FC = () => {
       <HomeSidebar />
       
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <AccountBar title="Notifications" />
-        {/* Header */}
-        <header className="h-16 border-b border-default flex items-center justify-between px-8 shrink-0 bg-surface/50 backdrop-blur-md sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-accent-muted rounded-xl text-accent">
-              <Bell size={20} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-primary">Notifications</h1>
-              <p className="text-xs text-secondary">Stay updated with your workspace activity</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={markAllRead}
-              className="px-3 py-1.5 text-xs font-bold text-secondary hover:text-primary hover:bg-elevated rounded-lg transition-all flex items-center gap-2"
-            >
-              <Check size={14} />
-              Mark all as read
-            </button>
-            <button 
-              onClick={clearAll}
-              className="px-3 py-1.5 text-xs font-bold text-error hover:bg-error/10 rounded-lg transition-all flex items-center gap-2"
-            >
-              <Trash2 size={14} />
-              Clear all
-            </button>
-          </div>
-        </header>
+        <AccountBar
+          title="Notifications"
+          actions={
+            <>
+              <button
+                onClick={markAllRead}
+                className="px-3 py-1.5 text-xs font-bold text-secondary hover:text-primary hover:bg-elevated rounded-lg transition-all flex items-center gap-2"
+              >
+                <Check size={14} />
+                Mark all read
+              </button>
+              <button
+                onClick={clearAll}
+                className="px-3 py-1.5 text-xs font-bold text-error hover:bg-error/10 rounded-lg transition-all flex items-center gap-2"
+              >
+                <Trash2 size={14} />
+                Clear all
+              </button>
+            </>
+          }
+        />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
