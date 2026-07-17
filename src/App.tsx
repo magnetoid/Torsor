@@ -11,6 +11,8 @@ import { AuthPage } from './pages/AuthPage';
 import { ProjectWorkspace } from './pages/ProjectWorkspace';
 import { BillingPage } from './pages/BillingPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
+import { ProjectListPage } from './pages/ProjectListPage';
+import { HelpPage } from './pages/HelpPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/auth/ProtectedRoute';
@@ -126,25 +128,51 @@ export default function App() {
               </ErrorBoundary>
             }
           />
-          {/* Sidebar destinations not built yet — land on a real page, not a 404. */}
-          {([
-            ['/recent', 'Recent', 'Projects you have opened recently will show up here.'],
-            ['/starred', 'Starred', 'Star projects to pin them here for quick access.'],
-            ['/shared', 'Shared with me', 'Projects other people share with you will appear here.'],
-            ['/help', 'Help & Support', 'Documentation and support resources are on the way.'],
-          ] as const).map(([path, title, description]) => (
-            <Route
-              key={path}
-              path={path}
-              element={
-                <ErrorBoundary name={title}>
-                  <ProtectedRoute>
-                    <ComingSoonPage title={title} description={description} />
-                  </ProtectedRoute>
-                </ErrorBoundary>
-              }
-            />
-          ))}
+          {/* Recent / Starred are real views over project data; Help is a real links page.
+              Only "Shared with me" still waits on multiplayer — honestly labeled. */}
+          <Route
+            path="/recent"
+            element={
+              <ErrorBoundary name="Recent">
+                <ProtectedRoute>
+                  <ProjectListPage mode="recent" />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/starred"
+            element={
+              <ErrorBoundary name="Starred">
+                <ProtectedRoute>
+                  <ProjectListPage mode="starred" />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/shared"
+            element={
+              <ErrorBoundary name="Shared with me">
+                <ProtectedRoute>
+                  <ComingSoonPage
+                    title="Shared with me"
+                    description="Sharing arrives with multiplayer. Live presence already works — open a project in two browsers to see it."
+                  />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ErrorBoundary name="Help & Support">
+                <ProtectedRoute>
+                  <HelpPage />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
           <Route 
             path="/settings" 
             element={

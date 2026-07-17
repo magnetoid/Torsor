@@ -2,32 +2,11 @@ import React, { useState } from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { Reorder, AnimatePresence } from 'framer-motion';
-import { 
-  X, 
-  Plus, 
-  Play, 
-  Code2, 
-  Terminal, 
-  Database, 
-  Shield, 
-  Puzzle, 
-  Sparkles, 
-  Settings,
-  Split,
-  Layout,
-  Lock as LockIcon,
-  HardDrive,
-  UserCheck,
-  Rocket,
-  CheckCircle,
-  GitBranch,
-  Workflow,
-  Frame,
-  MonitorPlay
-} from 'lucide-react';
+import { X, Plus, Split, Circle, FlaskConical } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { popoverMotion } from '../../lib/motion';
-import { useLayoutStore, Tab, TabType, TAB_CONFIG } from '../../stores/layoutStore';
+import { useLayoutStore, TabType } from '../../stores/layoutStore';
+import { contributions } from '../../kernel/contributions';
 
 export function TabBar() {
   const { 
@@ -66,7 +45,9 @@ export function TabBar() {
       >
         <AnimatePresence initial={false}>
           {centerTabs.map((tab) => {
-            const Icon = TAB_CONFIG[tab.type].icon;
+            // Registry lookup with a fallback icon: a stale persisted tab type (e.g. from
+            // an uninstalled plugin) must degrade gracefully, not crash the strip.
+            const Icon = contributions.getTab(tab.type)?.icon ?? Circle;
             return (
               <Reorder.Item
                 key={tab.id}
@@ -144,37 +125,32 @@ export function TabBar() {
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content className={cn("bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[160px]", popoverMotion)}>
-            {[
-              { type: 'preview', label: 'Preview', icon: Play },
-              { type: 'code', label: 'Code Editor', icon: Code2 },
-              { type: 'terminal', label: 'Terminal', icon: Terminal },
-              { type: 'database', label: 'Database', icon: Database },
-              { type: 'security', label: 'Security Scan', icon: Shield },
-              { type: 'integrations', label: 'Integrations', icon: Puzzle },
-              { type: 'skills', label: 'Agent Skills', icon: Sparkles },
-              { type: 'settings', label: 'Settings', icon: Settings },
-              { type: 'secrets', label: 'Secrets', icon: LockIcon },
-              { type: 'storage', label: 'App Storage', icon: HardDrive },
-              { type: 'auth', label: 'Authentication', icon: UserCheck },
-              { type: 'publishing', label: 'Publishing', icon: Rocket },
-              { type: 'validation', label: 'Validation', icon: CheckCircle },
-              { type: 'git', label: 'Git', icon: GitBranch },
-              { type: 'workflow', label: 'Workflows', icon: Workflow },
-              { type: 'canvas', label: 'Canvas', icon: Frame },
-              { type: 'testing', label: 'App Testing', icon: MonitorPlay },
-            ].map((item) => (
-              <DropdownMenu.Item 
-                key={item.type}
-                onClick={() => openTab(item.type as TabType)}
-                className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:bg-accent rounded cursor-pointer outline-none"
-              >
-                {(() => {
-                  const Icon = item.icon;
-                  return <Icon size={14} />;
-                })()}
-                {item.label}
-              </DropdownMenu.Item>
+          {/* The "+" menu renders the same grouped registry as the rail and ⌘K —
+              membership can't drift (the old hardcoded list here was missing four tabs). */}
+          <DropdownMenu.Content className={cn("bg-elevated border border-default rounded-md p-1 shadow-xl z-50 min-w-[190px] max-h-[70vh] overflow-y-auto", popoverMotion)}>
+            {contributions.tabsByGroup().map(({ group, tabs }, gi) => (
+              <React.Fragment key={group.id}>
+                {gi > 0 && <DropdownMenu.Separator className="h-[1px] bg-border-subtle my-1" />}
+                <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-tertiary">
+                  {group.label}
+                </DropdownMenu.Label>
+                {tabs.map((tab) => {
+                  const Icon = tab.icon ?? Circle;
+                  return (
+                    <DropdownMenu.Item
+                      key={tab.type}
+                      onClick={() => openTab(tab.type as TabType)}
+                      className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:bg-accent rounded cursor-pointer outline-none group"
+                    >
+                      <Icon size={14} />
+                      <span className="flex-1">{tab.label}</span>
+                      {tab.maturity === 'preview' && (
+                        <FlaskConical size={11} className="text-tertiary group-hover:text-white/70" aria-label="Preview mockup" />
+                      )}
+                    </DropdownMenu.Item>
+                  );
+                })}
+              </React.Fragment>
             ))}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

@@ -1,29 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { 
-  Code2, 
-  Play, 
-  Terminal, 
-  Database, 
-  Shield, 
-  Puzzle, 
-  Sparkles,
-  Settings,
-  Lock as LockIcon,
-  HardDrive,
-  UserCheck,
-  Rocket,
-  CheckCircle,
-  GitBranch,
-  Workflow,
-  Frame,
-  MonitorPlay,
-  History,
-  Activity,
-  BarChart3,
-  Plug,
-  LucideIcon
-} from 'lucide-react';
+import { contributions } from '../kernel/contributions';
 
 export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage' | 'mcp';
 
@@ -100,29 +77,8 @@ interface LayoutState {
   acceptDisclosure: () => void;
 }
 
-export const TAB_CONFIG: Record<TabType, { label: string; icon: LucideIcon; closable: boolean }> = {
-  preview: { label: 'Preview', icon: Play, closable: true },
-  code: { label: 'Code Editor', icon: Code2, closable: true },
-  terminal: { label: 'Terminal', icon: Terminal, closable: true },
-  database: { label: 'Database', icon: Database, closable: true },
-  security: { label: 'Security Scan', icon: Shield, closable: true },
-  integrations: { label: 'Integrations', icon: Puzzle, closable: true },
-  skills: { label: 'Agent Skills', icon: Sparkles, closable: true },
-  settings: { label: 'Settings', icon: Settings, closable: true },
-  secrets: { label: 'Secrets', icon: LockIcon, closable: true },
-  storage: { label: 'App Storage', icon: HardDrive, closable: true },
-  auth: { label: 'Authentication', icon: UserCheck, closable: true },
-  publishing: { label: 'Publishing', icon: Rocket, closable: true },
-  validation: { label: 'Validation', icon: CheckCircle, closable: true },
-  git: { label: 'Git', icon: GitBranch, closable: true },
-  workflow: { label: 'Workflows', icon: Workflow, closable: true },
-  canvas: { label: 'Canvas', icon: Frame, closable: true },
-  testing: { label: 'App Testing', icon: MonitorPlay, closable: true },
-  checkpoints: { label: 'Checkpoints', icon: History, closable: true },
-  runs: { label: 'Agent Runs', icon: Activity, closable: true },
-  usage: { label: 'Usage', icon: BarChart3, closable: true },
-  mcp: { label: 'MCP Servers', icon: Plug, closable: true },
-};
+// Tab metadata (label / icon / closable / group) lives on the kernel contribution
+// registry — the single source of truth all shell surfaces render from.
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
@@ -157,21 +113,23 @@ export const useLayoutStore = create<LayoutState>()(
       openTab: (type) => {
         const { centerTabs } = get();
         const existingTab = centerTabs.find(t => t.type === type);
-        
+
         if (existingTab) {
           set({ activeTabId: existingTab.id });
           return;
         }
 
-        const config = TAB_CONFIG[type];
+        // Metadata comes from the kernel registry; unknown types (e.g. a stale persisted
+        // tab from an uninstalled plugin) degrade to a plain closable tab, never a crash.
+        const contrib = contributions.getTab(type);
         const newTab: Tab = {
           id: `tab-${type}-${Date.now()}`,
           type,
-          label: config.label,
-          closable: config.closable
+          label: contrib?.label ?? type,
+          closable: contrib?.closable ?? true
         };
 
-        set({ 
+        set({
           centerTabs: [...centerTabs, newTab],
           activeTabId: newTab.id
         });

@@ -40,6 +40,9 @@ interface ProjectState {
    *  ProjectWorkspace on mount, cleared on unmount so plain chat elsewhere isn't agentic. */
   activeProjectId: string | null;
   setActiveProject: (id: string | null) => void;
+  /** Starred project ids — a local pin list (client-side until a backend flag lands). */
+  starredIds: string[];
+  toggleStar: (id: string) => void;
   isLoading: boolean;
   error: string | null;
   fetchProjects: () => Promise<void>;
@@ -86,12 +89,37 @@ const fromApiFile = (file: any): ProjectFile => ({
   updatedAt: file.updatedAt || file.updated_at,
 });
 
+// Local star list (pin-style). Kept in plain localStorage — the rest of this store is
+// server-backed, so wrapping the whole thing in `persist` for one field would be noise.
+const STARRED_KEY = 'torsor-starred-projects';
+const readStarred = (): string[] => {
+  try {
+    const raw = localStorage.getItem(STARRED_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   projects: [],
   filesByProject: {},
   currentProject: null,
   activeProjectId: null,
   setActiveProject: (id) => set({ activeProjectId: id }),
+  starredIds: readStarred(),
+  toggleStar: (id) => {
+    const next = get().starredIds.includes(id)
+      ? get().starredIds.filter((s) => s !== id)
+      : [...get().starredIds, id];
+    try {
+      localStorage.setItem(STARRED_KEY, JSON.stringify(next));
+    } catch {
+      // Storage unavailable (private mode) — stars still work for the session.
+    }
+    set({ starredIds: next });
+  },
   isLoading: false,
   error: null,
   fetchProjects: async () => {

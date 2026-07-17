@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Play, Loader2, Search, FolderTree } from 'lucide-react';
+import { Play, Loader2, Search, FolderTree, MessageSquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -13,7 +13,7 @@ import { AccountMenu } from '../shared/AccountMenu';
 import { TabBar } from './TabBar';
 
 export function TopBar() {
-  const { toggleLeftPanel, uiMode, setUiMode, openTab, setCommandPalette, fileManagerOpen, toggleFileManager } = useLayoutStore();
+  const { toggleLeftPanel, leftPanelOpen, uiMode, setUiMode, openTab, setCommandPalette, fileManagerOpen, toggleFileManager } = useLayoutStore();
   const focus = uiMode === 'focus';
 
   // Real run flow: provision → start → poll preview readiness (useAppStore.triggerBuild).
@@ -100,14 +100,21 @@ export function TopBar() {
           </Tooltip.Root>
         </Tooltip.Provider>
 
-        <button
-          onClick={toggleLeftPanel}
-          className="flex items-center gap-1.5 px-2 py-0.5 bg-elevated hover:bg-surface rounded-full border border-default transition-all group"
-          title="Toggle the agent chat"
-        >
-          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-accent" />
-          <span className="text-[10px] font-bold text-primary">Agent</span>
-        </button>
+        {/* Chat toggle — needed in Focus (there's no Rail there); the IDE Rail already
+            carries the same toggle, so showing both would be a duplicate. */}
+        {focus && (
+          <button
+            onClick={toggleLeftPanel}
+            aria-label="Toggle the agent chat"
+            title="Toggle the agent chat"
+            className={cn(
+              'p-1.5 rounded-md transition-colors',
+              leftPanelOpen ? 'text-accent bg-accent-muted' : 'text-secondary hover:text-primary'
+            )}
+          >
+            <MessageSquare size={15} />
+          </button>
+        )}
       </div>
 
       {/* CENTER: the tab strip — IDE-only chrome; hidden in the calm Focus surface. */}
@@ -122,7 +129,9 @@ export function TopBar() {
       {/* RIGHT SECTION */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Live collaborators — a calm dot in Focus, stacked avatars in IDE. */}
-        <PresenceAvatars focus={focus} />
+        <div className="hidden sm:flex items-center">
+          <PresenceAvatars focus={focus} />
+        </div>
 
         {/* Advanced controls — hidden in Focus; the ⌘K palette still reaches them.
             (The old model-tier Segmented was a local-state placebo — the real model
@@ -131,7 +140,7 @@ export function TopBar() {
           <>
             <button
               onClick={() => openTab('publishing')}
-              className="bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20"
+              className="hidden md:block bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20"
             >
               Publish
             </button>
@@ -139,24 +148,27 @@ export function TopBar() {
             <button
               onClick={() => setCommandPalette(true)}
               aria-label="Search (⌘K)"
-              className="p-1.5 text-secondary hover:text-primary transition-colors"
+              className="hidden md:block p-1.5 text-secondary hover:text-primary transition-colors"
             >
               <Search size={16} />
             </button>
           </>
         )}
 
-        {/* Focus / IDE toggle — the always-available bridge (also ⌘⇧M). */}
-        <Segmented
-          size="sm"
-          aria-label="Interface mode"
-          value={uiMode}
-          onChange={setUiMode}
-          options={[
-            { value: 'focus', label: 'Focus' },
-            { value: 'ide', label: 'IDE' },
-          ]}
-        />
+        {/* Focus / IDE toggle — the always-available bridge (also ⌘⇧M). Hidden on
+            phones, where the shell is effectively Focus-shaped anyway. */}
+        <div className="hidden sm:block">
+          <Segmented
+            size="sm"
+            aria-label="Interface mode"
+            value={uiMode}
+            onChange={setUiMode}
+            options={[
+              { value: 'focus', label: 'Focus' },
+              { value: 'ide', label: 'IDE' },
+            ]}
+          />
+        </div>
 
         {/* Project files — toggles the left file-manager panel; sits right beside the
             account menu so it's reachable from both Focus and IDE modes. */}

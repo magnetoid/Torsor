@@ -13,11 +13,43 @@ import type { ComponentType } from 'react';
 /** An icon component (a lucide icon satisfies this). */
 export type IconComponent = ComponentType<{ size?: number; className?: string }>;
 
+/** Well-known tab groups. Every tab-listing surface (rail "More…", tab-strip "+",
+ *  ⌘K palette) renders the same grouped registry, so the lists can never drift. */
+export type TabGroupId = 'build' | 'agent' | 'project' | 'labs';
+
+export interface TabGroupDef {
+  id: TabGroupId | 'other';
+  label: string;
+  order: number;
+}
+
+export const TAB_GROUPS: TabGroupDef[] = [
+  { id: 'build', label: 'Build', order: 0 },
+  { id: 'agent', label: 'Agent', order: 1 },
+  { id: 'project', label: 'Project', order: 2 },
+  // Honest prominence: not-yet-wired mockups live together under an explicit label.
+  { id: 'labs', label: 'Labs — previews', order: 3 },
+];
+
 /** A center-work-area tab. `type` matches the layout store's Tab.type. */
 export interface TabContribution {
   type: string;
   label: string;
   component: ComponentType;
+  /** Icon shown on the rail, in the tab strip, the "+" menu, and the palette. */
+  icon?: IconComponent;
+  /** Section this tab lists under everywhere. Unknown/absent → a trailing "Other"
+   *  bucket, so a plugin tab can never disappear. */
+  group?: TabGroupId | string;
+  /** Sort key within the group (lower first; ties by label). */
+  order?: number;
+  /** Pinned tabs render inline on the rail (convention: real capabilities only). */
+  pinned?: boolean;
+  /** 'preview' marks a not-yet-wired mockup: the shell auto-applies the honest
+   *  banner and Labs prominence. Default 'real'. */
+  maturity?: 'real' | 'preview';
+  /** Whether tab instances can be closed (default true). */
+  closable?: boolean;
   /** Optional id of the plugin that contributed this, for attribution. */
   source?: string;
 }
@@ -86,6 +118,25 @@ class ContributionRegistry {
   }
   tabs(): TabContribution[] {
     return [...this.tabsByType.values()];
+  }
+  /** Tabs bucketed by TAB_GROUPS order; tabs with an unregistered group land in a
+   *  trailing synthetic "Other" bucket. Within a group: `order` asc, then label. */
+  tabsByGroup(): { group: TabGroupDef; tabs: TabContribution[] }[] {
+    const sortTabs = (ts: TabContribution[]) =>
+      [...ts].sort(
+        (a, b) =>
+          (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) ||
+          a.label.localeCompare(b.label)
+      );
+    const known = new Set(TAB_GROUPS.map((g) => g.id));
+    const out: { group: TabGroupDef; tabs: TabContribution[] }[] = [];
+    for (const g of [...TAB_GROUPS].sort((a, b) => a.order - b.order)) {
+      const tabs = this.tabs().filter((t) => t.group === g.id);
+      if (tabs.length) out.push({ group: g, tabs: sortTabs(tabs) });
+    }
+    const other = this.tabs().filter((t) => !t.group || !known.has(t.group as TabGroupDef['id']));
+    if (other.length) out.push({ group: { id: 'other', label: 'Other', order: 99 }, tabs: sortTabs(other) });
+    return out;
   }
 
   registerCommand(c: CommandContribution): this {

@@ -1,7 +1,7 @@
 import React from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { MessageSquare, MoreHorizontal, Moon, Sun, Settings } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Moon, Sun, Settings, FlaskConical } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { tooltipMotion, popoverMotion } from '../../lib/motion';
 import { useLayoutStore, TabType } from '../../stores/layoutStore';
@@ -52,11 +52,15 @@ export function Rail({ className }: { className?: string }) {
 
   const activeTab = centerTabs.find((t) => t.id === activeTabId);
 
-  // Rail launchers come from the contribution registry (ADR 0008). Pinned items show
-  // inline; the rest live behind "More…" so the rail stays calm instead of a wall of icons.
-  const railItems = contributions.railItems();
-  const pinned = railItems.filter((r) => r.pinned);
-  const more = railItems.filter((r) => !r.pinned);
+  // Rail launchers come straight from the tab registry (ADR 0008): pinned tabs show
+  // inline; everything else lives behind "More…", sectioned by the same groups the
+  // "+" menu and ⌘K use. Plugin rail items (non-tab launchers) append after the groups.
+  const pinned = contributions.tabs().filter((t) => t.pinned && t.type !== 'settings');
+  const groups = contributions
+    .tabsByGroup()
+    .map(({ group, tabs }) => ({ group, tabs: tabs.filter((t) => !t.pinned && t.type !== 'settings') }))
+    .filter(({ tabs }) => tabs.length > 0);
+  const pluginItems = contributions.railItems();
 
   return (
     <aside className={cn('w-9 bg-surface border-r border-default flex flex-col items-center py-2 gap-1 shrink-0 z-40', className)}>
@@ -64,19 +68,19 @@ export function Rail({ className }: { className?: string }) {
 
       <div className="w-5 h-[1px] bg-default my-1" />
 
-      {pinned.map((item) =>
-        item.icon ? (
+      {pinned.map((tab) =>
+        tab.icon ? (
           <RailIcon
-            key={item.id}
-            icon={item.icon}
-            label={item.label}
-            active={activeTab?.type === item.opensTab}
-            onClick={() => item.opensTab && openTab(item.opensTab as TabType)}
+            key={tab.type}
+            icon={tab.icon}
+            label={tab.label}
+            active={activeTab?.type === tab.type}
+            onClick={() => openTab(tab.type as TabType)}
           />
         ) : null
       )}
 
-      {more.length > 0 && (
+      {groups.length > 0 && (
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button
@@ -90,9 +94,33 @@ export function Rail({ className }: { className?: string }) {
             <DropdownMenu.Content
               side="right"
               sideOffset={8}
-              className={cn('bg-elevated border border-default rounded-lg p-1 shadow-xl z-[100] min-w-[180px]', popoverMotion)}
+              className={cn('bg-elevated border border-default rounded-lg p-1 shadow-xl z-[100] min-w-[190px] max-h-[70vh] overflow-y-auto', popoverMotion)}
             >
-              {more.map((item) => {
+              {groups.map(({ group, tabs }, gi) => (
+                <React.Fragment key={group.id}>
+                  {gi > 0 && <DropdownMenu.Separator className="h-[1px] bg-border-subtle my-1" />}
+                  <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-tertiary">
+                    {group.label}
+                  </DropdownMenu.Label>
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <DropdownMenu.Item
+                        key={tab.type}
+                        onSelect={() => openTab(tab.type as TabType)}
+                        className="flex items-center gap-2 px-2 py-1.5 text-xs text-primary hover:bg-accent hover:text-white rounded-md cursor-pointer outline-none group"
+                      >
+                        {Icon && <Icon size={14} />}
+                        <span className="flex-1">{tab.label}</span>
+                        {tab.maturity === 'preview' && (
+                          <FlaskConical size={11} className="text-tertiary group-hover:text-white/70" aria-label="Preview mockup" />
+                        )}
+                      </DropdownMenu.Item>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+              {pluginItems.map((item) => {
                 const Icon = item.icon;
                 return (
                   <DropdownMenu.Item

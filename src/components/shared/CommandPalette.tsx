@@ -5,7 +5,7 @@ import { Search, FileCode } from 'lucide-react';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useAppStore } from '../../useAppStore';
 import { useEditorStore } from '../../stores/editorStore';
-import { contributions } from '../../kernel/contributions';
+import { contributions, TAB_GROUPS } from '../../kernel/contributions';
 
 export function CommandPalette() {
   const { commandPaletteOpen, setCommandPalette } = useLayoutStore();
@@ -29,13 +29,23 @@ export function CommandPalette() {
   };
 
   // Commands come from the contribution registry (ADR 0008) — first-party and plugin
-  // commands render identically. Group them by their `group` field, preserving order.
+  // commands render identically. Sections follow the canonical tab-group order
+  // (Build → Agent → Project → Labs), then View/Actions, then anything else.
   const commands = contributions.commands();
+  const canon = [...TAB_GROUPS]
+    .sort((a, b) => a.order - b.order)
+    .map((g) => g.label)
+    .concat(['View', 'Actions']);
   const groups: string[] = [];
   for (const c of commands) {
     const g = c.group || 'Commands';
     if (!groups.includes(g)) groups.push(g);
   }
+  groups.sort((a, b) => {
+    const ia = canon.indexOf(a);
+    const ib = canon.indexOf(b);
+    return (ia === -1 ? canon.length : ia) - (ib === -1 ? canon.length : ib);
+  });
 
   return (
     <Dialog.Root open={commandPaletteOpen} onOpenChange={setCommandPalette}>

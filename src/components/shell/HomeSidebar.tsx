@@ -54,7 +54,19 @@ export function HomeSidebar() {
   // Plain-string active check: react-router's function-form className gets stringified
   // by Radix Slot (Tooltip.Trigger asChild), so it must not be used inside tooltips.
   const isActive = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
-  const { homeSidebarCollapsed: collapsed, toggleHomeSidebar } = useLayoutStore();
+  const { homeSidebarCollapsed, toggleHomeSidebar } = useLayoutStore();
+  // Under 768px the sidebar always presents as the 68px icon rail (tooltips carry the
+  // labels) — the expanded 240px panel would squeeze page content on phones. The user's
+  // desktop collapse preference is untouched; this is a presentation-only override.
+  const [isNarrow, setIsNarrow] = useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const apply = () => setIsNarrow(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+  const collapsed = homeSidebarCollapsed || isNarrow;
   const { getActiveWorkspace } = useWorkspaceStore();
   const { projects, createProject } = useProjectStore();
   const { user } = useAuthStore();
@@ -74,15 +86,15 @@ export function HomeSidebar() {
     { to: '/', icon: Home, label: 'Home' },
     { to: '/projects', icon: Grid, label: 'Projects' },
     { to: '/marketplace', icon: Box, label: 'Marketplace' },
-    { to: '/recent', icon: Clock, label: 'Recent', soon: true },
-    { to: '/starred', icon: Star, label: 'Starred', soon: true },
+    { to: '/recent', icon: Clock, label: 'Recent' },
+    { to: '/starred', icon: Star, label: 'Starred' },
     { to: '/shared', icon: Users, label: 'Shared with me', soon: true },
   ];
 
   const settingsItems: SidebarItem[] = [
     { to: '/settings', icon: Settings, label: 'Settings' },
     { to: '/billing', icon: CreditCard, label: 'Billing' },
-    { to: '/help', icon: HelpCircle, label: 'Help & Support', soon: true },
+    { to: '/help', icon: HelpCircle, label: 'Help & Support' },
   ];
 
   const projectLimit = activeWorkspace?.limits.maxProjects || 3;
@@ -290,17 +302,19 @@ export function HomeSidebar() {
             </CollapsedTip>
           )}
 
-          {/* Sidebar Toggle */}
-          <CollapsedTip show={collapsed} label="Expand sidebar">
-            <button
-              onClick={toggleHomeSidebar}
-              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-              className={cn(row, 'text-tertiary hover:text-primary hover:bg-elevated')}
-            >
-              {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
-              {!collapsed && <span className="text-sm font-medium">Collapse</span>}
-            </button>
-          </CollapsedTip>
+          {/* Sidebar toggle — hidden when narrow (expanding would squeeze the page). */}
+          {!isNarrow && (
+            <CollapsedTip show={collapsed} label="Expand sidebar">
+              <button
+                onClick={toggleHomeSidebar}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                className={cn(row, 'text-tertiary hover:text-primary hover:bg-elevated')}
+              >
+                {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+                {!collapsed && <span className="text-sm font-medium">Collapse</span>}
+              </button>
+            </CollapsedTip>
+          )}
         </div>
       </aside>
 
