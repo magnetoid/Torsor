@@ -191,6 +191,9 @@ func buildCreateArgsForImage(name, image string, spec plugin.WorkspaceSpec, lim 
 	if lim.appPort != "" {
 		args = append(args, "-p", "127.0.0.1::"+lim.appPort)
 	}
+	// Survive docker daemon restarts (deploys, host reboots): a running workspace comes
+	// back on its own; one the user explicitly stopped stays stopped.
+	args = append(args, "--restart", "unless-stopped")
 	args = append(args, image)
 	// Dev workspaces keep the container up for `docker exec`; app deploys run the image's
 	// own entrypoint (so e.g. nginx actually serves).
@@ -257,12 +260,26 @@ func run(ctx context.Context, stdin []byte, args ...string) (string, error) {
 
 func (r runtime) CreateWorkspace(ctx context.Context, spec plugin.WorkspaceSpec) (plugin.WorkspaceStatus, error) {
 	name := containerName(spec.ID)
+
+	// Idempotent provision: if the container already exists (any state — e.g. stranded
+	// "created"/"exited" after a docker daemon restart), report its current status instead
+	// of failing on the docker create name conflict. Provision's contract is "a container
+	// for this workspace exists"; Start brings it up.
+	if st, err := r.StatusWorkspace(ctx, spec.ID); err == nil && st.Status != "unknown" {
+		return st, nil
+	}
+
 	args, err := buildCreateArgs(name, spec, r.lim)
 	if err != nil {
 		return plugin.WorkspaceStatus{WorkspaceID: spec.ID, Status: "unknown"}, err
 	}
 	out, err := run(ctx, nil, args...)
 	if err != nil {
+		// Lost the create race (or inspect briefly failed): the name existing is still a
+		// provisioned workspace, not an error.
+		if strings.Contains(err.Error(), "is already in use") {
+			return r.StatusWorkspace(ctx, spec.ID)
+		}
 		return plugin.WorkspaceStatus{WorkspaceID: spec.ID, Status: "unknown"}, err
 	}
 	return plugin.WorkspaceStatus{

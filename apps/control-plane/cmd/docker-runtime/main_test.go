@@ -21,6 +21,7 @@ func TestBuildCreateArgsAppliesLimitsAndHardening(t *testing.T) {
 		" create ", " --name torsor-p1 ", " -w /app ",
 		" --memory 512m ", " --cpus 1 ", " --pids-limit 256 ", " --network bridge ",
 		" --cap-drop ALL ", " --security-opt no-new-privileges ",
+		" --restart unless-stopped ",
 		" node:20 tail -f /dev/null ",
 	} {
 		if !strings.Contains(s, want) {
