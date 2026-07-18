@@ -52,31 +52,6 @@ interface DeployState {
   rollback: (id: string) => void;
 }
 
-const MOCK_HISTORY: Deployment[] = [
-  {
-    id: 'dep-1',
-    target: 'torsor',
-    environment: 'production',
-    status: 'success',
-    url: 'https://torsor-app.torsor.app',
-    deployedAt: Date.now() - 86400000,
-    duration: '42s',
-    commit: 'feat: add auth tab',
-    logs: ['[build] starting...', '[build] installing dependencies...', '[build] compiling...', '[deploy] uploading assets...', '[deploy] success!']
-  },
-  {
-    id: 'dep-2',
-    target: 'torsor',
-    environment: 'production',
-    status: 'success',
-    url: 'https://torsor-app.torsor.app',
-    deployedAt: Date.now() - 86400000 * 2,
-    duration: '38s',
-    commit: 'fix: layout issues',
-    logs: ['[build] starting...', '[deploy] success!']
-  }
-];
-
 const INITIAL_TARGETS: TargetConfig[] = [
   { id: 'torsor', name: 'Torsor Cloud', description: 'Free hosting on torsor.app', connected: true },
   { id: 'vercel', name: 'Vercel', description: 'Connect your Vercel account', connected: false },
@@ -89,8 +64,11 @@ const INITIAL_TARGETS: TargetConfig[] = [
 export const useDeployStore = create<DeployState>()(
   persist(
     (set, get) => ({
-      currentDeployment: MOCK_HISTORY[0],
-      history: MOCK_HISTORY,
+      // Honest empty state: no deployment history or domains are fabricated. History
+      // accumulates real deploys performed in this browser and the live deployment
+      // surfaced by fetchDeployment; custom domains start empty until one is added.
+      currentDeployment: null,
+      history: [],
       targets: INITIAL_TARGETS,
       settings: {
         environment: 'production',
@@ -98,9 +76,7 @@ export const useDeployStore = create<DeployState>()(
         outputDir: 'dist',
         nodeVersion: '20.x',
       },
-      customDomains: [
-        { domain: 'torsor.dev', status: 'active', ssl: true }
-      ],
+      customDomains: [],
       isDeploying: false,
 
       // Real deploy: publish the active project's running workspace app at its stable public
@@ -192,19 +168,21 @@ export const useDeployStore = create<DeployState>()(
             { auth: true }
           );
           if (res.status === 'running') {
-            set({
-              currentDeployment: {
-                id: `dep-${projectId}`,
-                target: 'torsor',
-                environment: get().settings.environment,
-                status: 'success',
-                url: res.url,
-                deployedAt: Date.now(),
-                duration: '',
-                commit: 'Deployed',
-                logs: [res.live ? '[deploy] App is live' : '[deploy] Published (app not currently reachable)'],
-              },
-            });
+            const live: Deployment = {
+              id: `dep-${projectId}`,
+              target: 'torsor',
+              environment: get().settings.environment,
+              status: 'success',
+              url: res.url,
+              deployedAt: Date.now(),
+              duration: '',
+              commit: 'Deployed',
+              logs: [res.live ? '[deploy] App is live' : '[deploy] Published (app not currently reachable)'],
+            };
+            // Record the real live deployment in history (dedup by its stable id) so the
+            // History view reflects an actual deployment rather than staying empty.
+            const rest = get().history.filter(d => d.id !== live.id);
+            set({ currentDeployment: live, history: [live, ...rest] });
           } else {
             set({ currentDeployment: null });
           }
@@ -249,6 +227,26 @@ export const useDeployStore = create<DeployState>()(
     }),
     {
       name: 'torsor-deploy-storage',
+      version: 1,
+      // v0 shipped fabricated deployment history (dep-1/dep-2) and a fake active
+      // torsor.dev custom domain. Strip those seeds from any already-persisted state
+      // so upgrading users don't keep seeing fiction presented as real history.
+      migrate: (persisted: any, version) => {
+        if (!persisted || version >= 1) return persisted;
+        const FAKE_IDS = new Set(['dep-1', 'dep-2']);
+        const history = Array.isArray(persisted.history)
+          ? persisted.history.filter((d: Deployment) => !FAKE_IDS.has(d?.id))
+          : [];
+        const current = persisted.currentDeployment;
+        return {
+          ...persisted,
+          history,
+          currentDeployment: current && FAKE_IDS.has(current.id) ? null : current ?? null,
+          customDomains: Array.isArray(persisted.customDomains)
+            ? persisted.customDomains.filter((d: { domain?: string }) => d?.domain !== 'torsor.dev')
+            : [],
+        };
+      },
     }
   )
 );

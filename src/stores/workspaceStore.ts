@@ -26,6 +26,7 @@ interface WorkspaceState {
   
   // Actions
   fetchWorkspaces: () => Promise<void>;
+  fetchUsage: () => Promise<void>;
   fetchMembers: (workspaceId: string) => Promise<void>;
   fetchAuditLog: () => Promise<void>;
   switchWorkspace: (id: string) => void;
@@ -37,7 +38,6 @@ interface WorkspaceState {
   changeMemberRole: (userId: string, role: WorkspaceMember['role']) => Promise<void>;
   acceptInvite: (inviteId: string) => Promise<void>;
   revokeInvite: (inviteId: string) => Promise<void>;
-  logAuditEvent: (action: AuditLogEntry['action'], resource: string, details: string) => void;
   getActiveWorkspace: () => Workspace | undefined;
 }
 
@@ -67,17 +67,43 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const workspaces = response.items.map(t => ({
             ...t,
             limits: PLANS[t.plan as WorkspacePlan]?.limits || PLANS.free.limits,
-            usage: DEFAULT_USAGE // TODO: fetch real usage
+            // Baseline usage; real token usage is filled in by fetchUsage() below and
+            // memberCount by fetchMembers(). projectCount/storageMB have no per-team
+            // backend source yet and stay at the honest zero baseline.
+            usage: { ...DEFAULT_USAGE },
           }));
-          set({ 
-            workspaces, 
-            activeWorkspaceId: workspaces.length > 0 && !get().activeWorkspaceId 
-              ? workspaces[0].id 
+          set({
+            workspaces,
+            activeWorkspaceId: workspaces.length > 0 && !get().activeWorkspaceId
+              ? workspaces[0].id
               : get().activeWorkspaceId,
-            isLoading: false 
+            isLoading: false
           });
+          // Populate real token usage from usage_events (server-recorded on every model call).
+          get().fetchUsage();
         } catch (error) {
           set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to fetch workspaces' });
+        }
+      },
+
+      // Real per-user token usage from /usage/summary (usage_events). Applied to the
+      // active workspace so the billing/usage bar reflects actual consumption, not a
+      // hardcoded zero. This is per-user accounting; per-team aggregation is future work.
+      fetchUsage: async () => {
+        try {
+          const res = await apiRequest<{ totals: { tokensIn: number; tokensOut: number } }>(
+            '/api/v1/usage/summary',
+            { auth: true }
+          );
+          const used = (res.totals?.tokensIn ?? 0) + (res.totals?.tokensOut ?? 0);
+          const activeId = get().activeWorkspaceId;
+          set((state) => ({
+            workspaces: state.workspaces.map(ws =>
+              ws.id === activeId ? { ...ws, usage: { ...ws.usage, tokensUsedThisMonth: used } } : ws
+            ),
+          }));
+        } catch {
+          // leave usage at its baseline on a transient error
         }
       },
 
@@ -86,7 +112,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set({ isLoading: true, error: null });
         try {
           const response = await apiRequest<{ items: WorkspaceMember[] }>(`/api/v1/teams/${workspaceId}/members`, { auth: true });
-          set({ members: response.items, isLoading: false });
+          set((state) => ({
+            members: response.items,
+            isLoading: false,
+            // Reflect the real member count in usage for this workspace.
+            workspaces: state.workspaces.map(ws =>
+              ws.id === workspaceId ? { ...ws, usage: { ...ws.usage, memberCount: response.items.length } } : ws
+            ),
+          }));
         } catch (error) {
           set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to fetch members' });
         }
@@ -261,10 +294,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to revoke invite' });
           throw error;
         }
-      },
-
-      logAuditEvent: (action, resource, details) => {
-        // TODO: Send to backend
       },
 
       getActiveWorkspace: () => {
