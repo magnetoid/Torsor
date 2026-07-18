@@ -25,10 +25,9 @@ import {
 } from 'recharts';
 import { usageMock } from '../lib/mockData';
 import { cn } from '../lib/utils';
-import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { HomeLayout } from '../components/shell/HomeLayout';
 import { Card } from '../components/shared/Card';
 import { Badge } from '../components/shared/Badge';
-import { AccountBar } from '../components/shared/AccountBar';
 import { apiUsageSummary, type UsageSummary } from '../lib/api';
 import { useActiveWorkspace, useWorkspaceStore } from '../stores/workspaceStore';
 import type { WorkspacePlan } from '../types/workspace';
@@ -182,14 +181,9 @@ export const BillingPage: React.FC = () => {
   }, [usage, totalTokens]);
 
   return (
-    // Standard page shell (HomeSidebar + AccountBar) — this page used to carry its own
-    // third navigation system (fake workspace picker, private nav, its own user footer).
-    <div className="flex bg-page min-h-screen text-primary font-sans">
-      <HomeSidebar />
-
-      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto h-screen">
-        <AccountBar title="Billing & Usage" />
-
+    // Standard page shell (HomeLayout) — this page used to carry its own third navigation
+    // system (fake workspace picker, private nav, its own user footer).
+    <HomeLayout title="Billing & Usage" mainClassName="flex-1 min-w-0 flex flex-col overflow-y-auto">
         <div className="flex-1 p-8 custom-scrollbar">
           <div className="max-w-6xl mx-auto space-y-12">
             
@@ -443,7 +437,6 @@ export const BillingPage: React.FC = () => {
 
           </div>
         </div>
-      </main>
-    </div>
+    </HomeLayout>
   );
 };
