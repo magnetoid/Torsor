@@ -48,10 +48,13 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
             "flex items-center transition-all rounded-xl group outline-none",
             collapsed
               // Compact fixed square — w-full here would greedily squeeze TopBar siblings.
-              ? "justify-center w-8 h-8 shrink-0 hover:bg-elevated"
+              ? "justify-center w-6 h-6 shrink-0 hover:bg-elevated"
               : "gap-3 px-3 py-2 hover:bg-elevated w-full"
           )}>
-            <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 group-hover:scale-105 transition-transform">
+            <div className={cn(
+              "rounded-lg bg-accent flex items-center justify-center text-white font-bold shadow-sm shrink-0 group-hover:scale-105 transition-transform",
+              collapsed ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-xs"
+            )}>
               {activeWorkspace?.logoUrl ? (
                 <img src={activeWorkspace.logoUrl} alt={activeWorkspace.name} className="w-full h-full object-cover rounded-lg" referrerPolicy="no-referrer" />
               ) : (

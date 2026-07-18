@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Play, Loader2, Search, FolderTree, MessageSquare } from 'lucide-react';
+import { Play, Loader2, Search, FolderTree, MessageSquare, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -27,6 +28,7 @@ export function TopBar() {
 
   // Real project name (the bar used to show a hardcoded placeholder). Double-click to
   // rename; persists via PATCH /projects/{id}.
+  const navigate = useNavigate();
   const { projects, activeProjectId, updateProject } = useProjectStore();
   const activeProject = projects.find((p) => p.id === activeProjectId);
   const [draftName, setDraftName] = useState('');
@@ -57,7 +59,15 @@ export function TopBar() {
         <Separator.Root className="w-[1px] h-4 bg-default mx-1" />
 
         {activeProject && (
-          <div className="flex items-center gap-1 min-w-0 max-w-[min(40vw,220px)] sm:max-w-[220px]">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1 min-w-0 max-w-[min(40vw,260px)] sm:max-w-[260px]">
+            {/* Breadcrumb: a Projects crumb (back to the dashboard) before the project name. */}
+            <button
+              onClick={() => navigate('/')}
+              className="text-xs font-medium text-tertiary hover:text-primary px-1 rounded hover:bg-elevated transition-colors shrink-0"
+            >
+              Projects
+            </button>
+            <ChevronRight size={12} className="text-tertiary shrink-0" aria-hidden />
             {isEditing ? (
               <input
                 autoFocus
@@ -76,7 +86,7 @@ export function TopBar() {
                 {activeProject.name}
               </span>
             )}
-          </div>
+          </nav>
         )}
 
         <Tooltip.Provider delayDuration={200}>
