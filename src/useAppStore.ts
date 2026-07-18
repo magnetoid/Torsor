@@ -149,6 +149,12 @@ export const useAppStore = create<AppState>()(
       workspaceProjectId: null,
       saveStatus: {},
       loadWorkspaceFiles: async (projectId) => {
+        // Switching projects: drop the previous project's tree immediately so a new or
+        // unprovisioned project never shows another project's files (e.g. a prior WordPress
+        // workspace) while we load — or if it has no workspace at all.
+        if (get().workspaceProjectId !== projectId) {
+          set({ files: INITIAL_FILES, saveStatus: {} });
+        }
         try {
           const base = `/api/v1/projects/${projectId}/workspace/files`;
           type Entry = { name: string; path: string; isDir: boolean };
@@ -178,8 +184,13 @@ export const useAppStore = create<AppState>()(
           // freshly-listed files are considered clean/saved.
           set({ files: nodes, workspaceProjectId: projectId, saveStatus: {} });
         } catch {
-          // No workspace yet, or a backend without the runtime capability: leave files as-is.
-          set({ workspaceProjectId: null });
+          // No workspace yet, or a backend without the runtime capability: show an empty tree
+          // for this project rather than leaving the previous project's files visible — but
+          // only when we don't already hold this project's tree, so a transient refresh
+          // failure on the current project doesn't wipe a good tree.
+          if (get().workspaceProjectId !== projectId) {
+            set({ files: INITIAL_FILES, workspaceProjectId: null, saveStatus: {} });
+          }
         }
       },
       loadFileContent: async (projectId, fileId) => {
