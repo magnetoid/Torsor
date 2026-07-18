@@ -60,7 +60,7 @@ export function AuthPage() {
         <span className="text-2xl font-bold text-primary tracking-tight">Torsor</span>
       </div>
 
-      <div className="w-full max-w-sm bg-surface border border-default rounded-2xl p-8 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="w-full max-w-sm bg-surface border border-default rounded-xl p-8 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
         <AnimatePresence mode="wait">
           <motion.div
             key={isLogin ? 'login' : 'signup'}
@@ -81,7 +81,7 @@ export function AuthPage() {
             <form onSubmit={handleEmailAuth} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-tertiary uppercase tracking-wider ml-1">Name</label>
+                  <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Name</label>
                   <Input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -92,7 +92,7 @@ export function AuthPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-tertiary uppercase tracking-wider ml-1">Email</label>
+                <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Email</label>
                 <Input
                   type="email"
                   value={email}
@@ -103,7 +103,7 @@ export function AuthPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-tertiary uppercase tracking-wider ml-1">Password</label>
+                <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Password</label>
                 <Input
                   type="password"
                   value={password}

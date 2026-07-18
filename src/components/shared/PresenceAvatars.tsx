@@ -38,7 +38,7 @@ export function PresenceAvatars({ focus }: { focus?: boolean }) {
   if (focus) {
     return (
       <div
-        className="flex items-center gap-1 text-[10px] text-tertiary"
+        className="flex items-center gap-1 text-xs text-tertiary"
         title={`${unique.length} collaborator${unique.length === 1 ? '' : 's'} online`}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-success" />

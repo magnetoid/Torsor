@@ -68,7 +68,7 @@ export function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-page flex items-center justify-center p-6">
-      <div className="w-full max-w-xl bg-surface border border-default rounded-3xl shadow-xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl bg-surface border border-default rounded-xl shadow-xl overflow-hidden flex flex-col">
         {/* Progress Bar */}
         <div className="p-8 pb-0 flex justify-center gap-3">
           {[1, 2, 3].map((i) => (

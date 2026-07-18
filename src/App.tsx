@@ -20,6 +20,7 @@ import { useThemeStore } from './lib/theme';
 import { Toaster } from 'sonner';
 import { useEffect } from 'react';
 import { useAuthStore } from './stores/authStore';
+import { useWorkspaceStore } from './stores/workspaceStore';
 
 export default function App() {
   const { toggleTheme, theme } = useThemeStore();
@@ -28,6 +29,16 @@ export default function App() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  // Load workspaces when auth is ready
+  const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      void fetchWorkspaces();
+    }
+  }, [isAuthenticated, fetchWorkspaces]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

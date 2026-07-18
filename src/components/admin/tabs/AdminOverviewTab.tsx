@@ -28,6 +28,8 @@ import {
   Cell
 } from 'recharts';
 import { cn } from '../../../lib/utils';
+import { Card } from '../../shared/Card';
+import { Badge } from '../../shared/Badge';
 
 const REVENUE_DATA = [
   { date: 'Jan 1', mrr: 8500, subs: 12 },
@@ -66,29 +68,29 @@ export function AdminOverviewTab() {
           { label: 'Total Files', value: fmt(stats?.totals.files), change: '', icon: FileCode, color: 'text-warning', bg: 'bg-warning/10' },
           { label: 'Active Sessions', value: fmt(stats?.totals.activeSessions), change: '', icon: Activity, color: 'text-success', bg: 'bg-success/10' },
         ].map((stat, i) => (
-          <div key={i} className="bg-surface border border-default rounded-2xl p-6 space-y-4 shadow-sm hover:shadow-md transition-all">
+          <Card key={i} className="space-y-4 shadow-sm hover-lift">
             <div className="flex items-center justify-between">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", stat.bg, stat.color)}>
                 <stat.icon size={20} />
               </div>
               {stat.change && (
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-wider">
-                  <ArrowUpRight size={10} />
+                <Badge variant="success" className="uppercase tracking-wider">
+                  <ArrowUpRight size={12} />
                   {stat.change}
-                </div>
+                </Badge>
               )}
             </div>
             <div>
               <div className="text-xs font-bold text-tertiary uppercase tracking-wider">{stat.label}</div>
               <div className="text-2xl font-bold text-primary mt-1">{stat.value}</div>
             </div>
-          </div>
+          </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Revenue Chart */}
-        <div className="lg:col-span-2 bg-surface border border-default rounded-3xl p-6 space-y-6">
+        <Card className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <TrendingUp className="text-accent" size={18} />
@@ -113,17 +115,17 @@ export function AdminOverviewTab() {
                   dataKey="date" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                  tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
                   dy={10}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fontSize: 10, fill: 'var(--text-secondary)' }}
+                  tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
                   dx={-10}
                 />
                 <Tooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '12px', fontSize: '12px' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', fontSize: '12px' }}
                   itemStyle={{ color: 'var(--text-primary)' }}
                 />
                 <Line 
@@ -137,15 +139,15 @@ export function AdminOverviewTab() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </Card>
 
         {/* Recent Activity */}
-        <div className="bg-surface border border-default rounded-3xl p-6 space-y-6">
+        <Card className="space-y-6 flex flex-col">
           <div className="flex items-center gap-2">
             <History className="text-accent" size={18} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Recent Activity</h3>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1">
             {RECENT_ACTIVITY.map((activity) => (
               <div key={activity.id} className="flex items-start gap-3 group">
                 <div className="w-8 h-8 rounded-full bg-elevated border border-default overflow-hidden flex-shrink-0">
@@ -155,59 +157,59 @@ export function AdminOverviewTab() {
                   <div className="text-xs text-primary leading-relaxed">
                     <span className="font-bold">{activity.user}</span> {activity.action} in <span className="text-accent font-medium">{activity.workspace}</span>
                   </div>
-                  <div className="text-[10px] text-tertiary mt-0.5">{activity.time}</div>
+                  <div className="text-xs text-tertiary mt-0.5">{activity.time}</div>
                 </div>
               </div>
             ))}
           </div>
-          <button className="w-full py-2 text-xs font-bold text-accent hover:text-accent-hover transition-colors uppercase tracking-wider border-t border-default pt-4">
+          <button className="w-full py-2 text-xs font-bold text-accent hover:text-accent-hover transition-colors uppercase tracking-wider border-t border-default pt-4 focus-ring">
             View All Activity
           </button>
-        </div>
+        </Card>
       </div>
 
       {/* Platform Health */}
-      <div className="bg-surface border border-default rounded-3xl p-6 space-y-6">
+      <Card className="space-y-6">
         <div className="flex items-center gap-2">
           <ShieldCheck className="text-success" size={18} />
           <h3 className="text-sm font-bold uppercase tracking-wider">Platform Health</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="space-y-2">
-            <div className="text-[10px] font-bold text-tertiary uppercase tracking-wider">API Latency</div>
+            <div className="text-xs font-bold text-tertiary uppercase tracking-wider">API Latency</div>
             <div className="flex items-center gap-2">
               <div className="text-xl font-bold text-primary">42ms avg</div>
               <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(52,199,89,0.5)]" />
             </div>
-            <div className="text-[10px] text-success font-medium">Under 100ms threshold</div>
+            <div className="text-xs text-success font-medium">Under 100ms threshold</div>
           </div>
 
           <div className="space-y-2">
-            <div className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Model Array Status</div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="text-xs font-bold text-tertiary uppercase tracking-wider">Model Array Status</div>
+            <div className="flex flex-wrap gap-1.5 mt-1">
               {['Claude', 'GPT-4', 'Gemini', 'DeepSeek', 'Llama'].map((m) => (
                 <div key={m} className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(52,199,89,0.5)]" title={m} />
               ))}
             </div>
-            <div className="text-[10px] text-success font-medium">All systems operational</div>
+            <div className="text-xs text-success font-medium mt-2">All systems operational</div>
           </div>
 
           <div className="space-y-2">
-            <div className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Active Sandboxes</div>
+            <div className="text-xs font-bold text-tertiary uppercase tracking-wider">Active Sandboxes</div>
             <div className="text-xl font-bold text-primary">23 running</div>
-            <div className="text-[10px] text-secondary font-medium">4 queued, 0 failed</div>
+            <div className="text-xs text-secondary font-medium">4 queued, 0 failed</div>
           </div>
 
           <div className="space-y-2">
-            <div className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Error Rate</div>
+            <div className="text-xs font-bold text-tertiary uppercase tracking-wider">Error Rate</div>
             <div className="flex items-center gap-2">
               <div className="text-xl font-bold text-primary">0.3%</div>
               <div className="w-2 h-2 rounded-full bg-success shadow-[0_0_8px_rgba(52,199,89,0.5)]" />
             </div>
-            <div className="text-[10px] text-success font-medium">Healthy (threshold 1%)</div>
+            <div className="text-xs text-success font-medium">Healthy (threshold 1%)</div>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

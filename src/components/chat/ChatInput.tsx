@@ -107,7 +107,7 @@ export function ChatInput() {
           {selectedContext.map((item) => (
             <div 
               key={item.id}
-              className="flex items-center gap-1.5 bg-accent/10 border border-accent/20 rounded-md px-2 py-0.5 text-[10px] font-bold text-accent"
+              className="flex items-center gap-1.5 bg-accent/10 border border-accent/20 rounded-md px-2 py-0.5 text-xs font-bold text-accent"
             >
               {item.type === 'file' && <Paperclip size={10} />}
               {item.type === 'code' && <Code2 size={10} />}
@@ -125,7 +125,7 @@ export function ChatInput() {
       )}
 
       {/* INPUT CONTAINER */}
-      <div className="bg-surface border border-default rounded-2xl p-2 focus-within:border-tertiary transition-colors">
+      <div className="bg-surface border border-default rounded-xl p-2 focus-within:border-tertiary transition-colors">
         <TextareaAutosize
           ref={textareaRef}
           value={input}
@@ -192,7 +192,7 @@ export function ChatInput() {
               className="flex items-center gap-2 ml-2"
               title="Plan first: the agent proposes steps you approve (and can edit) before it touches code"
             >
-              <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Plan first</span>
+              <span className="text-xs font-bold text-secondary uppercase tracking-wider">Plan first</span>
               <Switch.Root
                 checked={planning}
                 onCheckedChange={setPlanning}
@@ -209,7 +209,7 @@ export function ChatInput() {
               <DropdownMenu.Trigger asChild>
                 <button
                   aria-label="Select model provider"
-                  className="flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-secondary hover:text-primary hover:bg-elevated rounded transition-all"
+                  className="flex items-center gap-1 px-1.5 py-1 text-xs font-bold text-secondary hover:text-primary hover:bg-elevated rounded transition-all"
                 >
                   <Zap size={12} className="text-accent" />
                   <span className="max-w-[120px] truncate">
@@ -220,7 +220,7 @@ export function ChatInput() {
               <DropdownMenu.Portal>
                 <DropdownMenu.Content className="bg-elevated border border-default rounded-md p-1 shadow-xl z-[100] min-w-[160px]">
                   {providers.length === 0 && (
-                    <div className="px-2 py-1.5 text-[10px] text-secondary">
+                    <div className="px-2 py-1.5 text-xs text-secondary">
                       No model providers loaded
                     </div>
                   )}
@@ -229,7 +229,7 @@ export function ChatInput() {
                       key={provider.name}
                       onSelect={() => setProvider(provider.name)}
                       className={cn(
-                        'flex items-center gap-2 px-2 py-1.5 text-[10px] font-bold rounded cursor-pointer outline-none hover:bg-accent',
+                        'flex items-center gap-2 px-2 py-1.5 text-xs font-bold rounded cursor-pointer outline-none hover:bg-accent',
                         provider.name === selectedProvider ? 'text-accent hover:text-white' : 'text-primary'
                       )}
                     >

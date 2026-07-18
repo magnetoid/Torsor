@@ -60,7 +60,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out duration-base" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-page border border-default rounded-3xl p-6 shadow-2xl z-[101] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-base data-[state=closed]:duration-fast ease-spring">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-page border border-default rounded-xl p-6 shadow-2xl z-[101] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-base data-[state=closed]:duration-fast ease-spring">
           <div className="flex items-center justify-between mb-6">
             <Dialog.Title className="text-xl font-bold text-primary flex items-center gap-2">
               <Building2 className="text-accent" size={24} />
@@ -75,7 +75,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
             {/* Logo Upload */}
             <div className="flex flex-col items-center gap-3">
               <div className={cn(
-                "w-20 h-20 rounded-2xl border-2 border-dashed border-default flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-accent/50 transition-colors bg-surface overflow-hidden",
+                "w-20 h-20 rounded-xl border-2 border-dashed border-default flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-accent/50 transition-colors bg-surface overflow-hidden",
                 logo && "border-solid border-accent"
               )}>
                 {logo ? (
@@ -83,11 +83,11 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
                 ) : (
                   <>
                     <Upload size={20} className="text-tertiary" />
-                    <span className="text-[10px] font-bold text-tertiary uppercase">Logo</span>
+                    <span className="text-xs font-bold text-tertiary uppercase">Logo</span>
                   </>
                 )}
               </div>
-              <span className="text-[10px] text-tertiary uppercase font-bold tracking-wider">Optional (80x80)</span>
+              <span className="text-xs text-tertiary uppercase font-bold tracking-wider">Optional (80x80)</span>
             </div>
 
             <div className="space-y-4">
@@ -115,7 +115,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
                     className="flex-1 bg-transparent border-none outline-none text-primary text-sm ml-0.5"
                   />
                 </div>
-                <p className="text-[10px] text-tertiary ml-1">Lowercase, hyphens, and numbers only.</p>
+                <p className="text-xs text-tertiary ml-1">Lowercase, hyphens, and numbers only.</p>
               </div>
             </div>
 

@@ -84,7 +84,7 @@ const ToolButton = ({ tool, active, onClick }: { tool: ToolType; active: boolean
 
 const PropertyInput = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
   <div className="flex flex-col gap-1.5">
-    <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">{label}</label>
+    <label className="text-xs font-bold text-secondary uppercase tracking-wider">{label}</label>
     <input 
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -95,7 +95,7 @@ const PropertyInput = ({ label, value, onChange }: { label: string; value: strin
 
 const BoxModelEditor = () => (
   <div className="space-y-3">
-    <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Spacing</label>
+    <label className="text-xs font-bold text-secondary uppercase tracking-wider">Spacing</label>
     <div className="relative aspect-video bg-page border border-default rounded-xl flex items-center justify-center p-4">
       <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
         <Box size={80} />
@@ -106,8 +106,8 @@ const BoxModelEditor = () => (
           <span className="absolute top-1 left-1/2 -translate-x-1/2 text-[8px] text-tertiary">PADDING</span>
           <div className="w-[60%] h-[50%] bg-elevated border border-default rounded flex items-center justify-center">
             <div className="grid grid-cols-2 gap-2 p-2">
-              <input className="w-8 bg-transparent text-[10px] text-center text-primary outline-none" placeholder="0" />
-              <input className="w-8 bg-transparent text-[10px] text-center text-primary outline-none" placeholder="0" />
+              <input className="w-8 bg-transparent text-xs text-center text-primary outline-none" placeholder="0" />
+              <input className="w-8 bg-transparent text-xs text-center text-primary outline-none" placeholder="0" />
             </div>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function CanvasTab() {
           >
             {isSelected && (
               <div className="absolute -top-6 left-0 flex items-center gap-1">
-                <div className="bg-accent text-white text-[10px] font-bold px-2 py-0.5 rounded-t-lg shadow-lg flex items-center gap-1.5">
+                <div className="bg-accent text-white text-xs font-bold px-2 py-0.5 rounded-t-lg shadow-lg flex items-center gap-1.5">
                   <Box size={10} />
                   {el.type}
                 </div>
@@ -290,7 +290,7 @@ export default function CanvasTab() {
             </Dialog.Trigger>
             <Dialog.Portal>
               <Dialog.Overlay className="fixed inset-0 bg-page/60 backdrop-blur-sm z-[100]" />
-              <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] bg-elevated border border-default rounded-2xl p-6 shadow-2xl z-[101] outline-none">
+              <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] bg-elevated border border-default rounded-xl p-6 shadow-2xl z-[101] outline-none">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center">
@@ -306,7 +306,7 @@ export default function CanvasTab() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Figma File URL</label>
+                    <label className="text-xs font-bold text-secondary uppercase tracking-wider">Figma File URL</label>
                     <input 
                       value={figmaUrl}
                       onChange={(e) => setFigmaUrl(e.target.value)}
@@ -328,7 +328,7 @@ export default function CanvasTab() {
           </Dialog.Root>
 
           <div className="flex items-center gap-2 px-3 py-1.5 bg-elevated border border-default rounded-lg">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Sync</span>
+            <span className="text-xs font-bold text-secondary uppercase tracking-wider">Sync</span>
             <button 
               onClick={toggleSync}
               className={cn(
@@ -380,7 +380,7 @@ export default function CanvasTab() {
                       <div className="flex items-center gap-1 overflow-x-auto pb-2 no-scrollbar">
                         {getParentChain(selectedElementId!).map((type, i) => (
                           <React.Fragment key={i}>
-                            <span className="text-[10px] text-secondary whitespace-nowrap">{type}</span>
+                            <span className="text-xs text-secondary whitespace-nowrap">{type}</span>
                             {i < getParentChain(selectedElementId!).length - 1 && <ArrowRight size={8} className="text-tertiary shrink-0" />}
                           </React.Fragment>
                         ))}
@@ -397,10 +397,10 @@ export default function CanvasTab() {
                       />
 
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Tailwind Classes</label>
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">Tailwind Classes</label>
                         <div className="flex flex-wrap gap-1.5">
                           {selectedElement.classes.map((cls, i) => (
-                            <div key={i} className="flex items-center gap-1 px-2 py-0.5 bg-page border border-default rounded text-[10px] text-accent font-mono">
+                            <div key={i} className="flex items-center gap-1 px-2 py-0.5 bg-page border border-default rounded text-xs text-accent font-mono">
                               {cls}
                               <button 
                                 onClick={() => updateElement(selectedElementId!, { classes: selectedElement.classes.filter((_, idx) => idx !== i) })}
@@ -410,7 +410,7 @@ export default function CanvasTab() {
                               </button>
                             </div>
                           ))}
-                          <button className="px-2 py-0.5 bg-page border border-dashed border-default rounded text-[10px] text-secondary hover:text-primary hover:border-default">
+                          <button className="px-2 py-0.5 bg-page border border-dashed border-default rounded text-xs text-secondary hover:text-primary hover:border-default">
                             + Add class
                           </button>
                         </div>
@@ -421,7 +421,7 @@ export default function CanvasTab() {
 
                     <section className="space-y-4">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Variant</label>
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">Variant</label>
                         <Select.Root value={selectedElement.props.variant || 'default'} onValueChange={(v) => updateElement(selectedElementId!, { props: { ...selectedElement.props, variant: v } })}>
                           <Select.Trigger className="w-full flex items-center justify-between px-3 py-1.5 bg-page border border-default rounded-lg text-xs text-primary outline-none">
                             <Select.Value />
@@ -440,14 +440,14 @@ export default function CanvasTab() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Size</label>
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">Size</label>
                         <div className="flex bg-page p-1 rounded-xl border border-default">
                           {['sm', 'md', 'lg', 'xl'].map(s => (
                             <button 
                               key={s}
                               onClick={() => updateElement(selectedElementId!, { props: { ...selectedElement.props, size: s } })}
                               className={cn(
-                                "flex-1 py-1 text-[10px] font-bold uppercase rounded-lg transition-all",
+                                "flex-1 py-1 text-xs font-bold uppercase rounded-lg transition-all",
                                 selectedElement.props.size === s ? "bg-accent text-white" : "text-secondary hover:text-primary"
                               )}
                             >

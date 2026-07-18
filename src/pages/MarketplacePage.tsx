@@ -102,7 +102,7 @@ export function MarketplacePage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-primary truncate">{img.name}</span>
                       {img.official && (
-                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-info">
+                        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-info">
                           <BadgeCheck size={12} /> Official
                         </span>
                       )}

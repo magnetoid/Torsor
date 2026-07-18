@@ -42,7 +42,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out duration-base" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-surface border border-default rounded-2xl p-6 shadow-2xl z-[101] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-base data-[state=closed]:duration-fast ease-spring outline-none max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-surface border border-default rounded-xl p-6 shadow-2xl z-[101] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-base data-[state=closed]:duration-fast ease-spring outline-none max-h-[90vh] overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <CreditCard size={20} className="text-accent" />
@@ -58,20 +58,20 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
             <div className="bg-page border border-default rounded-xl p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Current Plan</span>
+                  <span className="text-xs font-bold text-secondary uppercase tracking-wider">Current Plan</span>
                   <div className="flex items-center gap-2">
                     <span className="text-lg font-bold text-primary capitalize">{activeWorkspace.plan}</span>
-                    <span className="px-2 py-0.5 bg-accent/10 text-accent text-[10px] font-bold rounded-full border border-accent/30">Active</span>
+                    <span className="px-2 py-0.5 bg-accent/10 text-accent text-xs font-bold rounded-full border border-accent/30">Active</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Tokens Used</span>
+                  <span className="text-xs font-bold text-secondary uppercase tracking-wider">Tokens Used</span>
                   <p className="text-lg font-bold text-primary tabular-nums">{(activeWorkspace.usage.tokensUsedThisMonth ?? 0).toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-bold text-secondary uppercase tracking-wider">
+                <div className="flex items-center justify-between text-xs font-bold text-secondary uppercase tracking-wider">
                   <span>Usage</span>
                   <span>{(activeWorkspace.usage.tokensUsedThisMonth ?? 0).toLocaleString()} / {(activeWorkspace.limits.maxTokensPerMonth ?? 0).toLocaleString()}</span>
                 </div>
@@ -99,7 +99,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
                     </div>
                     <ul className="space-y-2 flex-1">
                       {['Unlimited projects', 'All models', '2M tokens', 'Custom domains'].map(f => (
-                        <li key={f} className="flex items-center gap-2 text-[10px] text-secondary">
+                        <li key={f} className="flex items-center gap-2 text-xs text-secondary">
                           <Check size={10} className="text-success" />
                           {f}
                         </li>
@@ -121,7 +121,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
                     </div>
                     <ul className="space-y-2 flex-1">
                       {['Everything in Pro', 'Team features', '10M tokens', 'BYOK, SSO'].map(f => (
-                        <li key={f} className="flex items-center gap-2 text-[10px] text-secondary">
+                        <li key={f} className="flex items-center gap-2 text-xs text-secondary">
                           <Check size={10} className="text-success" />
                           {f}
                         </li>
@@ -158,7 +158,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
                     className="bg-page border border-default rounded-xl p-3 flex flex-col items-center gap-1 hover:border-accent/40 transition-all group"
                   >
                     <span className="text-xs font-bold text-primary">{pkg.amount / 1000}K</span>
-                    <span className="text-[10px] text-secondary group-hover:text-accent transition-colors">${pkg.price}</span>
+                    <span className="text-xs text-secondary group-hover:text-accent transition-colors">${pkg.price}</span>
                   </button>
                 ))}
               </div>
@@ -181,7 +181,7 @@ export function BillingModal({ open, onOpenChange }: { open: boolean, onOpenChan
                 Billing details
                 <ExternalLink size={12} />
               </button>
-              <p className="text-[10px] text-tertiary">Secure payments via Stripe</p>
+              <p className="text-xs text-tertiary">Secure payments via Stripe</p>
             </div>
           </div>
         </Dialog.Content>

@@ -64,11 +64,11 @@ export function BillingTab() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Current Plan Card */}
-      <div className="p-6 bg-gradient-to-br from-accent to-indigo-600 rounded-3xl text-white relative overflow-hidden shadow-xl shadow-accent/20">
+      <div className="p-6 bg-gradient-to-br from-accent to-indigo-600 rounded-xl text-white relative overflow-hidden shadow-xl shadow-accent/20">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[10px] font-bold uppercase tracking-wider border border-white/30">
+              <div className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider border border-white/30">
                 {activeWorkspace?.plan} Plan
               </div>
               <div className="text-2xl font-bold">$20/mo</div>
@@ -82,7 +82,7 @@ export function BillingTab() {
           </div>
           <button 
             onClick={() => setUpgradeOpen(true)}
-            className="bg-white text-accent px-6 py-3 rounded-2xl font-bold text-sm hover:bg-opacity-90 transition-all shadow-lg flex items-center gap-2 w-fit"
+            className="bg-white text-accent px-6 py-3 rounded-xl font-bold text-sm hover:bg-opacity-90 transition-all shadow-lg flex items-center gap-2 w-fit"
           >
             Change Plan
             <ChevronRight size={18} />
@@ -94,7 +94,7 @@ export function BillingTab() {
       {/* Usage Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {usage.map((item) => (
-          <div key={item.label} className="p-4 bg-surface border border-default rounded-2xl space-y-4">
+          <div key={item.label} className="p-4 bg-surface border border-default rounded-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="w-8 h-8 rounded-lg bg-elevated flex items-center justify-center text-secondary">
                 <item.icon size={18} />
@@ -104,7 +104,7 @@ export function BillingTab() {
             <div className="space-y-2">
               <div className="flex justify-between items-end">
                 <div className="text-lg font-bold text-primary">{item.current}</div>
-                <div className="text-[10px] text-tertiary font-bold uppercase">/ {item.limit}</div>
+                <div className="text-xs text-tertiary font-bold uppercase">/ {item.limit}</div>
               </div>
               <div className="h-1.5 w-full bg-elevated rounded-full overflow-hidden">
                 <div 
@@ -121,31 +121,31 @@ export function BillingTab() {
       </div>
 
       {/* Token Usage Chart */}
-      <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+      <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="text-accent" size={20} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Token Usage (30 Days)</h3>
             {/* Honest label: this chart + the invoices below are not backend-driven yet
                 (real usage lives in the Usage tab / Billing page summary). */}
-            <span className="text-[10px] font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
+            <span className="text-xs font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-accent" />
-              <span className="text-[10px] font-bold text-secondary uppercase">Claude</span>
+              <span className="text-xs font-bold text-secondary uppercase">Claude</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-info" />
-              <span className="text-[10px] font-bold text-secondary uppercase">GPT</span>
+              <span className="text-xs font-bold text-secondary uppercase">GPT</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-warning" />
-              <span className="text-[10px] font-bold text-secondary uppercase">DeepSeek</span>
+              <span className="text-xs font-bold text-secondary uppercase">DeepSeek</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-success" />
-              <span className="text-[10px] font-bold text-secondary uppercase">Gemini</span>
+              <span className="text-xs font-bold text-secondary uppercase">Gemini</span>
             </div>
           </div>
         </div>
@@ -191,11 +191,11 @@ export function BillingTab() {
 
       {/* Cost Breakdown & Buy Tokens */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 bg-surface border border-default rounded-3xl space-y-4">
+        <div className="lg:col-span-2 p-6 bg-surface border border-default rounded-xl space-y-4">
           <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Cost Breakdown</h3>
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="text-[10px] font-bold text-tertiary uppercase tracking-wider border-b border-default">
+              <tr className="text-xs font-bold text-tertiary uppercase tracking-wider border-b border-default">
                 <th className="pb-3">Model</th>
                 <th className="pb-3">Tokens Used</th>
                 <th className="pb-3">Cost</th>
@@ -228,7 +228,7 @@ export function BillingTab() {
           </table>
         </div>
 
-        <div className="p-6 bg-accent/5 border border-accent/10 rounded-3xl space-y-6">
+        <div className="p-6 bg-accent/5 border border-accent/10 rounded-xl space-y-6">
           <div className="flex items-center gap-2">
             <DollarSign className="text-accent" size={20} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Buy More Tokens</h3>
@@ -249,7 +249,7 @@ export function BillingTab() {
               >
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-bold text-primary">{pkg.amount} Tokens</span>
-                  <span className="text-[10px] text-tertiary uppercase font-bold tracking-wider">{pkg.price} One-time</span>
+                  <span className="text-xs text-tertiary uppercase font-bold tracking-wider">{pkg.price} One-time</span>
                 </div>
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all">
                   <Plus size={16} />
@@ -264,16 +264,16 @@ export function BillingTab() {
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
-          <span className="text-[10px] font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
+          <span className="text-xs font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
         </div>
-        <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+        <div className="bg-surface border border-default rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-default bg-elevated/50">
-                <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Invoice</th>
+                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider text-right">Invoice</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default">
@@ -282,7 +282,7 @@ export function BillingTab() {
                   <td className="px-6 py-3 text-sm text-primary">{invoice.date}</td>
                   <td className="px-6 py-3 text-sm font-bold text-primary">{invoice.amount}</td>
                   <td className="px-6 py-3">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-success/10 text-success text-[10px] font-bold uppercase w-fit">
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-success/10 text-success text-xs font-bold uppercase w-fit">
                       <Check size={10} />
                       {invoice.status}
                     </div>

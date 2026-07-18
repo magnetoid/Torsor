@@ -26,6 +26,8 @@ import {
 import { usageMock } from '../lib/mockData';
 import { cn } from '../lib/utils';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
+import { Card } from '../components/shared/Card';
+import { Badge } from '../components/shared/Badge';
 import { AccountBar } from '../components/shared/AccountBar';
 import { apiUsageSummary, type UsageSummary } from '../lib/api';
 
@@ -55,15 +57,15 @@ const PlanCard = ({
   gradient?: boolean,
   borderClass?: string
 }) => (
-  <div className={cn(
-    "flex-1 p-6 rounded-xl border flex flex-col relative overflow-hidden",
+  <Card className={cn(
+    "flex-1 flex flex-col relative overflow-hidden",
     gradient ? "bg-gradient-to-br from-accent/10 to-transparent" : "bg-page",
     borderClass
   )}>
     {isPopular && (
-      <div className="absolute top-4 right-4 bg-accent text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+      <Badge variant="accent" className="absolute top-4 right-4 uppercase tracking-wider">
         Most Popular
-      </div>
+      </Badge>
     )}
     <h3 className="text-lg font-bold mb-1">{title}</h3>
     <div className="flex items-baseline gap-1 mb-6">
@@ -83,7 +85,7 @@ const PlanCard = ({
     <button 
       disabled={isCurrent}
       className={cn(
-        "w-full py-2 rounded-md text-sm font-bold transition-all",
+        "w-full py-2 rounded-md text-sm font-bold transition-all focus-ring",
         isCurrent 
           ? "bg-surface text-secondary cursor-not-allowed border border-default" 
           : isPopular
@@ -93,14 +95,14 @@ const PlanCard = ({
     >
       {isCurrent ? 'Current Plan' : buttonText}
     </button>
-  </div>
+  </Card>
 );
 
 const StatCard = ({ label, value, max, icon: Icon }: { label: string, value: string | number, max: string | number, icon: React.ElementType }) => {
   const percentage = typeof max === 'number' ? (Number(value) / max) * 100 : 0;
   
   return (
-    <div className="bg-page border border-default rounded-xl p-4">
+    <Card>
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-medium text-secondary">{label}</span>
         <Icon size={14} className="text-secondary" />
@@ -116,7 +118,7 @@ const StatCard = ({ label, value, max, icon: Icon }: { label: string, value: str
           />
         </Progress.Root>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -229,14 +231,14 @@ export const BillingPage: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-8">
                 {/* Chart */}
-                <div className="col-span-2 bg-page border border-default rounded-xl p-6">
-                  <div className="flex items-center justify-between mb-6">
+                <Card className="col-span-2 space-y-6">
+                  <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold">Token Usage (Last 30 Days)</h4>
                     <div className="flex gap-4">
-                      <div className="flex items-center gap-1.5 text-[10px] text-secondary">
+                      <div className="flex items-center gap-1.5 text-xs text-secondary">
                         <div className="w-2 h-2 rounded-full bg-accent" /> Tokens in
                       </div>
-                      <div className="flex items-center gap-1.5 text-[10px] text-secondary">
+                      <div className="flex items-center gap-1.5 text-xs text-secondary">
                         <div className="w-2 h-2 rounded-full bg-info" /> Tokens out
                       </div>
                     </div>
@@ -262,20 +264,20 @@ export const BillingPage: React.FC = () => {
                           <XAxis
                             dataKey="date"
                             stroke="var(--text-tertiary)"
-                            fontSize={10}
+                            fontSize={12}
                             tickLine={false}
                             axisLine={false}
                             interval="preserveStartEnd"
                           />
                           <YAxis
                             stroke="var(--text-tertiary)"
-                            fontSize={10}
+                            fontSize={12}
                             tickLine={false}
                             axisLine={false}
                             tickFormatter={(value) => formatTokens(Number(value))}
                           />
                           <Tooltip
-                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}
+                            contentStyle={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', fontSize: '12px' }}
                             itemStyle={{ padding: '2px 0' }}
                           />
                           <Area type="monotone" dataKey="In" stackId="1" stroke="var(--accent)" fill="url(#colorIn)" />
@@ -284,10 +286,10 @@ export const BillingPage: React.FC = () => {
                       </ResponsiveContainer>
                     )}
                   </div>
-                </div>
+                </Card>
 
                 {/* Cost Breakdown */}
-                <div className="bg-page border border-default rounded-xl p-6">
+                <Card className="p-6">
                   <h4 className="text-sm font-bold mb-6">Model Breakdown</h4>
                   <div className="space-y-4">
                     {modelBreakdown.length === 0 && (
@@ -306,7 +308,7 @@ export const BillingPage: React.FC = () => {
                               style={{ width: `${item.percentage}%` }}
                             />
                           </div>
-                          <span className="text-[10px] text-secondary w-8 text-right">{item.percentage}%</span>
+                          <span className="text-xs text-secondary w-8 text-right">{item.percentage}%</span>
                         </div>
                       </div>
                     ))}
@@ -315,7 +317,7 @@ export const BillingPage: React.FC = () => {
                       <span className="text-sm font-bold text-accent">{formatTokens(totalTokens)} tokens</span>
                     </div>
                   </div>
-                </div>
+                </Card>
               </div>
             </section>
 
@@ -324,29 +326,29 @@ export const BillingPage: React.FC = () => {
               <div className="col-span-1 space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-4">Payment Method</h3>
-                  <div className="bg-page border border-default rounded-xl p-4 flex items-center justify-between">
+                  <Card className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-6 bg-surface border border-default rounded flex items-center justify-center">
                         <CardIcon size={14} className="text-secondary" />
                       </div>
                       <div>
                         <p className="text-sm font-medium">Visa **** 4242</p>
-                        <p className="text-[10px] text-secondary">Expires 12/27</p>
+                        <p className="text-xs text-secondary">Expires 12/27</p>
                       </div>
                     </div>
-                    <button className="text-xs font-bold text-accent hover:text-accent-hover">Update</button>
-                  </div>
+                    <button className="text-xs font-bold text-accent hover:text-accent-hover focus-ring">Update</button>
+                  </Card>
                 </div>
 
                 <div>
                   <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-4">Next Billing Date</h3>
-                  <div className="bg-page border border-default rounded-xl p-4 flex items-center gap-3">
+                  <Card className="flex items-center gap-3">
                     <Calendar size={18} className="text-accent" />
                     <div>
                       <p className="text-sm font-medium">March 28, 2026</p>
-                      <p className="text-[10px] text-secondary">Estimated: $28.00</p>
+                      <p className="text-xs text-secondary">Estimated: $28.00</p>
                     </div>
-                  </div>
+                  </Card>
                 </div>
               </div>
 
@@ -354,9 +356,9 @@ export const BillingPage: React.FC = () => {
                 <div className="flex items-center gap-2 mb-4">
                   <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
                   {/* Honest label: invoices have no billing backend yet. */}
-                  <span className="text-[10px] font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
+                  <Badge variant="muted" className="uppercase tracking-wider">Sample data</Badge>
                 </div>
-                <div className="bg-page border border-default rounded-xl overflow-hidden">
+                <Card className="overflow-hidden p-0">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-default bg-surface/50">
@@ -374,15 +376,12 @@ export const BillingPage: React.FC = () => {
                           <td className="px-6 py-4 text-secondary">{invoice.date}</td>
                           <td className="px-6 py-4 font-medium">{invoice.amount}</td>
                           <td className="px-6 py-4">
-                            <span className={cn(
-                              "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                              invoice.status === 'paid' ? "bg-success/10 text-success border border-success/20" : "bg-warning/10 text-warning border border-warning/20"
-                            )}>
+                            <Badge variant={invoice.status === 'paid' ? 'success' : 'warning'} className="uppercase tracking-wider">
                               {invoice.status}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button className="p-1.5 text-secondary hover:text-primary transition-colors">
+                            <button className="p-1.5 text-secondary hover:text-primary transition-colors focus-ring">
                               <Download size={16} />
                             </button>
                           </td>
@@ -390,7 +389,7 @@ export const BillingPage: React.FC = () => {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </Card>
               </div>
             </section>
 

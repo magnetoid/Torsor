@@ -40,14 +40,14 @@ export function AdminSettingsTab() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Platform Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+        <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
           <div className="flex items-center gap-2">
             <ShieldCheck className="text-accent" size={18} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Platform Controls</h3>
           </div>
           
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-error/5 border border-error/10 rounded-2xl">
+            <div className="flex items-center justify-between p-4 bg-error/5 border border-error/10 rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center text-error">
                   <AlertTriangle size={20} />
@@ -79,7 +79,7 @@ export function AdminSettingsTab() {
           </div>
         </div>
 
-        <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+        <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
           <div className="flex items-center gap-2">
             <Zap className="text-accent" size={18} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Feature Flags</h3>
@@ -103,7 +103,7 @@ export function AdminSettingsTab() {
       </div>
 
       {/* Plan Limits */}
-      <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+      <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <LayoutGrid className="text-accent" size={18} />
@@ -116,32 +116,32 @@ export function AdminSettingsTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {['Free', 'Pro', 'Team', 'Enterprise'].map((plan) => (
-            <div key={plan} className="p-4 bg-elevated/30 border border-default rounded-2xl space-y-4">
+            <div key={plan} className="p-4 bg-elevated/30 border border-default rounded-xl space-y-4">
               <div className="text-sm font-bold text-primary border-b border-default pb-2">{plan}</div>
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-tertiary uppercase tracking-wider">
                     <LayoutGrid size={10} />
                     Projects
                   </div>
                   <input type="text" defaultValue={plan === 'Free' ? '3' : plan === 'Pro' ? '25' : '∞'} className="w-full bg-page border border-default rounded-lg px-2 py-1 text-xs text-primary outline-none focus:border-accent" />
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-tertiary uppercase tracking-wider">
                     <Users size={10} />
                     Members
                   </div>
                   <input type="text" defaultValue={plan === 'Free' ? '1' : plan === 'Pro' ? '5' : '∞'} className="w-full bg-page border border-default rounded-lg px-2 py-1 text-xs text-primary outline-none focus:border-accent" />
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-tertiary uppercase tracking-wider">
                     <Database size={10} />
                     Storage (GB)
                   </div>
                   <input type="text" defaultValue={plan === 'Free' ? '0.1' : plan === 'Pro' ? '5' : '50'} className="w-full bg-page border border-default rounded-lg px-2 py-1 text-xs text-primary outline-none focus:border-accent" />
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-tertiary uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-tertiary uppercase tracking-wider">
                     <Cpu size={10} />
                     Tokens
                   </div>
@@ -154,7 +154,7 @@ export function AdminSettingsTab() {
       </div>
 
       {/* Platform API Keys */}
-      <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+      <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
         <div className="flex items-center gap-2">
           <Key className="text-accent" size={18} />
           <h3 className="text-sm font-bold uppercase tracking-wider">Platform API Keys (Master)</h3>
@@ -166,10 +166,10 @@ export function AdminSettingsTab() {
             { provider: 'Google AI', key: '••••••••••••••••' },
             { provider: 'DeepSeek', key: 'ds-••••••••••••••••' },
           ].map((item) => (
-            <div key={item.provider} className="p-4 bg-elevated/30 border border-default rounded-2xl space-y-2">
+            <div key={item.provider} className="p-4 bg-elevated/30 border border-default rounded-xl space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">{item.provider}</label>
-                <button className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline">Test</button>
+                <button className="text-xs font-bold text-accent uppercase tracking-wider hover:underline">Test</button>
               </div>
               <div className="relative">
                 <input 
@@ -182,7 +182,7 @@ export function AdminSettingsTab() {
             </div>
           ))}
         </div>
-        <button className="w-full py-4 border-2 border-dashed border-default rounded-2xl text-tertiary hover:text-accent hover:border-accent/50 hover:bg-accent/5 transition-all flex items-center justify-center gap-2 font-bold text-sm">
+        <button className="w-full py-4 border-2 border-dashed border-default rounded-xl text-tertiary hover:text-accent hover:border-accent/50 hover:bg-accent/5 transition-all flex items-center justify-center gap-2 font-bold text-sm">
           <Plus size={18} />
           Add New Master Key
         </button>

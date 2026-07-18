@@ -39,7 +39,7 @@ export function PublishTemplateDialog({ open, onOpenChange }: { open: boolean, o
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out duration-base" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-surface border border-default rounded-2xl p-6 shadow-2xl z-[101] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-base data-[state=closed]:duration-fast ease-spring outline-none">
+        <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-surface border border-default rounded-xl p-6 shadow-2xl z-[101] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in data-[state=closed]:fade-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:duration-base data-[state=closed]:duration-fast ease-spring outline-none">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Layout size={20} className="text-accent" />
@@ -52,7 +52,7 @@ export function PublishTemplateDialog({ open, onOpenChange }: { open: boolean, o
 
           <div className="space-y-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Template Name</label>
+              <label className="text-xs font-bold text-secondary uppercase tracking-wider">Template Name</label>
               <input 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -61,7 +61,7 @@ export function PublishTemplateDialog({ open, onOpenChange }: { open: boolean, o
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Description</label>
+              <label className="text-xs font-bold text-secondary uppercase tracking-wider">Description</label>
               <textarea 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -72,7 +72,7 @@ export function PublishTemplateDialog({ open, onOpenChange }: { open: boolean, o
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Category</label>
+              <label className="text-xs font-bold text-secondary uppercase tracking-wider">Category</label>
               <Select.Root value={category} onValueChange={setCategory}>
                 <Select.Trigger className="w-full flex items-center justify-between px-3 py-2 bg-inset border border-default rounded-md text-sm text-primary outline-none">
                   <Select.Value />
@@ -91,10 +91,10 @@ export function PublishTemplateDialog({ open, onOpenChange }: { open: boolean, o
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Tags</label>
+              <label className="text-xs font-bold text-secondary uppercase tracking-wider">Tags</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {tags.map(tag => (
-                  <span key={tag} className="px-2 py-0.5 bg-accent-muted text-accent text-[10px] font-bold rounded-full border border-accent/30 flex items-center gap-1">
+                  <span key={tag} className="px-2 py-0.5 bg-accent-muted text-accent text-xs font-bold rounded-full border border-accent/30 flex items-center gap-1">
                     {tag}
                     <button onClick={() => setTags(tags.filter(t => t !== tag))}><X size={10} /></button>
                   </span>
@@ -127,7 +127,7 @@ export function PublishTemplateDialog({ open, onOpenChange }: { open: boolean, o
 
             {!isFree && (
               <div className="flex flex-col gap-1.5 animate-in slide-in-from-top-2 duration-200">
-                <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Price (Credits)</label>
+                <label className="text-xs font-bold text-secondary uppercase tracking-wider">Price (Credits)</label>
                 <div className="relative">
                   <DollarSign size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" />
                   <input 

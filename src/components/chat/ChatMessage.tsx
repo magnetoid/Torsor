@@ -57,8 +57,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
       <div className="bg-page border border-default rounded-lg mb-4 overflow-hidden">
         <div className="bg-surface px-2 py-1 border-b border-default flex items-center gap-2">
           <Terminal size={10} className={failed ? 'text-error' : 'text-secondary'} />
-          <span className="text-[10px] font-mono text-secondary">terminal</span>
-          {failed && <span className="text-[10px] font-mono font-bold text-error ml-auto">failed</span>}
+          <span className="text-xs font-mono text-secondary">terminal</span>
+          {failed && <span className="text-xs font-mono font-bold text-error ml-auto">failed</span>}
         </div>
         <pre className={cn('p-2 text-[11px] font-mono overflow-x-auto', failed ? 'text-error' : 'text-success')}>
           <code>{message.content}</code>
@@ -85,7 +85,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {canRetry && (
               <button
                 onClick={retry}
-                className="flex items-center gap-1 px-2 py-1 rounded-md border border-error/30 text-[10px] font-bold text-error hover:bg-error/10 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-error/30 text-xs font-bold text-error hover:bg-error/10 transition-colors"
               >
                 <RotateCcw size={10} /> Retry
               </button>
@@ -95,7 +95,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
                 useLayoutStore.getState().setUiMode('ide');
                 useLayoutStore.getState().openTab('terminal');
               }}
-              className="flex items-center gap-1 px-2 py-1 rounded-md border border-default text-[10px] font-bold text-secondary hover:text-primary transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-md border border-default text-xs font-bold text-secondary hover:text-primary transition-colors"
             >
               <Terminal size={10} /> Open terminal
             </button>
@@ -117,7 +117,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
               href={deployUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block mt-2 text-[10px] font-bold text-success underline underline-offset-2"
+              className="inline-block mt-2 text-xs font-bold text-success underline underline-offset-2"
             >
               View Live App
             </a>
@@ -143,7 +143,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         isUser ? "items-end" : "items-start"
       )}>
         <div className={cn(
-          "px-3 py-2 rounded-2xl text-sm leading-relaxed",
+          "px-3 py-2 rounded-xl text-sm leading-relaxed",
           isUser 
             ? "bg-accent text-white rounded-tr-none" 
             : "bg-surface text-primary border border-default rounded-tl-none"
@@ -162,16 +162,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {/* Self-verification confidence signal (from a check_app probe during the run):
             a binary "verified / couldn't verify", never a fake certainty. */}
         {isAgent && message.metadata?.verified === 'ok' && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-success/10 border border-success/20 text-[10px] font-medium text-success">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-success/10 border border-success/20 text-xs font-medium text-success">
             <ShieldCheck size={10} /> Verified — the app responds
           </span>
         )}
         {isAgent && message.metadata?.verified === 'fail' && (
-          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-warning/10 border border-warning/20 text-[10px] font-medium text-warning">
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-warning/10 border border-warning/20 text-xs font-medium text-warning">
             <AlertCircle size={10} /> Couldn't verify the app responds
           </span>
         )}
-        <span className="text-[10px] text-tertiary px-1">
+        <span className="text-xs text-tertiary px-1">
           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
@@ -205,7 +205,7 @@ function PlanCard({ message }: { message: ChatMessageData }) {
         <ClipboardList size={14} className="text-accent" />
         <span className="text-xs font-bold text-primary">Proposed plan</span>
       </div>
-      <p className="text-[10px] text-tertiary mb-2">
+      <p className="text-xs text-tertiary mb-2">
         Edit or remove steps — the agent will follow exactly this list.
       </p>
       <div className="space-y-1">
@@ -245,7 +245,7 @@ function PlanCard({ message }: { message: ChatMessageData }) {
           setSteps((prev) => [...prev, '']);
           setEditingIdx(steps.length);
         }}
-        className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-tertiary hover:text-primary transition-colors"
+        className="mt-1.5 flex items-center gap-1 text-xs font-medium text-tertiary hover:text-primary transition-colors"
       >
         <Plus size={10} /> Add step
       </button>
@@ -253,13 +253,13 @@ function PlanCard({ message }: { message: ChatMessageData }) {
         <button
           onClick={approve}
           disabled={isWorking || steps.every((s) => !s.trim())}
-          className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white py-1 rounded-md text-[10px] font-bold transition-colors"
+          className="flex-1 bg-accent hover:bg-accent-hover disabled:opacity-50 text-white py-1 rounded-md text-xs font-bold transition-colors"
         >
           Approve & build
         </button>
         <button
           onClick={() => useChatStore.getState().dismissPlans()}
-          className="px-3 border border-default text-secondary hover:text-primary py-1 rounded-md text-[10px] font-bold transition-colors"
+          className="px-3 border border-default text-secondary hover:text-primary py-1 rounded-md text-xs font-bold transition-colors"
         >
           Discard
         </button>

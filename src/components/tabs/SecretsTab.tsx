@@ -47,7 +47,7 @@ export default function SecretsTab() {
           <LockIcon size={14} className="text-accent-hover" />
           <span className="text-xs font-bold text-primary">Secrets</span>
         </div>
-        <span className="text-[10px] text-tertiary">Encrypted at rest · per-user</span>
+        <span className="text-xs text-tertiary">Encrypted at rest · per-user</span>
       </div>
 
       {/* Not-configured banner */}
@@ -91,7 +91,7 @@ export default function SecretsTab() {
                   {secret.keyName}
                 </span>
                 {secret.createdAt && (
-                  <span className="text-[10px] text-tertiary">
+                  <span className="text-xs text-tertiary">
                     Added {formatDate(secret.createdAt)}
                   </span>
                 )}
@@ -144,7 +144,7 @@ export default function SecretsTab() {
             Add Secret
           </button>
         </div>
-        <p className="text-[10px] text-secondary mt-2 ml-1">
+        <p className="text-xs text-secondary mt-2 ml-1">
           Keys are converted to UPPERCASE_WITH_UNDERSCORES. Values are encrypted and never
           shown again — re-add to replace one.
         </p>

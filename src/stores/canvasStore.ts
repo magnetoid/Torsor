@@ -56,7 +56,7 @@ const MOCK_ELEMENTS: Record<string, CanvasElement> = {
     id: 'logo',
     type: 'Text',
     content: 'TESSERACT',
-    classes: ['text-xl', 'font-black', 'tracking-tighter', 'text-violet-500'],
+    classes: ['text-xl', 'font-black', 'tracking-tighter', 'text-accent'],
     props: {},
     parentId: 'header'
   },
@@ -131,7 +131,7 @@ const MOCK_ELEMENTS: Record<string, CanvasElement> = {
     id: 'feat-1',
     type: 'Card',
     content: 'AI Agent',
-    classes: ['p-6', 'bg-[#141416]', 'border', 'border-[#232328]', 'rounded-2xl'],
+    classes: ['p-6', 'bg-[#141416]', 'border', 'border-[#232328]', 'rounded-xl'],
     props: {},
     parentId: 'features'
   },
@@ -139,7 +139,7 @@ const MOCK_ELEMENTS: Record<string, CanvasElement> = {
     id: 'feat-2',
     type: 'Card',
     content: 'Real-time Sync',
-    classes: ['p-6', 'bg-[#141416]', 'border', 'border-[#232328]', 'rounded-2xl'],
+    classes: ['p-6', 'bg-[#141416]', 'border', 'border-[#232328]', 'rounded-xl'],
     props: {},
     parentId: 'features'
   },
@@ -147,7 +147,7 @@ const MOCK_ELEMENTS: Record<string, CanvasElement> = {
     id: 'feat-3',
     type: 'Card',
     content: 'Cloud Deploy',
-    classes: ['p-6', 'bg-[#141416]', 'border', 'border-[#232328]', 'rounded-2xl'],
+    classes: ['p-6', 'bg-[#141416]', 'border', 'border-[#232328]', 'rounded-xl'],
     props: {},
     parentId: 'features'
   }

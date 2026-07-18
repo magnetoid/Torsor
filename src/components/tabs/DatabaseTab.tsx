@@ -98,7 +98,7 @@ export default function DatabaseTab() {
           actionLabel="Connect Database"
           onAction={() => setIsConnected(true)}
         />
-        <p className="mt-6 text-[10px] text-tertiary uppercase tracking-widest font-bold">
+        <p className="mt-6 text-xs text-tertiary uppercase tracking-widest font-bold">
           Ask the agent to add a database to your project
         </p>
       </div>
@@ -161,7 +161,7 @@ export default function DatabaseTab() {
             <button 
               onClick={() => setViewMode('table')}
               className={cn(
-                "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
+                "px-2 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors",
                 viewMode === 'table' ? "bg-accent/20 text-accent" : "text-tertiary hover:text-primary"
               )}
             >
@@ -170,7 +170,7 @@ export default function DatabaseTab() {
             <button 
               onClick={() => setViewMode('sql')}
               className={cn(
-                "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors",
+                "px-2 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors",
                 viewMode === 'sql' ? "bg-accent/20 text-accent" : "text-tertiary hover:text-primary"
               )}
             >
@@ -180,7 +180,7 @@ export default function DatabaseTab() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-tighter">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success/10 text-success text-xs font-bold uppercase tracking-tighter">
             <div className="w-1.5 h-1.5 rounded-full bg-success" />
             Connected
           </div>
@@ -195,7 +195,7 @@ export default function DatabaseTab() {
         {viewMode === 'table' ? (
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             {/* TABLE GRID */}
-            <div className="flex-1 overflow-auto no-scrollbar">
+            <div className="flex-1 overflow-auto custom-scrollbar">
               <table className="w-full border-collapse text-left">
                 <thead className="sticky top-0 z-10 bg-surface border-b border-default">
                   <tr>
@@ -257,23 +257,23 @@ export default function DatabaseTab() {
             {/* FOOTER */}
             <div className="h-10 bg-surface border-t border-default flex items-center justify-between px-3 shrink-0">
               <div className="flex items-center gap-3">
-                <span className="text-[10px] text-tertiary">{activeTable.rows.length} rows</span>
+                <span className="text-xs text-tertiary">{activeTable.rows.length} rows</span>
                 {selectedRows.length > 0 && (
-                  <button className="flex items-center gap-1.5 px-2 py-1 rounded bg-error/10 text-error text-[10px] font-bold uppercase tracking-wider hover:bg-error/20 transition-colors">
+                  <button className="flex items-center gap-1.5 px-2 py-1 rounded bg-error/10 text-error text-xs font-bold uppercase tracking-wider hover:bg-error/20 transition-colors">
                     <Trash2 size={12} />
                     Delete {selectedRows.length} selected
                   </button>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1.5 px-2 py-1 rounded bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider hover:bg-accent/20 transition-colors">
+                <button className="flex items-center gap-1.5 px-2 py-1 rounded bg-accent/10 text-accent text-xs font-bold uppercase tracking-wider hover:bg-accent/20 transition-colors">
                   <Plus size={12} />
                   Add Row
                 </button>
                 <div className="w-[1px] h-4 bg-default mx-1" />
                 <div className="flex items-center gap-1">
-                  <button className="px-2 py-1 text-[10px] text-tertiary hover:text-primary disabled:opacity-30" disabled>Previous</button>
-                  <button className="px-2 py-1 text-[10px] text-tertiary hover:text-primary disabled:opacity-30" disabled>Next</button>
+                  <button className="px-2 py-1 text-xs text-tertiary hover:text-primary disabled:opacity-30" disabled>Previous</button>
+                  <button className="px-2 py-1 text-xs text-tertiary hover:text-primary disabled:opacity-30" disabled>Next</button>
                 </div>
               </div>
             </div>
@@ -285,11 +285,11 @@ export default function DatabaseTab() {
               <div className="h-8 flex items-center justify-between px-3 border-b border-default shrink-0">
                 <div className="flex items-center gap-2">
                   <Code2 size={12} className="text-tertiary" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary">Query Editor</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-tertiary">Query Editor</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Select.Root>
-                    <Select.Trigger className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-elevated text-[10px] text-tertiary outline-none transition-colors">
+                    <Select.Trigger className="flex items-center gap-2 px-2 py-0.5 rounded hover:bg-elevated text-xs text-tertiary outline-none transition-colors">
                       <History size={10} />
                       History
                     </Select.Trigger>
@@ -300,7 +300,7 @@ export default function DatabaseTab() {
                             <Select.Item 
                               key={i} 
                               value={q}
-                              className="flex items-center gap-2 px-2 py-1.5 text-[10px] text-tertiary hover:bg-accent hover:text-white rounded cursor-pointer outline-none truncate"
+                              className="flex items-center gap-2 px-2 py-1.5 text-xs text-tertiary hover:bg-accent hover:text-white rounded cursor-pointer outline-none truncate"
                             >
                               <Select.ItemText>{q}</Select.ItemText>
                             </Select.Item>
@@ -309,7 +309,7 @@ export default function DatabaseTab() {
                       </Select.Content>
                     </Select.Portal>
                   </Select.Root>
-                  <button className="flex items-center gap-1.5 px-3 py-1 rounded bg-accent text-white text-[10px] font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
+                  <button className="flex items-center gap-1.5 px-3 py-1 rounded bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
                     <Play size={10} />
                     Run
                   </button>
@@ -337,14 +337,14 @@ export default function DatabaseTab() {
             {/* RESULTS VIEW */}
             <div className="flex-1 flex flex-col min-h-0 bg-inset/30">
               <div className="h-8 flex items-center px-3 border-b border-default shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary">Results</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-tertiary">Results</span>
               </div>
-              <div className="flex-1 overflow-auto no-scrollbar">
+              <div className="flex-1 overflow-auto custom-scrollbar">
                 <table className="w-full border-collapse text-left">
                   <thead className="sticky top-0 z-10 bg-surface border-b border-default">
                     <tr>
                       {activeTable.columns.map(col => (
-                        <th key={col.name} className="p-2 border-r border-default last:border-r-0 text-[10px] font-medium text-tertiary uppercase tracking-wider">
+                        <th key={col.name} className="p-2 border-r border-default last:border-r-0 text-xs font-medium text-tertiary uppercase tracking-wider">
                           {col.name}
                         </th>
                       ))}

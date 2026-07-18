@@ -122,7 +122,7 @@ export default function AppStorageTab() {
                 style={{ width: `${usagePercent}%` }} 
               />
             </div>
-            <span className="text-[10px] text-secondary font-medium">
+            <span className="text-xs text-secondary font-medium">
               {formatSize(usedCapacity)} / {formatSize(totalCapacity)}
             </span>
           </div>
@@ -168,7 +168,7 @@ export default function AppStorageTab() {
       </header>
 
       {/* Breadcrumbs */}
-      <div className="h-8 px-4 flex items-center gap-2 border-b border-default bg-page text-[10px] text-secondary">
+      <div className="h-8 px-4 flex items-center gap-2 border-b border-default bg-page text-xs text-secondary">
         <button className="hover:text-primary transition-colors">Root</button>
         <ChevronRight size={12} />
         <span className="text-primary font-medium">All Files</span>
@@ -181,14 +181,14 @@ export default function AppStorageTab() {
           {/* Upload Progress Section */}
           {uploads.length > 0 && (
             <div className="mb-6 space-y-2">
-              <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-2">Uploading</h3>
+              <h3 className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">Uploading</h3>
               {uploads.map(upload => (
                 <div key={upload.id} className="bg-surface border border-default rounded-lg p-3 flex items-center gap-4">
                   <Loader2 size={16} className="text-accent animate-spin shrink-0" />
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between mb-1">
                       <span className="text-xs text-primary truncate">{upload.name}</span>
-                      <span className="text-[10px] text-secondary">{Math.round(upload.progress)}%</span>
+                      <span className="text-xs text-secondary">{Math.round(upload.progress)}%</span>
                     </div>
                     <Progress.Root className="h-1 bg-elevated rounded-full overflow-hidden">
                       <Progress.Indicator 
@@ -273,11 +273,11 @@ export default function AppStorageTab() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-default bg-elevated/50">
-                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Name</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Size</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Uploaded</th>
-                    <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+                    <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Name</th>
+                    <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Size</th>
+                    <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Uploaded</th>
+                    <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -358,7 +358,7 @@ export default function AppStorageTab() {
 
               <div className="space-y-4">
                 <div>
-                  <h4 className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-2">Details</h4>
+                  <h4 className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">Details</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between text-[11px]">
                       <span className="text-secondary">Name</span>
@@ -380,9 +380,9 @@ export default function AppStorageTab() {
                 </div>
 
                 <div>
-                  <h4 className="text-[10px] font-bold text-secondary uppercase tracking-wider mb-2">CDN URL</h4>
+                  <h4 className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">CDN URL</h4>
                   <div className="flex gap-2">
-                    <div className="flex-1 bg-page border border-default rounded-lg px-2 py-1.5 text-[10px] text-secondary font-mono truncate">
+                    <div className="flex-1 bg-page border border-default rounded-lg px-2 py-1.5 text-xs text-secondary font-mono truncate">
                       {selectedFile.url}
                     </div>
                     <button 

@@ -6,6 +6,7 @@ import { Plus, X, Terminal as TerminalIcon, Play, Square, RotateCcw } from 'luci
 import { cn } from '../../lib/utils';
 import { apiExecStream, ApiError } from '../../lib/api';
 import { useProjectStore } from '../../stores/projectStore';
+import { useThemeColors } from '../../lib/theme';
 
 const PROMPT = '\x1b[1;34mworkspace\x1b[0m$ ';
 
@@ -26,6 +27,7 @@ export default function TerminalTab() {
   const [activeId, setActiveId] = useState('term-1');
   const terminalRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const instancesRef = useRef<Record<string, TerminalInstance>>({});
+  const colors = useThemeColors();
 
   const createTerminal = (id: string, container: HTMLDivElement) => {
     const term = new XTerm({
@@ -33,18 +35,18 @@ export default function TerminalTab() {
       fontSize: 12,
       fontFamily: '"JetBrains Mono Variable", "JetBrains Mono", monospace',
       theme: {
-        background: '#202023', // --bg-page
-        foreground: '#F6F6F8', // --text-primary
-        cursor: '#8577F2',     // --accent
-        selectionBackground: 'rgba(123, 106, 238, 0.25)', // --accent-muted (adjusted for selection)
-        black: '#303034',      // --bg-surface
-        red: '#FF5449',        // --error
-        green: '#3DD263',      // --success
-        yellow: '#FFA71F',     // --warning
-        blue: '#64CDFB',       // --info
-        magenta: '#8577F2',    // --accent
-        cyan: '#64CDFB',       // --info
-        white: '#F6F6F8',      // --text-primary
+        background: colors['bg-page'] || '#202023',
+        foreground: colors['text-primary'] || '#F6F6F8',
+        cursor: colors['accent'] || '#8577F2',
+        selectionBackground: colors['accent-muted'] || 'rgba(123, 106, 238, 0.25)',
+        black: colors['bg-surface'] || '#303034',
+        red: colors['error'] || '#FF5449',
+        green: colors['success'] || '#3DD263',
+        yellow: colors['warning'] || '#FFA71F',
+        blue: colors['info'] || '#64CDFB',
+        magenta: colors['accent'] || '#8577F2',
+        cyan: colors['info'] || '#64CDFB',
+        white: colors['text-primary'] || '#F6F6F8',
       },
       allowTransparency: true,
     });
@@ -162,6 +164,27 @@ export default function TerminalTab() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [instances]);
+
+  useEffect(() => {
+    Object.values(instancesRef.current).forEach(inst => {
+      if (inst.xterm) {
+        inst.xterm.options.theme = {
+          background: colors['bg-page'] || '#202023',
+          foreground: colors['text-primary'] || '#F6F6F8',
+          cursor: colors['accent'] || '#8577F2',
+          selectionBackground: colors['accent-muted'] || 'rgba(123, 106, 238, 0.25)',
+          black: colors['bg-surface'] || '#303034',
+          red: colors['error'] || '#FF5449',
+          green: colors['success'] || '#3DD263',
+          yellow: colors['warning'] || '#FFA71F',
+          blue: colors['info'] || '#64CDFB',
+          magenta: colors['accent'] || '#8577F2',
+          cyan: colors['info'] || '#64CDFB',
+          white: colors['text-primary'] || '#F6F6F8',
+        };
+      }
+    });
+  }, [colors]);
 
   const addInstance = () => {
     const newId = `term-${Date.now()}`;

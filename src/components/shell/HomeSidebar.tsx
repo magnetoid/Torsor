@@ -132,7 +132,7 @@ export function HomeSidebar() {
       {collapsed ? (
         <div className="w-6 border-t border-subtle" />
       ) : (
-        <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider whitespace-nowrap">{label}</span>
+        <span className="text-xs font-bold text-tertiary uppercase tracking-wider whitespace-nowrap">{label}</span>
       )}
     </div>
   );
@@ -260,7 +260,7 @@ export function HomeSidebar() {
           {!collapsed && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
                   <span className="text-tertiary">Projects</span>
                   <span className="text-secondary">{projectUsage} / {projectLimit === -1 ? '∞' : projectLimit}</span>
                 </div>
@@ -273,7 +273,7 @@ export function HomeSidebar() {
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
                   <span className="text-tertiary">Tokens</span>
                   <span className="text-secondary">{(tokenUsage / 1000).toFixed(1)}K / {(tokenLimit / 1000).toFixed(0)}K</span>
                 </div>

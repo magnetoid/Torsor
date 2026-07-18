@@ -13,6 +13,7 @@ import { PLANS } from '../lib/constants';
 import { useEditorStore } from './editorStore';
 import { useChatStore } from './chatStore';
 import { useCanvasStore } from './canvasStore';
+import { apiRequest } from '../lib/api';
 
 interface WorkspaceState {
   workspaces: Workspace[];
@@ -20,140 +21,79 @@ interface WorkspaceState {
   members: WorkspaceMember[];
   invites: WorkspaceInvite[];
   auditLog: AuditLogEntry[];
+  isLoading: boolean;
+  error: string | null;
   
   // Actions
+  fetchWorkspaces: () => Promise<void>;
+  fetchMembers: (workspaceId: string) => Promise<void>;
   switchWorkspace: (id: string) => void;
-  createWorkspace: (name: string, slug: string) => string;
-  updateWorkspace: (id: string, data: Partial<Workspace>) => void;
-  deleteWorkspace: (id: string) => void;
-  inviteMember: (email: string, role: WorkspaceInvite['role']) => void;
-  removeMember: (userId: string) => void;
-  changeMemberRole: (userId: string, role: WorkspaceMember['role']) => void;
-  acceptInvite: (inviteId: string) => void;
-  revokeInvite: (inviteId: string) => void;
+  createWorkspace: (name: string, slug: string) => Promise<string>;
+  updateWorkspace: (id: string, data: Partial<Workspace>) => Promise<void>;
+  deleteWorkspace: (id: string) => Promise<void>;
+  inviteMember: (email: string, role: WorkspaceInvite['role']) => Promise<void>;
+  removeMember: (userId: string) => Promise<void>;
+  changeMemberRole: (userId: string, role: WorkspaceMember['role']) => Promise<void>;
+  acceptInvite: (inviteId: string) => Promise<void>;
+  revokeInvite: (inviteId: string) => Promise<void>;
   logAuditEvent: (action: AuditLogEntry['action'], resource: string, details: string) => void;
   getActiveWorkspace: () => Workspace | undefined;
 }
 
-// Mock Data
-const MOCK_WORKSPACES: Workspace[] = [
-  {
-    id: 'ws-1',
-    name: 'Marko Workspace',
-    slug: 'marko-workspace',
-    logoUrl: null,
-    ownerId: 'user-1',
-    plan: 'pro',
-    limits: PLANS.pro.limits,
-    usage: {
-      projectCount: 12,
-      memberCount: 3,
-      tokensUsedThisMonth: 450000,
-      storageMB: 1200,
-      lastResetDate: new Date().toISOString(),
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'ws-2',
-    name: 'Torsor Team',
-    slug: 'torsor-team',
-    logoUrl: 'https://picsum.photos/seed/torsor/200',
-    ownerId: 'user-1',
-    plan: 'team',
-    limits: PLANS.team.limits,
-    usage: {
-      projectCount: 45,
-      memberCount: 15,
-      tokensUsedThisMonth: 2500000,
-      storageMB: 8500,
-      lastResetDate: new Date().toISOString(),
-    },
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-];
-
-const MOCK_MEMBERS: WorkspaceMember[] = [
-  {
-    id: 'mem-1',
-    userId: 'user-1',
-    workspaceId: 'ws-1',
-    user: { name: 'Marko Tiosavljevic', email: 'marko.tiosavljevic@gmail.com', avatarUrl: 'https://picsum.photos/seed/marko/200' },
-    role: 'owner',
-    status: 'active',
-    joinedAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString(),
-  },
-  {
-    id: 'mem-2',
-    userId: 'user-2',
-    workspaceId: 'ws-1',
-    user: { name: 'Jane Doe', email: 'jane@example.com', avatarUrl: 'https://picsum.photos/seed/jane/200' },
-    role: 'admin',
-    status: 'active',
-    joinedAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString(),
-  },
-  {
-    id: 'mem-3',
-    userId: 'user-3',
-    workspaceId: 'ws-1',
-    user: { name: 'Bob Smith', email: 'bob@example.com', avatarUrl: null },
-    role: 'developer',
-    status: 'active',
-    joinedAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString(),
-  }
-];
-
-const MOCK_INVITES: WorkspaceInvite[] = [
-  {
-    id: 'inv-1',
-    workspaceId: 'ws-1',
-    email: 'new-dev@example.com',
-    role: 'developer',
-    status: 'pending',
-    invitedBy: 'user-1',
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'inv-2',
-    workspaceId: 'ws-1',
-    email: 'viewer@example.com',
-    role: 'viewer',
-    status: 'pending',
-    invitedBy: 'user-2',
-    createdAt: new Date().toISOString(),
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-  }
-];
-
-const MOCK_AUDIT_LOG: AuditLogEntry[] = Array.from({ length: 20 }).map((_, i) => ({
-  id: `log-${i}`,
-  workspaceId: 'ws-1',
-  userId: i % 2 === 0 ? 'user-1' : 'user-2',
-  userName: i % 2 === 0 ? 'Marko Tiosavljevic' : 'Jane Doe',
-  action: i % 5 === 0 ? 'project_create' : i % 5 === 1 ? 'deploy' : i % 5 === 2 ? 'member_invite' : 'settings_update',
-  resource: i % 5 === 0 ? 'Project Alpha' : i % 5 === 1 ? 'Production' : i % 5 === 2 ? 'new-dev@example.com' : 'Workspace Settings',
-  details: `Action performed on ${new Date().toLocaleDateString()}`,
-  ipAddress: '192.168.1.1',
-  timestamp: new Date(Date.now() - i * 3600000).toISOString(),
-}));
+const DEFAULT_USAGE: WorkspaceUsage = {
+  projectCount: 0,
+  memberCount: 1,
+  tokensUsedThisMonth: 0,
+  storageMB: 0,
+  lastResetDate: new Date().toISOString(),
+};
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      workspaces: MOCK_WORKSPACES,
-      activeWorkspaceId: MOCK_WORKSPACES[0].id,
-      members: MOCK_MEMBERS,
-      invites: MOCK_INVITES,
-      auditLog: MOCK_AUDIT_LOG,
+      workspaces: [],
+      activeWorkspaceId: '',
+      members: [],
+      invites: [],
+      auditLog: [],
+      isLoading: false,
+      error: null,
+
+      fetchWorkspaces: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiRequest<{ items: any[] }>('/api/v1/teams', { auth: true });
+          const workspaces = response.items.map(t => ({
+            ...t,
+            limits: PLANS[t.plan as WorkspacePlan]?.limits || PLANS.free.limits,
+            usage: DEFAULT_USAGE // TODO: fetch real usage
+          }));
+          set({ 
+            workspaces, 
+            activeWorkspaceId: workspaces.length > 0 && !get().activeWorkspaceId 
+              ? workspaces[0].id 
+              : get().activeWorkspaceId,
+            isLoading: false 
+          });
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to fetch workspaces' });
+        }
+      },
+
+      fetchMembers: async (workspaceId: string) => {
+        if (!workspaceId) return;
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiRequest<{ items: WorkspaceMember[] }>(`/api/v1/teams/${workspaceId}/members`, { auth: true });
+          set({ members: response.items, isLoading: false });
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to fetch members' });
+        }
+      },
 
       switchWorkspace: (id) => {
         set({ activeWorkspaceId: id });
+        get().fetchMembers(id);
         
         // Clear project-specific state
         useEditorStore.getState().reset();
@@ -161,123 +101,156 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         useCanvasStore.getState().reset();
       },
 
-      createWorkspace: (name, slug) => {
-        const newId = `ws-${Math.random().toString(36).substring(7)}`;
-        const newWorkspace: Workspace = {
-          id: newId,
-          name,
-          slug,
-          logoUrl: null,
-          ownerId: 'user-1', // Assuming current user
-          plan: 'free',
-          limits: PLANS.free.limits,
-          usage: {
-            projectCount: 0,
-            memberCount: 1,
-            tokensUsedThisMonth: 0,
-            storageMB: 0,
-            lastResetDate: new Date().toISOString(),
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        set((state) => ({ 
-          workspaces: [...state.workspaces, newWorkspace],
-          activeWorkspaceId: newWorkspace.id
-        }));
-        get().logAuditEvent('workspace_create', name, 'Created new workspace');
-        return newId;
+      createWorkspace: async (name, slug) => {
+        set({ isLoading: true, error: null });
+        try {
+          const t = await apiRequest<any>('/api/v1/teams', {
+            method: 'POST',
+            auth: true,
+            body: JSON.stringify({ name, slug })
+          });
+          const newWorkspace: Workspace = {
+            ...t,
+            limits: PLANS[t.plan as WorkspacePlan]?.limits || PLANS.free.limits,
+            usage: DEFAULT_USAGE
+          };
+          set((state) => ({ 
+            workspaces: [...state.workspaces, newWorkspace],
+            activeWorkspaceId: newWorkspace.id,
+            isLoading: false
+          }));
+          return newWorkspace.id;
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to create workspace' });
+          throw error;
+        }
       },
 
-      updateWorkspace: (id, data) => {
-        set((state) => ({
-          workspaces: state.workspaces.map((ws) => 
-            ws.id === id ? { ...ws, ...data, updatedAt: new Date().toISOString() } : ws
-          ),
-        }));
-        get().logAuditEvent('settings_update', id, 'Updated workspace settings');
+      updateWorkspace: async (id, data) => {
+        set({ isLoading: true, error: null });
+        try {
+          const t = await apiRequest<any>(`/api/v1/teams/${id}`, {
+            method: 'PATCH',
+            auth: true,
+            body: JSON.stringify(data)
+          });
+          set((state) => ({
+            workspaces: state.workspaces.map((ws) => 
+              ws.id === id ? { ...ws, ...t } : ws
+            ),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to update workspace' });
+          throw error;
+        }
       },
 
-      deleteWorkspace: (id) => {
-        set((state) => ({
-          workspaces: state.workspaces.filter((ws) => ws.id !== id),
-          activeWorkspaceId: state.activeWorkspaceId === id 
-            ? state.workspaces.find((ws) => ws.id !== id)?.id || '' 
-            : state.activeWorkspaceId
-        }));
+      deleteWorkspace: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          await apiRequest(`/api/v1/teams/${id}`, { method: 'DELETE', auth: true });
+          set((state) => ({
+            workspaces: state.workspaces.filter((ws) => ws.id !== id),
+            activeWorkspaceId: state.activeWorkspaceId === id 
+              ? state.workspaces.find((ws) => ws.id !== id)?.id || '' 
+              : state.activeWorkspaceId,
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to delete workspace' });
+          throw error;
+        }
       },
 
-      inviteMember: (email, role) => {
-        const newInvite: WorkspaceInvite = {
-          id: `inv-${Math.random().toString(36).substring(7)}`,
-          workspaceId: get().activeWorkspaceId,
-          email,
-          role,
-          status: 'pending',
-          invitedBy: 'user-1',
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        };
-        set((state) => ({ invites: [...state.invites, newInvite] }));
-        get().logAuditEvent('member_invite', email, `Invited as ${role}`);
+      inviteMember: async (email, role) => {
+        set({ isLoading: true, error: null });
+        try {
+          const workspaceId = get().activeWorkspaceId;
+          await apiRequest(`/api/v1/teams/${workspaceId}/invites`, {
+            method: 'POST',
+            auth: true,
+            body: JSON.stringify({ email, role })
+          });
+          // Refresh members/invites or just optimistically update if we had an invites array
+          set({ isLoading: false });
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to invite member' });
+          throw error;
+        }
       },
 
-      removeMember: (userId) => {
-        set((state) => ({
-          members: state.members.filter((m) => m.userId !== userId || m.workspaceId !== state.activeWorkspaceId)
-        }));
-        get().logAuditEvent('member_remove', userId, 'Removed member from workspace');
+      removeMember: async (userId) => {
+        set({ isLoading: true, error: null });
+        try {
+          const workspaceId = get().activeWorkspaceId;
+          await apiRequest(`/api/v1/teams/${workspaceId}/members/${userId}`, {
+            method: 'DELETE',
+            auth: true
+          });
+          set((state) => ({
+            members: state.members.filter(m => m.userId !== userId),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to remove member' });
+          throw error;
+        }
       },
 
-      changeMemberRole: (userId, role) => {
-        set((state) => ({
-          members: state.members.map((m) => 
-            (m.userId === userId && m.workspaceId === state.activeWorkspaceId) ? { ...m, role } : m
-          )
-        }));
-        get().logAuditEvent('role_change', userId, `Changed role to ${role}`);
+      changeMemberRole: async (userId, role) => {
+        set({ isLoading: true, error: null });
+        try {
+          const workspaceId = get().activeWorkspaceId;
+          await apiRequest(`/api/v1/teams/${workspaceId}/members/${userId}/role`, {
+            method: 'PATCH',
+            auth: true,
+            body: JSON.stringify({ role })
+          });
+          set((state) => ({
+            members: state.members.map(m => m.userId === userId ? { ...m, role } : m),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to change role' });
+          throw error;
+        }
       },
 
-      acceptInvite: (inviteId) => {
-        const invite = get().invites.find((i) => i.id === inviteId);
-        if (!invite) return;
-
-        const newMember: WorkspaceMember = {
-          id: `mem-${Math.random().toString(36).substring(7)}`,
-          userId: `user-${Math.random().toString(36).substring(7)}`, // Mock user creation
-          workspaceId: invite.workspaceId,
-          user: { name: invite.email.split('@')[0], email: invite.email, avatarUrl: null },
-          role: invite.role as WorkspaceMember['role'],
-          status: 'active',
-          joinedAt: new Date().toISOString(),
-          lastActiveAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          invites: state.invites.filter((i) => i.id !== inviteId),
-          members: [...state.members, newMember]
-        }));
+      acceptInvite: async (inviteId) => {
+        set({ isLoading: true, error: null });
+        try {
+          await apiRequest(`/api/v1/teams/invites/${inviteId}/accept`, {
+            method: 'POST',
+            auth: true
+          });
+          // Ideally refresh workspaces here since we just joined one
+          await get().fetchWorkspaces();
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to accept invite' });
+          throw error;
+        }
       },
 
-      revokeInvite: (inviteId) => {
-        set((state) => ({
-          invites: state.invites.filter((i) => i.id !== inviteId)
-        }));
+      revokeInvite: async (inviteId) => {
+        set({ isLoading: true, error: null });
+        try {
+          await apiRequest(`/api/v1/teams/invites/${inviteId}`, {
+            method: 'DELETE',
+            auth: true
+          });
+          set((state) => ({
+            invites: state.invites.filter(i => i.id !== inviteId),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to revoke invite' });
+          throw error;
+        }
       },
 
       logAuditEvent: (action, resource, details) => {
-        const newEntry: AuditLogEntry = {
-          id: `log-${Math.random().toString(36).substring(7)}`,
-          workspaceId: get().activeWorkspaceId,
-          userId: 'user-1',
-          userName: 'Marko Tiosavljevic',
-          action,
-          resource,
-          details,
-          ipAddress: '192.168.1.1',
-          timestamp: new Date().toISOString(),
-        };
-        set((state) => ({ auditLog: [newEntry, ...state.auditLog].slice(0, 100) }));
+        // TODO: Send to backend
       },
 
       getActiveWorkspace: () => {
@@ -301,12 +274,12 @@ export const useActiveWorkspace = () => {
 
 export const useWorkspacePlan = () => {
   const workspace = useActiveWorkspace();
-  return PLANS[workspace.plan].limits;
+  return workspace ? PLANS[workspace.plan].limits : PLANS.free.limits;
 };
 
 export const useWorkspaceUsage = () => {
   const workspace = useActiveWorkspace();
-  return workspace.usage;
+  return workspace ? workspace.usage : DEFAULT_USAGE;
 };
 
 export const useIsAtLimit = (resource: 'projects' | 'tokens' | 'storage' | 'members') => {

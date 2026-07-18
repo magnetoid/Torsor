@@ -45,7 +45,7 @@ const FileStatusIcon = ({ status }: { status: GitFile['status'] }) => {
 };
 
 const DiffIndicator = ({ additions, deletions }: { additions: number; deletions: number }) => (
-  <div className="flex items-center gap-1.5 text-[10px] font-bold">
+  <div className="flex items-center gap-1.5 text-xs font-bold">
     {additions > 0 && <span className="text-success">+{additions}</span>}
     {deletions > 0 && <span className="text-error">-{deletions}</span>}
   </div>
@@ -163,7 +163,7 @@ export default function GitTab() {
             )}
           </div>
 
-          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-secondary">
+          <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wider text-secondary">
             <div className="flex items-center gap-1">
               <ArrowUp size={12} className="text-success" />
               <span>{ahead} ahead</span>
@@ -202,11 +202,11 @@ export default function GitTab() {
                 {/* Changes */}
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider">Changes</h3>
+                    <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Changes</h3>
                     <div className="flex gap-2">
                       <button 
                         onClick={stageAll}
-                        className="text-[10px] font-bold text-accent-hover hover:text-accent transition-colors"
+                        className="text-xs font-bold text-accent-hover hover:text-accent transition-colors"
                       >
                         Stage All
                       </button>
@@ -217,8 +217,8 @@ export default function GitTab() {
                   {staged.length > 0 && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between px-1 mb-1">
-                        <span className="text-[10px] font-bold text-success uppercase tracking-wider">Staged ({staged.length})</span>
-                        <button onClick={unstageAll} className="text-[10px] text-secondary hover:text-primary">Unstage All</button>
+                        <span className="text-xs font-bold text-success uppercase tracking-wider">Staged ({staged.length})</span>
+                        <button onClick={unstageAll} className="text-xs text-secondary hover:text-primary">Unstage All</button>
                       </div>
                       {staged.map(file => (
                         <div 
@@ -252,7 +252,7 @@ export default function GitTab() {
                   {unstaged.length > 0 && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between px-1 mb-1">
-                        <span className="text-[10px] font-bold text-warning uppercase tracking-wider">Unstaged ({unstaged.length})</span>
+                        <span className="text-xs font-bold text-warning uppercase tracking-wider">Unstaged ({unstaged.length})</span>
                       </div>
                       {unstaged.map(file => (
                         <div 
@@ -340,7 +340,7 @@ export default function GitTab() {
                 {/* History */}
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider">History</h3>
+                    <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">History</h3>
                     <History size={14} className="text-tertiary" />
                   </div>
                   <div className="space-y-4 relative before:absolute before:left-[7px] before:top-2 before:bottom-2 before:w-[1px] before:bg-subtle">
@@ -349,15 +349,15 @@ export default function GitTab() {
                         <div className="absolute left-0 top-1.5 w-[15px] h-[15px] rounded-full bg-page border-2 border-subtle group-hover:border-accent transition-colors z-10" />
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-mono text-accent-hover">{c.hash}</span>
-                            <span className="text-[10px] text-secondary">{new Date(c.timestamp).toLocaleDateString()}</span>
+                            <span className="text-xs font-mono text-accent-hover">{c.hash}</span>
+                            <span className="text-xs text-secondary">{new Date(c.timestamp).toLocaleDateString()}</span>
                           </div>
                           <p className="text-xs text-primary font-medium line-clamp-2">{c.message}</p>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-[10px] text-secondary">{c.author}</span>
+                            <span className="text-xs text-secondary">{c.author}</span>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button onClick={() => revert(c.hash)} className="text-[10px] text-error hover:underline">Revert</button>
-                              <button className="text-[10px] text-accent-hover hover:underline">Diff</button>
+                              <button onClick={() => revert(c.hash)} className="text-xs text-error hover:underline">Revert</button>
+                              <button className="text-xs text-accent-hover hover:underline">Diff</button>
                             </div>
                           </div>
                         </div>
@@ -369,14 +369,14 @@ export default function GitTab() {
                 {/* Remote */}
                 <Separator.Root className="h-[1px] bg-subtle" />
                 <section className="space-y-4">
-                  <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider">Remote</h3>
+                  <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Remote</h3>
                   {isGitHubConnected ? (
                     <div className="bg-surface border border-subtle rounded-xl p-3 space-y-3">
                       <div className="flex items-center gap-3">
                         <Github size={16} className="text-primary" />
                         <div className="flex flex-col min-w-0">
                           <span className="text-[11px] font-bold text-primary">GitHub</span>
-                          <span className="text-[10px] text-secondary truncate">{remoteUrl}</span>
+                          <span className="text-xs text-secondary truncate">{remoteUrl}</span>
                         </div>
                       </div>
                       <button className="w-full py-1.5 bg-elevated hover:bg-subtle border border-subtle text-primary text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-2">
@@ -397,7 +397,7 @@ export default function GitTab() {
                   <div className="flex items-center justify-between px-1">
                     <div className="flex flex-col">
                       <span className="text-[11px] font-bold text-primary">Agent Auto-commits</span>
-                      <span className="text-[10px] text-secondary">Commit after each plan</span>
+                      <span className="text-xs text-secondary">Commit after each plan</span>
                     </div>
                     <Switch.Root 
                       checked={autoCommitEnabled}

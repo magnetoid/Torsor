@@ -45,7 +45,7 @@ export function OnboardingStep1({ data, updateData, onNext }: StepProps) {
             className="h-12 bg-page border-default rounded-xl px-4 text-primary focus:border-accent transition-all"
           />
           {workspaceName && (
-            <p className="text-[10px] text-tertiary ml-1 font-mono">
+            <p className="text-xs text-tertiary ml-1 font-mono">
               torsor.app/<span className="text-accent">{slug || '...'}</span>
             </p>
           )}

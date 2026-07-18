@@ -59,7 +59,7 @@ const RunConfigCard = ({ config }: { config: RunConfig }) => {
             </h4>
           )}
           {config.isRunning && (
-            <span className="px-2 py-0.5 bg-success/10 text-success text-[10px] font-bold uppercase rounded border border-success/20">
+            <span className="px-2 py-0.5 bg-success/10 text-success text-xs font-bold uppercase rounded border border-success/20">
               Running
             </span>
           )}
@@ -105,7 +105,7 @@ const RunConfigCard = ({ config }: { config: RunConfig }) => {
 
       <div className="space-y-3">
         <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Command</label>
+          <label className="text-xs font-bold text-secondary uppercase tracking-wider">Command</label>
           <div className="relative group/input">
             <Terminal size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary group-focus-within/input:text-accent transition-colors" />
             <input 
@@ -119,7 +119,7 @@ const RunConfigCard = ({ config }: { config: RunConfig }) => {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Description</label>
+            <label className="text-xs font-bold text-secondary uppercase tracking-wider">Description</label>
             <input 
               value={config.description}
               onChange={(e) => updateConfig(config.id, { description: e.target.value })}
@@ -128,7 +128,7 @@ const RunConfigCard = ({ config }: { config: RunConfig }) => {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Port</label>
+            <label className="text-xs font-bold text-secondary uppercase tracking-wider">Port</label>
             <input 
               type="number"
               value={config.port || ''}
@@ -194,7 +194,7 @@ export default function WorkflowsTab() {
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Run Configurations</h3>
-                    <span className="text-[10px] text-secondary font-medium">{configs.length} configured</span>
+                    <span className="text-xs text-secondary font-medium">{configs.length} configured</span>
                   </div>
                   <div className="space-y-1">
                     {configs.map(config => (
@@ -214,7 +214,7 @@ export default function WorkflowsTab() {
                   <div className="grid grid-cols-1 gap-6">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">On Start</label>
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">On Start</label>
                         <span className="text-[9px] text-tertiary">Runs when workspace opens</span>
                       </div>
                       <input 
@@ -226,7 +226,7 @@ export default function WorkflowsTab() {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">On File Change</label>
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">On File Change</label>
                         <span className="text-[9px] text-tertiary">Runs on save</span>
                       </div>
                       <input 
@@ -238,7 +238,7 @@ export default function WorkflowsTab() {
 
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Pre-deploy</label>
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">Pre-deploy</label>
                         <span className="text-[9px] text-tertiary">Runs before publishing</span>
                       </div>
                       <input 
@@ -265,12 +265,12 @@ export default function WorkflowsTab() {
                 <section className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Cpu size={14} className="text-accent" />
-                    <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider">Environment</h3>
+                    <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Environment</h3>
                   </div>
                   
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Node.js Version</label>
+                      <label className="text-xs font-bold text-secondary uppercase tracking-wider">Node.js Version</label>
                       <Select.Root value={nodeVersion} onValueChange={setNodeVersion}>
                         <Select.Trigger className="w-full flex items-center justify-between px-3 py-2 bg-page border border-default rounded-xl text-xs text-primary outline-none hover:border-subtle transition-all">
                           <Select.Value />
@@ -293,7 +293,7 @@ export default function WorkflowsTab() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Package Manager</label>
+                      <label className="text-xs font-bold text-secondary uppercase tracking-wider">Package Manager</label>
                       <Select.Root value={packageManager} onValueChange={setPackageManager}>
                         <Select.Trigger className="w-full flex items-center justify-between px-3 py-2 bg-page border border-default rounded-xl text-xs text-primary outline-none hover:border-subtle transition-all">
                           <Select.Value />
@@ -333,7 +333,7 @@ export default function WorkflowsTab() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Globe size={14} className="text-success" />
-                      <h3 className="text-[10px] font-bold text-secondary uppercase tracking-wider">Ports</h3>
+                      <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Ports</h3>
                     </div>
                     <form onSubmit={handleAddPort} className="flex gap-1">
                       <input 
@@ -341,7 +341,7 @@ export default function WorkflowsTab() {
                         value={newPort}
                         onChange={(e) => setNewPort(e.target.value)}
                         placeholder="Port"
-                        className="w-16 bg-page border border-default rounded-lg px-2 py-1 text-[10px] text-primary outline-none focus:border-accent/50"
+                        className="w-16 bg-page border border-default rounded-lg px-2 py-1 text-xs text-primary outline-none focus:border-accent/50"
                       />
                       <button type="submit" className="p-1 bg-accent hover:bg-accent-hover text-white rounded-lg">
                         <Plus size={14} />

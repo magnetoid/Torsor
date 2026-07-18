@@ -23,7 +23,7 @@ function compact(n: number): string {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <Card className="p-3">
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-tertiary">{label}</div>
+      <div className="text-xs font-semibold uppercase tracking-wide text-tertiary">{label}</div>
       <div className="mt-1 text-2xl font-bold text-primary">{value}</div>
     </Card>
   );

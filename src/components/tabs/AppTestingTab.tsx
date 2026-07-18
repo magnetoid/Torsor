@@ -86,7 +86,7 @@ const BrowserViewport = ({ isRunning }: { isRunning: boolean }) => {
           <div className="w-2.5 h-2.5 rounded-full bg-success" />
         </div>
         <div className="flex-1 max-w-md h-5 bg-inset rounded border border-default flex items-center px-2">
-          <span className="text-[10px] text-tertiary truncate">https://torsor-app-3000.preview.torsor.io/login</span>
+          <span className="text-xs text-tertiary truncate">https://torsor-app-3000.preview.torsor.io/login</span>
         </div>
       </div>
 
@@ -151,11 +151,11 @@ const TestLog = ({ steps, elapsedTime }: { steps: TestStep[]; elapsedTime: numbe
     <div className="h-10 px-4 flex items-center justify-between border-b border-default bg-elevated">
       <div className="flex items-center gap-2">
         <Loader2 size={14} className="text-accent animate-spin" />
-        <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Test Log</span>
+        <span className="text-xs font-bold text-primary uppercase tracking-wider">Test Log</span>
       </div>
       <div className="flex items-center gap-2 text-secondary">
         <Clock size={12} />
-        <span className="text-[10px] font-mono">{elapsedTime}s elapsed</span>
+        <span className="text-xs font-mono">{elapsedTime}s elapsed</span>
       </div>
     </div>
     <ScrollArea.Root className="flex-1">
@@ -264,7 +264,7 @@ export default function AppTestingTab() {
         </header>
 
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-2xl mx-auto">
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
+          <div className="w-16 h-16 rounded-xl bg-accent/10 flex items-center justify-center mb-6">
             <MonitorPlay size={32} className="text-accent" />
           </div>
           <h2 className="text-2xl font-bold text-primary mb-3 tracking-tight">Test your app automatically</h2>
@@ -367,7 +367,7 @@ export default function AppTestingTab() {
         <ScrollArea.Viewport className="h-full">
           <div className="p-8 max-w-4xl mx-auto space-y-8">
             {/* Summary Card */}
-            <div className="bg-surface border border-default rounded-2xl p-8 flex items-center justify-between">
+            <div className="bg-surface border border-default rounded-xl p-8 flex items-center justify-between">
               <div className="flex items-center gap-8">
                 <div className="relative w-24 h-24">
                   <svg className="w-full h-full transform -rotate-90">
@@ -390,7 +390,7 @@ export default function AppTestingTab() {
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-black text-primary">{results?.passed}/{results?.total}</span>
-                    <span className="text-[10px] font-bold text-secondary uppercase">Passed</span>
+                    <span className="text-xs font-bold text-secondary uppercase">Passed</span>
                   </div>
                 </div>
                 <div>
@@ -404,11 +404,11 @@ export default function AppTestingTab() {
               </div>
               <div className="flex gap-2">
                 <div className="px-4 py-2 bg-elevated rounded-xl border border-default text-center">
-                  <p className="text-[10px] font-bold text-secondary uppercase">Duration</p>
+                  <p className="text-xs font-bold text-secondary uppercase">Duration</p>
                   <p className="text-lg font-bold text-primary">{results?.duration}s</p>
                 </div>
                 <div className="px-4 py-2 bg-elevated rounded-xl border border-default text-center">
-                  <p className="text-[10px] font-bold text-secondary uppercase">Coverage</p>
+                  <p className="text-xs font-bold text-secondary uppercase">Coverage</p>
                   <p className="text-lg font-bold text-primary">84%</p>
                 </div>
               </div>
@@ -423,7 +423,7 @@ export default function AppTestingTab() {
                 </div>
                 <div className="grid grid-cols-1 gap-4">
                   {results.issues.map(issue => (
-                    <div key={issue.id} className="bg-surface border border-error/20 rounded-2xl overflow-hidden flex">
+                    <div key={issue.id} className="bg-surface border border-error/20 rounded-xl overflow-hidden flex">
                       <div className="w-1/3 aspect-video bg-inset border-r border-default">
                         <img src={issue.screenshot} alt="Failure" className="w-full h-full object-cover opacity-80" />
                       </div>
@@ -434,8 +434,8 @@ export default function AppTestingTab() {
                         </div>
                         <div className="flex items-center justify-between mt-4">
                           <div className="flex items-center gap-4">
-                            <span className="text-[10px] font-bold text-error uppercase bg-error/10 px-2 py-0.5 rounded border border-error/20">Critical</span>
-                            <span className="text-[10px] text-secondary">Failed at step 4: Form Validation</span>
+                            <span className="text-xs font-bold text-error uppercase bg-error/10 px-2 py-0.5 rounded border border-error/20">Critical</span>
+                            <span className="text-xs text-secondary">Failed at step 4: Form Validation</span>
                           </div>
                           <button 
                             onClick={() => openTab('skills')}
@@ -458,13 +458,13 @@ export default function AppTestingTab() {
                 <History size={16} className="text-accent" />
                 <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Full Test Report</h3>
               </div>
-              <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+              <div className="bg-surface border border-default rounded-xl overflow-hidden">
                 <table className="w-full text-left">
                   <thead className="bg-elevated border-b border-default">
                     <tr>
-                      <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Step</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Description</th>
-                      <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Status</th>
+                      <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Step</th>
+                      <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider text-right">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-default">
@@ -494,7 +494,7 @@ export default function AppTestingTab() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className={cn(
-                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-bold uppercase",
                             step.status === 'pass' ? "bg-success/10 text-success" : "bg-error/10 text-error"
                           )}>
                             {step.status === 'pass' ? <CheckCircle2 size={10} /> : <XCircle size={10} />}

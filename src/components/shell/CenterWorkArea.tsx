@@ -34,7 +34,7 @@ export function CenterWorkArea() {
     if (!activeTab) {
       return (
         <div className="flex-1 flex flex-col items-center justify-center text-secondary gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-surface border border-default flex items-center justify-center">
+          <div className="w-16 h-16 rounded-xl bg-surface border border-default flex items-center justify-center">
             <div className="w-8 h-8 bg-elevated rounded-lg" />
           </div>
           <p className="text-sm font-medium">Open a tool from the sidebar</p>

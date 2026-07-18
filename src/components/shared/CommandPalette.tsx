@@ -71,7 +71,7 @@ export function CommandPalette() {
                 <Command.Group
                   key={group}
                   heading={group}
-                  className="px-2 py-1.5 text-[10px] font-bold text-tertiary uppercase tracking-widest"
+                  className="px-2 py-1.5 text-xs font-bold text-tertiary uppercase tracking-widest"
                 >
                   {commands
                     .filter((c) => (c.group || 'Commands') === group)
@@ -94,7 +94,7 @@ export function CommandPalette() {
               {files.length > 0 && (
                 <Command.Group
                   heading="Files"
-                  className="px-2 py-1.5 text-[10px] font-bold text-tertiary uppercase tracking-widest mt-2"
+                  className="px-2 py-1.5 text-xs font-bold text-tertiary uppercase tracking-widest mt-2"
                 >
                   {files.map((file) => (
                     <Item
@@ -142,7 +142,7 @@ function Item({
       <span className="text-secondary">{icon}</span>
       <span className="flex-1">{label}</span>
       {shortcut && <Kbd>{shortcut}</Kbd>}
-      {meta && <span className="text-[10px] text-tertiary font-mono">{meta}</span>}
+      {meta && <span className="text-xs text-tertiary font-mono">{meta}</span>}
     </Command.Item>
   );
 }

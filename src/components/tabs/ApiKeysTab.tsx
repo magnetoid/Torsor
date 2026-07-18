@@ -100,7 +100,7 @@ export function ApiKeysTab() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Local-first note */}
-      <div className="p-5 bg-surface border border-default rounded-2xl flex items-start gap-3">
+      <div className="p-5 bg-surface border border-default rounded-xl flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
           <Cpu size={20} />
         </div>
@@ -116,7 +116,7 @@ export function ApiKeysTab() {
 
       {/* Secrets disabled on this server */}
       {loaded && !enabled && (
-        <div className="p-4 bg-warning/10 border border-warning/20 rounded-2xl flex items-start gap-3">
+        <div className="p-4 bg-warning/10 border border-warning/20 rounded-xl flex items-start gap-3">
           <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
           <p className="text-xs text-secondary leading-relaxed">
             <span className="font-bold text-primary">Secrets are disabled on this server.</span>{' '}
@@ -129,7 +129,7 @@ export function ApiKeysTab() {
       {/* Local provider */}
       <section className="space-y-3">
         <h3 className="text-xs font-bold text-tertiary uppercase tracking-wider">Local</h3>
-        <div className="p-4 bg-surface border border-default rounded-2xl flex items-center gap-4">
+        <div className="p-4 bg-surface border border-default rounded-xl flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl bg-elevated flex items-center justify-center text-secondary shrink-0">
             <Cpu size={20} />
           </div>
@@ -160,7 +160,7 @@ export function ApiKeysTab() {
             const hasKey = savedSecrets.has(p.secret);
             const state = busy[p.id];
             return (
-              <div key={p.id} className="p-4 bg-surface border border-default rounded-2xl space-y-3">
+              <div key={p.id} className="p-4 bg-surface border border-default rounded-xl space-y-3">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-elevated flex items-center justify-center text-secondary shrink-0">
                     <Key size={18} />

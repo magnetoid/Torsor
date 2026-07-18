@@ -58,7 +58,7 @@ export function OnboardingStep4({ data, updateData, onComplete, onBack }: StepPr
               }}
               placeholder="e.g. A SaaS landing page for a coffee subscription service..."
               rows={3}
-              className="w-full bg-page border border-default rounded-2xl px-4 py-4 text-sm text-primary outline-none focus:border-accent transition-all resize-none shadow-sm"
+              className="w-full bg-page border border-default rounded-xl px-4 py-4 text-sm text-primary outline-none focus:border-accent transition-all resize-none shadow-sm"
             />
             <div className="absolute right-3 bottom-3 text-tertiary group-focus-within:text-accent transition-colors">
               <Sparkles size={18} />
@@ -77,7 +77,7 @@ export function OnboardingStep4({ data, updateData, onComplete, onBack }: StepPr
                   setPrompt('');
                 }}
                 className={cn(
-                  "flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all text-center group",
+                  "flex flex-col items-center gap-2 p-3 rounded-xl border transition-all text-center group",
                   templateId === t.id 
                     ? "bg-accent/5 border-accent shadow-sm" 
                     : "bg-page border-default hover:border-accent/50 hover:bg-elevated/50"
@@ -89,7 +89,7 @@ export function OnboardingStep4({ data, updateData, onComplete, onBack }: StepPr
                 )}>
                   <t.icon size={16} />
                 </div>
-                <div className="text-[10px] font-bold text-primary">{t.label}</div>
+                <div className="text-xs font-bold text-primary">{t.label}</div>
               </button>
             ))}
           </div>

@@ -196,7 +196,7 @@ export default function FileTree() {
       </div>
 
       {/* TREE */}
-      <div className="flex-1 overflow-y-auto py-2 no-scrollbar">
+      <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         {files.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-4">
             <EmptyState 

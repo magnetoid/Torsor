@@ -26,7 +26,7 @@ export function Segmented<T extends string>({
   className,
   ...rest
 }: SegmentedProps<T>) {
-  const pad = size === 'sm' ? 'px-2.5 py-1 text-[10px]' : 'px-3 py-1.5 text-xs';
+  const pad = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-xs';
   return (
     <div
       role="tablist"

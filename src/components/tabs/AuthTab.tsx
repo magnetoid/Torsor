@@ -68,7 +68,7 @@ export default function AuthTab() {
   if (!isEnabled) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 bg-page text-center">
-        <div className="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-6">
+        <div className="w-16 h-16 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-6">
           <ShieldCheck size={32} className="text-accent-hover" />
         </div>
         <h2 className="text-xl font-bold text-primary mb-2">Add authentication to your app</h2>
@@ -120,13 +120,13 @@ export default function AuthTab() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-primary">{users.length}</span>
-              <span className="text-[10px] text-secondary uppercase tracking-wider">Users</span>
+              <span className="text-xs font-bold text-primary">{users.length}</span>
+              <span className="text-xs text-secondary uppercase tracking-wider">Users</span>
             </div>
             <div className="w-[1px] h-3 bg-default" />
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-success">12</span>
-              <span className="text-[10px] text-secondary uppercase tracking-wider">Active Sessions</span>
+              <span className="text-xs font-bold text-success">12</span>
+              <span className="text-xs text-secondary uppercase tracking-wider">Active Sessions</span>
             </div>
           </div>
         </div>
@@ -191,12 +191,12 @@ export default function AuthTab() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-default bg-surface/50 sticky top-0 z-10">
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">User</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Created</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Last Login</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">User</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Created</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Last Login</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,13 +207,13 @@ export default function AuthTab() {
                         <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full border border-default" />
                         <div className="flex flex-col min-w-0">
                           <span className="text-xs font-bold text-primary truncate">{user.name}</span>
-                          <span className="text-[10px] text-secondary truncate">{user.email}</span>
+                          <span className="text-xs text-secondary truncate">{user.email}</span>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={cn(
-                        "text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider",
+                        "text-xs px-1.5 py-0.5 rounded font-bold uppercase tracking-wider",
                         user.role === 'admin' ? "bg-accent/10 text-accent-hover" : "bg-elevated text-secondary"
                       )}>
                         {user.role}
@@ -288,7 +288,7 @@ export default function AuthTab() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-primary">{p.label}</p>
-                        <p className="text-[10px] text-secondary">{p.description}</p>
+                        <p className="text-xs text-secondary">{p.description}</p>
                       </div>
                     </div>
                     <Switch.Root 
@@ -313,7 +313,7 @@ export default function AuthTab() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-primary">Session Timeout</p>
-                    <p className="text-[10px] text-secondary">How long users stay logged in</p>
+                    <p className="text-xs text-secondary">How long users stay logged in</p>
                   </div>
                   <select 
                     value={settings.sessionTimeout}
@@ -331,7 +331,7 @@ export default function AuthTab() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-primary">Require Email Verification</p>
-                    <p className="text-[10px] text-secondary">Users must verify email before accessing the app</p>
+                    <p className="text-xs text-secondary">Users must verify email before accessing the app</p>
                   </div>
                   <Switch.Root 
                     checked={settings.requireEmailVerification}
@@ -348,7 +348,7 @@ export default function AuthTab() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs font-bold text-primary">Allow Public Sign-ups</p>
-                    <p className="text-[10px] text-secondary">Anyone can create an account. Disable for invite-only.</p>
+                    <p className="text-xs text-secondary">Anyone can create an account. Disable for invite-only.</p>
                   </div>
                   <Switch.Root 
                     checked={settings.allowSignUps}
@@ -369,7 +369,7 @@ export default function AuthTab() {
               <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4">Redirect URLs</h3>
               <div className="bg-surface border border-default rounded-xl p-4 space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-secondary uppercase mb-1.5">Login Success</label>
+                  <label className="block text-xs font-bold text-secondary uppercase mb-1.5">Login Success</label>
                   <input 
                     type="text" 
                     value={settings.redirects.success}
@@ -378,7 +378,7 @@ export default function AuthTab() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-secondary uppercase mb-1.5">Logout Redirect</label>
+                  <label className="block text-xs font-bold text-secondary uppercase mb-1.5">Logout Redirect</label>
                   <input 
                     type="text" 
                     value={settings.redirects.logout}
@@ -398,7 +398,7 @@ export default function AuthTab() {
               <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4">Branding</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-secondary uppercase mb-1.5">App Title</label>
+                  <label className="block text-xs font-bold text-secondary uppercase mb-1.5">App Title</label>
                   <input 
                     type="text" 
                     value={branding.titleText}
@@ -407,7 +407,7 @@ export default function AuthTab() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-secondary uppercase mb-1.5">Accent Color</label>
+                  <label className="block text-xs font-bold text-secondary uppercase mb-1.5">Accent Color</label>
                   <div className="flex gap-2">
                     <input 
                       type="color" 
@@ -431,7 +431,7 @@ export default function AuthTab() {
                 <Layout size={14} />
                 Customize Code
               </button>
-              <p className="text-[10px] text-secondary text-center mt-3">
+              <p className="text-xs text-secondary text-center mt-3">
                 Opens the login component in the editor for full control.
               </p>
             </div>
@@ -439,7 +439,7 @@ export default function AuthTab() {
 
           {/* Preview Area */}
           <div className="flex-1 bg-page p-12 flex items-center justify-center overflow-auto">
-            <div className="w-full max-w-sm bg-surface border border-default rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="w-full max-w-sm bg-surface border border-default rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
               <div className="p-8 text-center">
                 <div 
                   className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center"
@@ -468,7 +468,7 @@ export default function AuthTab() {
                 {(providers.google || providers.github) && providers.email && (
                   <div className="flex items-center gap-3 py-2">
                     <div className="flex-1 h-[1px] bg-default" />
-                    <span className="text-[10px] text-tertiary font-bold uppercase">or</span>
+                    <span className="text-xs text-tertiary font-bold uppercase">or</span>
                     <div className="flex-1 h-[1px] bg-default" />
                   </div>
                 )}
@@ -476,7 +476,7 @@ export default function AuthTab() {
                 {providers.email && (
                   <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-secondary uppercase">Email Address</label>
+                      <label className="text-xs font-bold text-secondary uppercase">Email Address</label>
                       <input 
                         type="email" 
                         placeholder="name@example.com"
@@ -486,8 +486,8 @@ export default function AuthTab() {
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex justify-between">
-                        <label className="text-[10px] font-bold text-secondary uppercase">Password</label>
-                        <span className="text-[10px] font-bold" style={{ color: branding.accentColor }}>Forgot?</span>
+                        <label className="text-xs font-bold text-secondary uppercase">Password</label>
+                        <span className="text-xs font-bold" style={{ color: branding.accentColor }}>Forgot?</span>
                       </div>
                       <input 
                         type="password" 
@@ -506,7 +506,7 @@ export default function AuthTab() {
                 )}
 
                 {settings.allowSignUps && (
-                  <p className="text-[10px] text-secondary text-center mt-4">
+                  <p className="text-xs text-secondary text-center mt-4">
                     Don't have an account? <span className="font-bold" style={{ color: branding.accentColor }}>Sign up</span>
                   </p>
                 )}

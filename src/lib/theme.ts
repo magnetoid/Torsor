@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useEffect, useState } from 'react';
 
-import { applyTheme, themes, type ThemeAppearance } from '../kernel/theme';
+import { applyTheme, themes, type ThemeAppearance, THEME_TOKEN_NAMES, type ThemeTokens } from '../kernel/theme';
 
 // `Theme` is kept as the appearance type for backward compatibility with existing
 // consumers (Rail, SettingsTab, useTheme, App). The live theme is now driven by the
@@ -57,3 +58,30 @@ export const useThemeStore = create<ThemeState>()(
     }
   )
 );
+
+/** Retrieves the computed CSS hex color values for the active theme. */
+export function useThemeColors(): Partial<ThemeTokens> {
+  const { themeId, theme } = useThemeStore();
+  const [colors, setColors] = useState<Partial<ThemeTokens>>({});
+
+  useEffect(() => {
+    // Wait for the next tick to ensure CSS has updated
+    const timer = setTimeout(() => {
+      const computed = getComputedStyle(document.documentElement);
+      const extracted: Partial<ThemeTokens> = {};
+      for (const name of THEME_TOKEN_NAMES) {
+        const val = computed.getPropertyValue(`--${name}`).trim();
+        if (val) {
+          // If the variable defines rgb or rgba, we might need a converter, 
+          // but the current CSS uses hex or rgba string directly.
+          extracted[name] = val;
+        }
+      }
+      setColors(extracted);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [themeId, theme]);
+
+  return colors;
+}
+

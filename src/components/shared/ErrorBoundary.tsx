@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="min-h-[400px] flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
-          <div className="w-16 h-16 bg-error/10 text-error rounded-2xl flex items-center justify-center mb-6 border border-error/20 shadow-lg shadow-error/10">
+          <div className="w-16 h-16 bg-error/10 text-error rounded-xl flex items-center justify-center mb-6 border border-error/20 shadow-lg shadow-error/10">
             <AlertTriangle size={32} />
           </div>
           
@@ -84,7 +84,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="w-full max-w-lg bg-surface border border-default rounded-xl overflow-hidden shadow-sm">
               <button 
                 onClick={this.toggleDetails}
-                className="w-full px-4 py-2 flex items-center justify-between text-[10px] font-bold text-tertiary uppercase tracking-wider hover:bg-elevated transition-colors"
+                className="w-full px-4 py-2 flex items-center justify-between text-xs font-bold text-tertiary uppercase tracking-wider hover:bg-elevated transition-colors"
               >
                 Error details
                 {this.state.showDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}

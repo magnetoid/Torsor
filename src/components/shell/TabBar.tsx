@@ -131,7 +131,7 @@ export function TabBar() {
             {contributions.tabsByGroup().map(({ group, tabs }, gi) => (
               <React.Fragment key={group.id}>
                 {gi > 0 && <DropdownMenu.Separator className="h-[1px] bg-border-subtle my-1" />}
-                <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-tertiary">
+                <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-xs font-medium uppercase tracking-wider text-tertiary">
                   {group.label}
                 </DropdownMenu.Label>
                 {tabs.map((tab) => {

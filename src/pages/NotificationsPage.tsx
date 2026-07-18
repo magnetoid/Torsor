@@ -116,7 +116,7 @@ export const NotificationsPage: React.FC = () => {
             </div>
 
             {/* Notifications List */}
-            <div className="bg-surface border border-default rounded-2xl overflow-hidden shadow-sm">
+            <div className="bg-surface border border-default rounded-xl overflow-hidden shadow-sm">
               {filteredNotifications.length > 0 ? (
                 <div className="divide-y divide-subtle">
                   {filteredNotifications.map((notification) => (
@@ -145,7 +145,7 @@ export const NotificationsPage: React.FC = () => {
                           )}>
                             {notification.title}
                           </h3>
-                          <span className="text-[10px] font-medium text-tertiary">
+                          <span className="text-xs font-medium text-tertiary">
                             {formatDistanceToNow(notification.timestamp)}
                           </span>
                         </div>

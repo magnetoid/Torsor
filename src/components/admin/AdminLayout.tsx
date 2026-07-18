@@ -54,7 +54,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           <div className="flex flex-col min-w-0">
             <span className="font-bold text-primary tracking-tight leading-tight">Torsor Admin</span>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary truncate">
+            <span className="text-xs font-bold uppercase tracking-wider text-tertiary truncate">
               {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}
             </span>
           </div>
@@ -84,7 +84,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="p-4 border-t border-default space-y-1">
           <div className="px-3 pb-2">
             <div className="text-xs font-medium text-primary truncate">{user.name}</div>
-            <div className="text-[10px] text-tertiary truncate">{user.email}</div>
+            <div className="text-xs text-tertiary truncate">{user.email}</div>
           </div>
           <Link
             to="/"

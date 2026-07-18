@@ -142,7 +142,7 @@ export function AdminUsersTab() {
       </div>
 
       {/* Table */}
-      <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-default rounded-xl overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-default bg-elevated/50">
@@ -159,12 +159,12 @@ export function AdminUsersTab() {
                   {users.length > 0 && selectedUsers.length === users.length && <CheckCircle2 size={12} />}
                 </button>
               </th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">User</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Projects</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Role</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Last Active</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">User</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Projects</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Role</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Last Active</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-default">
@@ -206,7 +206,7 @@ export function AdminUsersTab() {
                 </td>
                 <td className="px-6 py-4">
                   <div className={cn(
-                    "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
+                    "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider w-fit",
                     user.role === 'super_admin' ? "bg-accent/10 text-accent" :
                     user.role === 'admin' ? "bg-info/10 text-info" :
                     "bg-elevated text-tertiary"
@@ -222,7 +222,7 @@ export function AdminUsersTab() {
                 </td>
                 <td className="px-6 py-4">
                   <div className={cn(
-                    "flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
+                    "flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider w-fit",
                     user.status === 'active' ? "bg-success/10 text-success" : "bg-error/10 text-error"
                   )}>
                     {user.status === 'active' ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
@@ -254,7 +254,7 @@ export function AdminUsersTab() {
                           Grant Credits
                         </DropdownMenu.Item>
                         <DropdownMenu.Separator className="h-px bg-default my-1" />
-                        <DropdownMenu.Label className="px-3 py-1 text-[10px] font-bold text-tertiary uppercase tracking-wider">Set role</DropdownMenu.Label>
+                        <DropdownMenu.Label className="px-3 py-1 text-xs font-bold text-tertiary uppercase tracking-wider">Set role</DropdownMenu.Label>
                         {ROLE_OPTIONS.filter((role) => role !== user.role).map((role) => (
                           <DropdownMenu.Item
                             key={role}
@@ -320,9 +320,9 @@ export function AdminUsersTab() {
       <Dialog.Root open={grantCreditsOpen} onOpenChange={setGrantCreditsOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] animate-in fade-in duration-300" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-surface border border-default rounded-3xl p-8 shadow-2xl z-[201] animate-in zoom-in-95 duration-200">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-surface border border-default rounded-xl p-8 shadow-2xl z-[201] animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
+              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                 <CreditCard size={24} />
               </div>
               <div>
@@ -343,7 +343,7 @@ export function AdminUsersTab() {
                   className="w-full bg-page border border-default rounded-xl px-4 py-3 text-sm text-primary outline-none focus:border-accent transition-colors"
                 />
               </div>
-              <div className="p-4 bg-accent/5 border border-accent/10 rounded-2xl text-xs text-accent leading-relaxed">
+              <div className="p-4 bg-accent/5 border border-accent/10 rounded-xl text-xs text-accent leading-relaxed">
                 Tokens will be added to the users' managed credit pool and will not expire.
               </div>
             </div>

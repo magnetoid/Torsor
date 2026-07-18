@@ -70,7 +70,7 @@ export function AgentSettingsTab() {
                 key={mode.id}
                 onClick={() => handleModeChange(mode.id as any)}
                 className={cn(
-                  "flex flex-col p-4 rounded-2xl border text-left transition-all relative group",
+                  "flex flex-col p-4 rounded-xl border text-left transition-all relative group",
                   economyMode === mode.id 
                     ? "bg-accent-muted border-accent ring-1 ring-accent" 
                     : "bg-surface border-default hover:border-accent/30",
@@ -83,7 +83,7 @@ export function AgentSettingsTab() {
                 </div>
                 <div className="mt-3 font-bold text-sm text-primary">{mode.label}</div>
                 <div className="mt-1 text-xs text-secondary leading-relaxed">{mode.desc}</div>
-                <div className="mt-auto pt-4 text-[10px] font-bold uppercase tracking-wider text-accent">{mode.price}</div>
+                <div className="mt-auto pt-4 text-xs font-bold uppercase tracking-wider text-accent">{mode.price}</div>
               </button>
             );
           })}
@@ -92,7 +92,7 @@ export function AgentSettingsTab() {
 
       {/* Toggles */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
               <Brain size={20} />
@@ -111,7 +111,7 @@ export function AgentSettingsTab() {
           </Switch.Root>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-2xl">
+        <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center text-success">
               <Rocket size={20} />
@@ -137,16 +137,16 @@ export function AgentSettingsTab() {
           <Cpu className="text-accent" size={18} />
           <h3 className="text-sm font-bold uppercase tracking-wider">Model Array</h3>
         </div>
-        <div className="bg-surface border border-default rounded-2xl overflow-hidden divide-y divide-default">
+        <div className="bg-surface border border-default rounded-xl overflow-hidden divide-y divide-default">
           {models.map((model) => (
             <div key={model.id} className="flex items-center justify-between p-4 hover:bg-elevated/30 transition-colors">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-elevated flex items-center justify-center text-secondary text-[10px] font-bold">
+                <div className="w-8 h-8 rounded-lg bg-elevated flex items-center justify-center text-secondary text-xs font-bold">
                   {model.provider.charAt(0)}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-primary">{model.name}</div>
-                  <div className="text-[10px] text-tertiary uppercase font-bold tracking-wider">{model.provider}</div>
+                  <div className="text-xs text-tertiary uppercase font-bold tracking-wider">{model.provider}</div>
                 </div>
               </div>
               <Switch.Root 
@@ -162,7 +162,7 @@ export function AgentSettingsTab() {
 
       {/* Advanced Settings */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+        <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
           <div className="flex items-center gap-2">
             <Settings2 className="text-accent" size={18} />
             <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Consensus Threshold</h3>
@@ -184,13 +184,13 @@ export function AgentSettingsTab() {
               </Slider.Track>
               <Slider.Thumb className="block w-4 h-4 bg-white border-2 border-accent rounded-full hover:scale-110 transition-transform focus:outline-none shadow-lg" />
             </Slider.Root>
-            <p className="text-[10px] text-tertiary leading-relaxed">
+            <p className="text-xs text-tertiary leading-relaxed">
               Higher threshold increases accuracy but may increase latency and cost by requiring more models to agree.
             </p>
           </div>
         </div>
 
-        <div className="p-6 bg-surface border border-default rounded-3xl space-y-6">
+        <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
           <div className="flex items-center gap-2">
             <History className="text-accent" size={18} />
             <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Context Management</h3>
@@ -217,14 +217,14 @@ export function AgentSettingsTab() {
                         className="flex flex-col px-3 py-2 text-sm text-secondary data-[highlighted]:text-primary data-[highlighted]:bg-accent/10 rounded-lg outline-none cursor-pointer"
                       >
                         <Select.ItemText className="font-medium">{item.label}</Select.ItemText>
-                        <div className="text-[10px] opacity-70">{item.desc}</div>
+                        <div className="text-xs opacity-70">{item.desc}</div>
                       </Select.Item>
                     ))}
                   </Select.Viewport>
                 </Select.Content>
               </Select.Portal>
             </Select.Root>
-            <p className="text-[10px] text-tertiary leading-relaxed">
+            <p className="text-xs text-tertiary leading-relaxed">
               Determines how much conversation history is sent to the models. Auto-summarize is recommended for long sessions.
             </p>
           </div>

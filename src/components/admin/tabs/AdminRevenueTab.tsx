@@ -62,13 +62,13 @@ export function AdminRevenueTab() {
           { label: 'Churn Rate', value: '2.4%', change: '-0.5%', icon: UserMinus, color: 'text-error', bg: 'bg-error/10', inverse: true },
           { label: 'Net Revenue', value: '$12,450', change: '+15%', icon: CreditCard, color: 'text-success', bg: 'bg-success/10' },
         ].map((stat, i) => (
-          <div key={i} className="bg-surface border border-default rounded-2xl p-6 space-y-4 shadow-sm">
+          <div key={i} className="bg-surface border border-default rounded-xl p-6 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", stat.bg, stat.color)}>
                 <stat.icon size={20} />
               </div>
               <div className={cn(
-                "flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider",
                 stat.inverse 
                   ? (stat.change.startsWith('-') ? "bg-success/10 text-success" : "bg-error/10 text-error")
                   : (stat.change.startsWith('+') ? "bg-success/10 text-success" : "bg-error/10 text-error")
@@ -87,7 +87,7 @@ export function AdminRevenueTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* MRR Breakdown */}
-        <div className="bg-surface border border-default rounded-3xl p-6 space-y-6">
+        <div className="bg-surface border border-default rounded-xl p-6 space-y-6">
           <div className="flex items-center gap-2">
             <TrendingUp className="text-accent" size={18} />
             <h3 className="text-sm font-bold uppercase tracking-wider">MRR Breakdown by Plan</h3>
@@ -126,7 +126,7 @@ export function AdminRevenueTab() {
         </div>
 
         {/* Revenue by Month */}
-        <div className="bg-surface border border-default rounded-3xl p-6 space-y-6">
+        <div className="bg-surface border border-default rounded-xl p-6 space-y-6">
           <div className="flex items-center gap-2">
             <CreditCard className="text-accent" size={18} />
             <h3 className="text-sm font-bold uppercase tracking-wider">Revenue by Month</h3>
@@ -173,17 +173,17 @@ export function AdminRevenueTab() {
           </button>
         </div>
 
-        <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+        <div className="bg-surface border border-default rounded-xl overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-default bg-elevated/50">
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Workspace</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Plan</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Started</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Next Billing</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Workspace</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Plan</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Amount</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Started</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Next Billing</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default">
@@ -194,7 +194,7 @@ export function AdminRevenueTab() {
                   </td>
                   <td className="px-6 py-4">
                     <div className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
+                      "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider w-fit",
                       sub.plan === 'pro' ? "bg-accent/10 text-accent" :
                       sub.plan === 'team' ? "bg-info/10 text-info" :
                       "bg-success/10 text-success"
@@ -204,11 +204,11 @@ export function AdminRevenueTab() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="text-sm font-bold text-primary">{sub.amount}</span>
-                    <span className="text-[10px] text-tertiary ml-1">/mo</span>
+                    <span className="text-xs text-tertiary ml-1">/mo</span>
                   </td>
                   <td className="px-6 py-4">
                     <div className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
+                      "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider w-fit",
                       sub.status === 'active' ? "bg-success/10 text-success" : "bg-error/10 text-error"
                     )}>
                       {sub.status}

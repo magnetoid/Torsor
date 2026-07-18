@@ -232,8 +232,8 @@ export function ProjectsPage() {
                         </DropdownMenu.Root>
                       </div>
                       <div className="mt-auto pt-4 flex items-center justify-between">
-                        <span className="text-[10px] text-secondary uppercase tracking-wider font-semibold">{project.vibe || project.type}</span>
-                        <span className="text-[10px] text-secondary uppercase tracking-wider font-semibold">Updated {project.lastEdited}</span>
+                        <span className="text-xs text-secondary uppercase tracking-wider font-semibold">{project.vibe || project.type}</span>
+                        <span className="text-xs text-secondary uppercase tracking-wider font-semibold">Updated {project.lastEdited}</span>
                       </div>
                     </div>
                   </div>
@@ -251,7 +251,7 @@ export function ProjectsPage() {
               ) : filteredProjects.length > 0 ? (
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="border-b border-default text-[10px] uppercase tracking-wider font-semibold text-secondary">
+                    <tr className="border-b border-default text-xs uppercase tracking-wider font-semibold text-secondary">
                       <th className="px-4 py-3">Project Name</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Last Edited</th><th className="px-4 py-3">Visibility</th><th className="px-4 py-3 w-10"></th>
                     </tr>
                   </thead>

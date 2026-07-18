@@ -19,7 +19,7 @@ export function NotFoundPage() {
       <div className="relative mb-12">
         <div className="text-[180px] font-black text-elevated leading-none select-none">404</div>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-24 h-24 bg-surface border border-default rounded-3xl flex items-center justify-center text-accent shadow-2xl rotate-12">
+          <div className="w-24 h-24 bg-surface border border-default rounded-xl flex items-center justify-center text-accent shadow-2xl rotate-12">
             <Search size={48} strokeWidth={1.5} />
           </div>
         </div>
@@ -36,7 +36,7 @@ export function NotFoundPage() {
       <div className="flex flex-col sm:flex-row items-center gap-4">
         <Button 
           onClick={() => navigate(-1)}
-          className="bg-elevated hover:bg-inset text-primary px-8 py-3 rounded-2xl font-bold text-sm border border-default transition-all flex items-center gap-2"
+          className="bg-elevated hover:bg-inset text-primary px-8 py-3 rounded-xl font-bold text-sm border border-default transition-all flex items-center gap-2"
         >
           <ArrowLeft size={18} />
           Go back
@@ -44,7 +44,7 @@ export function NotFoundPage() {
         
         <Button 
           onClick={() => navigate('/')}
-          className="bg-accent hover:bg-accent-hover text-white px-8 py-3 rounded-2xl font-bold text-sm shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
+          className="bg-accent hover:bg-accent-hover text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
         >
           <Home size={18} />
           Go home
@@ -52,7 +52,7 @@ export function NotFoundPage() {
       </div>
 
       <div className="mt-24 pt-8 border-t border-default w-full max-w-sm">
-        <p className="text-[10px] font-bold text-tertiary uppercase tracking-widest mb-4">Need help?</p>
+        <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-4">Need help?</p>
         <div className="flex justify-center gap-6">
           <a href="#" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Documentation</a>
           <a href="#" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Support</a>

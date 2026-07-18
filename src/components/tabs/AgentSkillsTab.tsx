@@ -89,7 +89,7 @@ export default function AgentSkillsTab() {
         </div>
         <button 
           onClick={() => setIsAddingSkill(true)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent text-white text-[10px] font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
         >
           <Plus size={14} />
           Add Skill
@@ -175,7 +175,7 @@ export default function AgentSkillsTab() {
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Skill Name</label>
+                    <label className="text-xs font-bold text-secondary uppercase tracking-wider">Skill Name</label>
                     <input 
                       type="text" 
                       placeholder="e.g. Zod Validation"
@@ -185,7 +185,7 @@ export default function AgentSkillsTab() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Description</label>
+                    <label className="text-xs font-bold text-secondary uppercase tracking-wider">Description</label>
                     <input 
                       type="text" 
                       placeholder="What does this skill do?"
@@ -195,7 +195,7 @@ export default function AgentSkillsTab() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Instruction (System Prompt Addition)</label>
+                    <label className="text-xs font-bold text-secondary uppercase tracking-wider">Instruction (System Prompt Addition)</label>
                     <textarea 
                       placeholder="When building forms, always use Zod for validation..."
                       value={newSkill.instruction}
@@ -207,13 +207,13 @@ export default function AgentSkillsTab() {
                 <div className="flex gap-2 pt-2">
                   <button 
                     onClick={() => setIsAddingSkill(false)}
-                    className="flex-1 px-3 py-2 rounded-lg border border-default text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-elevated transition-colors"
+                    className="flex-1 px-3 py-2 rounded-lg border border-default text-primary text-xs font-bold uppercase tracking-wider hover:bg-elevated transition-colors"
                   >
                     Cancel
                   </button>
                   <button 
                     onClick={addCustomSkill}
-                    className="flex-1 px-3 py-2 rounded-lg bg-accent text-white text-[10px] font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
+                    className="flex-1 px-3 py-2 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
                   >
                     Add Skill
                   </button>
@@ -234,13 +234,13 @@ export default function AgentSkillsTab() {
         </section>
 
         {/* USAGE STATS */}
-        <section className="bg-surface rounded-2xl border border-default p-6">
+        <section className="bg-surface rounded-xl border border-default p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <BarChart3 size={16} className="text-accent" />
               <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Skill Usage (This Session)</h3>
             </div>
-            <div className="flex items-center gap-1 text-[10px] text-secondary">
+            <div className="flex items-center gap-1 text-xs text-secondary">
               <Info size={12} />
               <span>Updated in real-time</span>
             </div>
@@ -248,7 +248,7 @@ export default function AgentSkillsTab() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {skills.filter(s => s.uses > 10).map(skill => (
               <div key={skill.id} className="space-y-2">
-                <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
+                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-tighter">
                   <span className="text-secondary">{skill.name}</span>
                   <span className="text-accent">{skill.uses}</span>
                 </div>
@@ -261,7 +261,7 @@ export default function AgentSkillsTab() {
               </div>
             ))}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tighter">
+              <div className="flex items-center justify-between text-xs font-bold uppercase tracking-tighter">
                 <span className="text-secondary">Total Actions</span>
                 <span className="text-success">121</span>
               </div>

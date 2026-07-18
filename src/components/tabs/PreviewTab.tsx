@@ -141,7 +141,7 @@ export default function PreviewTab() {
     <div className="flex flex-col h-full bg-page overflow-hidden">
       {/* TOOLBAR */}
       <header className="h-9 bg-surface border-b border-default flex items-center px-2 gap-1 shrink-0 z-10">
-        <div className="bg-elevated rounded-md px-2 py-0.5 text-[10px] font-bold text-tertiary uppercase tracking-wider cursor-not-allowed opacity-50">
+        <div className="bg-elevated rounded-md px-2 py-0.5 text-xs font-bold text-tertiary uppercase tracking-wider cursor-not-allowed opacity-50">
           Canvas
         </div>
         
@@ -179,7 +179,7 @@ export default function PreviewTab() {
             readOnly
             value={previewUrl ? previewUrl.split('?')[0] : ''}
             placeholder="Run your app to see the live preview"
-            className="bg-transparent text-[10px] text-secondary font-mono outline-none w-full"
+            className="bg-transparent text-xs text-secondary font-mono outline-none w-full"
           />
         </div>
 
@@ -205,7 +205,7 @@ export default function PreviewTab() {
                 </button>
               </Tooltip.Trigger>
               <Tooltip.Portal>
-                <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
+                <Tooltip.Content className="bg-elevated text-primary text-xs px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
                   {!ve.available
                     ? 'Visual edits need the same-origin preview'
                     : ve.selectMode
@@ -225,7 +225,7 @@ export default function PreviewTab() {
                 </button>
               </Tooltip.Trigger>
               <Tooltip.Portal>
-                <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
+                <Tooltip.Content className="bg-elevated text-primary text-xs px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
                   Edit Page
                 </Tooltip.Content>
               </Tooltip.Portal>
@@ -241,7 +241,7 @@ export default function PreviewTab() {
                 </button>
               </Tooltip.Trigger>
               <Tooltip.Portal>
-                <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
+                <Tooltip.Content className="bg-elevated text-primary text-xs px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
                   Copy URL
                 </Tooltip.Content>
               </Tooltip.Portal>
@@ -259,7 +259,7 @@ export default function PreviewTab() {
                 </a>
               </Tooltip.Trigger>
               <Tooltip.Portal>
-                <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
+                <Tooltip.Content className="bg-elevated text-primary text-xs px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
                   Open in New Tab
                 </Tooltip.Content>
               </Tooltip.Portal>
@@ -319,7 +319,7 @@ export default function PreviewTab() {
         >
           <div className="flex items-center gap-2">
             <Terminal size={10} className={cn("transition-colors", isConsoleOpen ? "text-accent" : "text-tertiary")} />
-            <span className={cn("text-[10px] font-bold uppercase tracking-wider", isConsoleOpen ? "text-primary" : "text-tertiary")}>Console</span>
+            <span className={cn("text-xs font-bold uppercase tracking-wider", isConsoleOpen ? "text-primary" : "text-tertiary")}>Console</span>
             {consoleLogs.length > 0 && !isConsoleOpen && (
               <span className="w-1.5 h-1.5 rounded-full bg-accent" />
             )}
@@ -338,7 +338,7 @@ export default function PreviewTab() {
         </button>
         
         {isConsoleOpen && (
-          <div className="flex-1 overflow-y-auto p-2 font-mono text-[10px] space-y-1 bg-inset">
+          <div className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-1 bg-inset">
             {consoleLogs.length === 0 ? (
               <div className="h-full flex items-center justify-center text-tertiary italic">
                 No logs to display

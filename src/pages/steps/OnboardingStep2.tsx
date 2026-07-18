@@ -37,7 +37,7 @@ export function OnboardingStep2({ data, updateData, onNext, onBack }: StepProps)
             key={r.id}
             onClick={() => setRole(r.id)}
             className={cn(
-              "flex items-center gap-4 p-4 rounded-2xl border transition-all text-left group",
+              "flex items-center gap-4 p-4 rounded-xl border transition-all text-left group",
               role === r.id 
                 ? "bg-accent/5 border-accent shadow-sm" 
                 : "bg-page border-default hover:border-accent/50 hover:bg-elevated/50"

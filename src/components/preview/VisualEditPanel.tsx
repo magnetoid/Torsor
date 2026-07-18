@@ -49,11 +49,11 @@ export function VisualEditPanel({
     <div className="shrink-0 border-t border-default bg-surface px-3 py-2 space-y-2">
       <div className="flex items-center gap-2 min-w-0">
         <MousePointerClick size={12} className="text-accent shrink-0" />
-        <span className="text-[10px] font-mono text-secondary truncate" title={breadcrumb}>
+        <span className="text-xs font-mono text-secondary truncate" title={breadcrumb}>
           {breadcrumb}
         </span>
         {statusLine && (
-          <span className={cn('ml-auto text-[10px] shrink-0 flex items-center gap-1', statusLine.tone)}>
+          <span className={cn('ml-auto text-xs shrink-0 flex items-center gap-1', statusLine.tone)}>
             {status.kind === 'locating' && <Loader2 size={10} className="animate-spin" />}
             {status.kind === 'applied' && <Check size={10} />}
             {status.kind === 'ambiguous' && <AlertTriangle size={10} />}
@@ -74,38 +74,38 @@ export function VisualEditPanel({
           <button
             onClick={onApply}
             disabled={!dirty || locating}
-            className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover disabled:opacity-40 text-white text-[10px] font-bold transition-colors shrink-0"
+            className="px-3 py-1.5 rounded-lg bg-accent hover:bg-accent-hover disabled:opacity-40 text-white text-xs font-bold transition-colors shrink-0"
           >
             Apply to source
           </button>
           <button
             onClick={onAskAgent}
             disabled={!dirty || locating}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-default text-secondary hover:text-primary disabled:opacity-40 text-[10px] font-bold transition-colors shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-default text-secondary hover:text-primary disabled:opacity-40 text-xs font-bold transition-colors shrink-0"
           >
             <MessageSquare size={10} /> Ask agent
           </button>
           <button
             onClick={onDiscard}
-            className="px-2.5 py-1.5 rounded-lg text-tertiary hover:text-primary text-[10px] font-bold transition-colors shrink-0"
+            className="px-2.5 py-1.5 rounded-lg text-tertiary hover:text-primary text-xs font-bold transition-colors shrink-0"
           >
             Discard
           </button>
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <p className="flex-1 text-[10px] text-tertiary">
+          <p className="flex-1 text-xs text-tertiary">
             This element has nested content — describe the change and the agent will make it.
           </p>
           <button
             onClick={onAskAgent}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-[10px] font-bold transition-colors shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-bold transition-colors shrink-0"
           >
             <MessageSquare size={10} /> Ask agent about this element
           </button>
           <button
             onClick={onDiscard}
-            className="px-2.5 py-1.5 rounded-lg text-tertiary hover:text-primary text-[10px] font-bold transition-colors shrink-0"
+            className="px-2.5 py-1.5 rounded-lg text-tertiary hover:text-primary text-xs font-bold transition-colors shrink-0"
           >
             Dismiss
           </button>

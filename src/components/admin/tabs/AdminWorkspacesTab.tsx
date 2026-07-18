@@ -61,20 +61,20 @@ export function AdminWorkspacesTab() {
       <div className="flex gap-6">
         {/* Table */}
         <div className={cn(
-          "bg-surface border border-default rounded-2xl overflow-hidden transition-all duration-300",
+          "bg-surface border border-default rounded-xl overflow-hidden transition-all duration-300",
           selectedWorkspace ? "flex-1" : "w-full"
         )}>
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-default bg-elevated/50">
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Workspace</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Owner</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Plan</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-center">Members</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-center">Projects</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Tokens</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Created</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Workspace</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Owner</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Plan</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider text-center">Members</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider text-center">Projects</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Tokens</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Created</th>
+                <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default">
@@ -100,7 +100,7 @@ export function AdminWorkspacesTab() {
                   </td>
                   <td className="px-6 py-4">
                     <div className={cn(
-                      "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
+                      "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider w-fit",
                       ws.plan === 'pro' ? "bg-accent/10 text-accent" :
                       ws.plan === 'team' ? "bg-info/10 text-info" :
                       ws.plan === 'enterprise' ? "bg-success/10 text-success" :
@@ -165,7 +165,7 @@ export function AdminWorkspacesTab() {
 
         {/* Detail Panel */}
         {selectedWorkspace && (
-          <div className="w-[400px] bg-surface border border-default rounded-3xl p-6 space-y-8 animate-in slide-in-from-right-4 duration-300">
+          <div className="w-[400px] bg-surface border border-default rounded-xl p-6 space-y-8 animate-in slide-in-from-right-4 duration-300">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-primary">Workspace Details</h3>
               <button 
@@ -178,7 +178,7 @@ export function AdminWorkspacesTab() {
 
             <div className="space-y-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center text-accent">
+                <div className="w-16 h-16 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                   <Building2 size={32} />
                 </div>
                 <div>
@@ -188,12 +188,12 @@ export function AdminWorkspacesTab() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-elevated/50 border border-default rounded-2xl space-y-1">
-                  <div className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Owner</div>
+                <div className="p-4 bg-elevated/50 border border-default rounded-xl space-y-1">
+                  <div className="text-xs font-bold text-tertiary uppercase tracking-wider">Owner</div>
                   <div className="text-sm font-medium text-primary">{selectedWorkspace.owner}</div>
                 </div>
-                <div className="p-4 bg-elevated/50 border border-default rounded-2xl space-y-1">
-                  <div className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Plan</div>
+                <div className="p-4 bg-elevated/50 border border-default rounded-xl space-y-1">
+                  <div className="text-xs font-bold text-tertiary uppercase tracking-wider">Plan</div>
                   <div className="text-sm font-medium text-accent capitalize">{selectedWorkspace.plan}</div>
                 </div>
               </div>
@@ -201,7 +201,7 @@ export function AdminWorkspacesTab() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-secondary uppercase tracking-wider">Usage Overview</h4>
-                  <button className="text-[10px] font-bold text-accent uppercase tracking-wider hover:underline">View Detailed Stats</button>
+                  <button className="text-xs font-bold text-accent uppercase tracking-wider hover:underline">View Detailed Stats</button>
                 </div>
                 <div className="space-y-3">
                   {[

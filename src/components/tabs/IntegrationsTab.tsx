@@ -83,7 +83,7 @@ export default function IntegrationsTab() {
       </div>
 
       {/* GRID */}
-      <div className="flex-1 overflow-y-auto p-4 no-scrollbar">
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
           {filteredIntegrations.map((item) => {
             const isConnected = connectedIds.includes(item.id);
@@ -105,14 +105,14 @@ export default function IntegrationsTab() {
                     {item.icon}
                   </div>
                   {isConnected ? (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-tighter">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success/10 text-success text-xs font-bold uppercase tracking-tighter">
                       <Check size={10} />
                       Connected
                     </div>
                   ) : (
                     <Popover.Root>
                       <Popover.Trigger asChild>
-                        <button className="px-3 py-1 rounded-lg bg-accent text-white text-[10px] font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
+                        <button className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20">
                           Connect
                         </button>
                       </Popover.Trigger>
@@ -133,7 +133,7 @@ export default function IntegrationsTab() {
 
                           <div className="space-y-4">
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">API Key</label>
+                              <label className="text-xs font-bold text-secondary uppercase tracking-wider">API Key</label>
                               <div className="relative">
                                 <Key size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary" />
                                 <input 
@@ -144,7 +144,7 @@ export default function IntegrationsTab() {
                               </div>
                             </div>
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold text-secondary uppercase tracking-wider">Project ID</label>
+                              <label className="text-xs font-bold text-secondary uppercase tracking-wider">Project ID</label>
                               <input 
                                 type="text" 
                                 placeholder="my-awesome-project"
@@ -152,13 +152,13 @@ export default function IntegrationsTab() {
                               />
                             </div>
                             <div className="flex gap-2 pt-2">
-                              <button className="flex-1 px-3 py-1.5 rounded-lg border border-default text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-elevated transition-colors">
+                              <button className="flex-1 px-3 py-1.5 rounded-lg border border-default text-primary text-xs font-bold uppercase tracking-wider hover:bg-elevated transition-colors">
                                 Test
                               </button>
                               <button 
                                 onClick={() => handleConnect(item.id)}
                                 disabled={connecting}
-                                className="flex-1 px-3 py-1.5 rounded-lg bg-accent text-white text-[10px] font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                               >
                                 {connecting ? <Zap size={12} className="animate-pulse" /> : 'Save'}
                               </button>
@@ -176,11 +176,11 @@ export default function IntegrationsTab() {
                   <p className="text-xs text-secondary leading-relaxed mb-4">{item.description}</p>
                   
                   <div className="flex items-center justify-between pt-4 border-t border-default">
-                    <div className="flex items-center gap-1 text-[10px] text-tertiary">
+                    <div className="flex items-center gap-1 text-xs text-tertiary">
                       <ShieldCheck size={12} />
                       <span>Official</span>
                     </div>
-                    <a href="#" className="text-[10px] text-accent hover:text-accent-hover flex items-center gap-1 font-medium">
+                    <a href="#" className="text-xs text-accent hover:text-accent-hover flex items-center gap-1 font-medium">
                       Docs
                       <ExternalLink size={10} />
                     </a>

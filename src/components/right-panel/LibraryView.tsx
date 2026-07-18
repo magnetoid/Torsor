@@ -81,8 +81,8 @@ export default function LibraryView() {
                 <div className="text-tertiary">
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-secondary">{section.name}</span>
-                <span className="text-[10px] text-tertiary ml-auto">{items.length}</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-secondary">{section.name}</span>
+                <span className="text-xs text-tertiary ml-auto">{items.length}</span>
               </button>
 
               {isExpanded && (
@@ -101,7 +101,7 @@ export default function LibraryView() {
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-tertiary truncate pl-5 group-hover:text-secondary transition-colors">
+                      <div className="text-xs text-tertiary truncate pl-5 group-hover:text-secondary transition-colors">
                         {item.description}
                       </div>
                     </div>

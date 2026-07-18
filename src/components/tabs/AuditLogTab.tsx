@@ -143,15 +143,15 @@ export function AuditLogTab() {
       </div>
 
       {/* Log Table */}
-      <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-default rounded-xl overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-default bg-elevated/50">
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Timestamp</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">User</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Action</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Resource</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">IP Address</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Timestamp</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">User</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Action</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Resource</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">IP Address</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-default">
@@ -180,7 +180,7 @@ export function AuditLogTab() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-accent text-[10px] font-bold">
+                        <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-accent text-xs font-bold">
                           {log.userName.charAt(0)}
                         </div>
                         <span className="text-sm font-medium text-primary">{log.userName}</span>
@@ -188,7 +188,7 @@ export function AuditLogTab() {
                     </td>
                     <td className="px-6 py-4">
                       <div className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider w-fit",
+                        "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider w-fit",
                         getActionColor(log.action)
                       )}>
                         {log.action.replace('_', ' ')}
@@ -196,7 +196,7 @@ export function AuditLogTab() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-primary">{log.resource}</div>
-                      <div className="text-[10px] text-tertiary mt-0.5">{log.details}</div>
+                      <div className="text-xs text-tertiary mt-0.5">{log.details}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-xs text-tertiary font-mono">{log.ipAddress}</div>
@@ -206,7 +206,7 @@ export function AuditLogTab() {
                     <tr>
                       <td colSpan={5} className="px-6 py-4 bg-inset border-y border-default">
                         <div className="space-y-3 animate-in slide-in-from-top-2 duration-200">
-                          <div className="flex items-center gap-2 text-[10px] font-bold text-secondary uppercase tracking-wider">
+                          <div className="flex items-center gap-2 text-xs font-bold text-secondary uppercase tracking-wider">
                             <Terminal size={12} />
                             Event Details (JSON)
                           </div>

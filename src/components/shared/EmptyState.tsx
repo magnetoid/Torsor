@@ -27,7 +27,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       "flex flex-col items-center justify-center text-center p-8 animate-in fade-in zoom-in-95 duration-500",
       className
     )}>
-      <div className="w-16 h-16 bg-elevated rounded-2xl flex items-center justify-center text-tertiary mb-6 shadow-sm border border-default">
+      <div className="w-16 h-16 bg-elevated rounded-xl flex items-center justify-center text-tertiary mb-6 shadow-sm border border-default">
         <Icon size={32} strokeWidth={1.5} />
       </div>
       

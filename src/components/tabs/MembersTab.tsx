@@ -89,15 +89,15 @@ export function MembersTab() {
       </div>
 
       {/* Member Table */}
-      <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-default rounded-xl overflow-hidden">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="border-b border-default bg-elevated/50">
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Member</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Role</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider">Last Active</th>
-              <th className="px-6 py-4 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Member</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Role</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider">Last Active</th>
+              <th className="px-6 py-4 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-default">
@@ -228,15 +228,15 @@ export function MembersTab() {
             <Clock className="text-warning" size={18} />
             <h3 className="text-xs font-bold uppercase tracking-wider text-secondary">Pending Invites ({workspaceInvites.length})</h3>
           </div>
-          <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+          <div className="bg-surface border border-default rounded-xl overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-default bg-elevated/50">
-                  <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Sent</th>
-                  <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider">Expires</th>
-                  <th className="px-6 py-3 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Sent</th>
+                  <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Expires</th>
+                  <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-default">
@@ -255,10 +255,10 @@ export function MembersTab() {
                     <td className="px-6 py-3 text-xs text-tertiary">In 7 days</td>
                     <td className="px-6 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="text-[10px] font-bold uppercase text-accent hover:text-accent-hover transition-colors">Resend</button>
+                        <button className="text-xs font-bold uppercase text-accent hover:text-accent-hover transition-colors">Resend</button>
                         <button 
                           onClick={() => revokeInvite(invite.id)}
-                          className="text-[10px] font-bold uppercase text-error hover:text-error/80 transition-colors"
+                          className="text-xs font-bold uppercase text-error hover:text-error/80 transition-colors"
                         >
                           Revoke
                         </button>
@@ -276,7 +276,7 @@ export function MembersTab() {
       <Dialog.Root open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] animate-in fade-in duration-200" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-page border border-default rounded-3xl p-6 shadow-2xl z-[201] animate-in zoom-in-95 fade-in duration-200">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-page border border-default rounded-xl p-6 shadow-2xl z-[201] animate-in zoom-in-95 fade-in duration-200">
             <div className="flex items-center justify-between mb-6">
               <Dialog.Title className="text-xl font-bold text-primary">
                 Invite to {activeWorkspace?.name}

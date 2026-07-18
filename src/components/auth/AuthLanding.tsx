@@ -53,7 +53,7 @@ export function AuthLanding() {
 
         <div className="w-full flex items-center gap-4 py-2">
           <Separator.Root className="flex-1 h-[1px] bg-default" />
-          <span className="text-[10px] font-bold text-tertiary uppercase tracking-widest">or</span>
+          <span className="text-xs font-bold text-tertiary uppercase tracking-widest">or</span>
           <Separator.Root className="flex-1 h-[1px] bg-default" />
         </div>
 

@@ -51,7 +51,7 @@ export function SecurityTab() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-2xl">
+          <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
                 <ShieldAlert size={20} />
@@ -70,7 +70,7 @@ export function SecurityTab() {
             </Switch.Root>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-2xl">
+          <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center text-warning">
                 <Clock size={20} />
@@ -117,7 +117,7 @@ export function SecurityTab() {
       </div>
 
       {/* IP Allowlist */}
-      <div className="p-6 bg-surface border border-default rounded-3xl space-y-4">
+      <div className="p-6 bg-surface border border-default rounded-xl space-y-4">
         <div className="flex items-center gap-2">
           <Globe className="text-accent" size={18} />
           <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">IP Allowlist</h3>
@@ -151,7 +151,7 @@ export function SecurityTab() {
         </div>
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-2xl">
+          <div className="flex items-center justify-between p-4 bg-surface border border-default rounded-xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center text-info">
                 <UserCheck size={20} />
@@ -171,7 +171,7 @@ export function SecurityTab() {
           </div>
 
           <div className={cn(
-            "flex items-center justify-between p-4 bg-surface border border-default rounded-2xl relative",
+            "flex items-center justify-between p-4 bg-surface border border-default rounded-xl relative",
             !teamGate.allowed && "opacity-60"
           )}>
             <div className="flex items-center gap-3">
@@ -197,7 +197,7 @@ export function SecurityTab() {
           </div>
 
           <div className={cn(
-            "flex items-center justify-between p-4 bg-surface border border-default rounded-2xl relative",
+            "flex items-center justify-between p-4 bg-surface border border-default rounded-xl relative",
             !enterpriseGate.allowed && "opacity-60"
           )}>
             <div className="flex items-center gap-3">
@@ -226,7 +226,7 @@ export function SecurityTab() {
 
       {/* SSO Section */}
       <div className={cn(
-        "p-6 bg-surface border border-default rounded-3xl space-y-6 relative overflow-hidden",
+        "p-6 bg-surface border border-default rounded-xl space-y-6 relative overflow-hidden",
         !teamGate.allowed && "opacity-60"
       )}>
         <div className="flex items-center justify-between">
@@ -235,7 +235,7 @@ export function SecurityTab() {
             <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">SSO / SAML</h3>
           </div>
           {!teamGate.allowed && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent/10 text-accent text-xs font-bold uppercase tracking-wider">
               <Lock size={10} />
               Available on Team plan
             </div>

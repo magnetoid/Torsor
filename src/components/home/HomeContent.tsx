@@ -121,7 +121,7 @@ export function HomeContent() {
               sidebar's WorkspaceSwitcher; a fake chevron here just teased a dropdown). */}
           <div className="flex justify-center">
             <div className="flex items-center gap-2 px-3 py-1.5 bg-surface border border-default rounded-full text-sm text-secondary">
-              <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-white text-[10px] font-bold">
+              <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-white text-xs font-bold">
                 {activeWorkspace?.name.charAt(0)}
               </div>
               <span>{activeWorkspace?.name}</span>
@@ -137,7 +137,7 @@ export function HomeContent() {
           <div className="max-w-2xl mx-auto mt-8">
             <form 
               onSubmit={handleSubmit}
-              className="bg-surface border border-default rounded-2xl p-3 focus-within:border-accent/30 transition-all shadow-xl"
+              className="bg-surface border border-default rounded-xl p-3 focus-within:border-accent/30 transition-all shadow-xl"
             >
               <textarea
                 ref={textareaRef}
@@ -210,7 +210,7 @@ export function HomeContent() {
                   <div className="w-14 h-14 bg-surface border border-default rounded-xl flex items-center justify-center text-secondary group-hover/type:border-accent/50 group-hover/type:text-accent transition-all">
                     <type.icon size={24} />
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider font-semibold text-secondary group-hover/type:text-primary">
+                  <span className="text-xs uppercase tracking-wider font-semibold text-secondary group-hover/type:text-primary">
                     {type.label}
                   </span>
                 </button>

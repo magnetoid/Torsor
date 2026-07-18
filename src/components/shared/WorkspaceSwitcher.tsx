@@ -51,7 +51,7 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
               ? "justify-center w-8 h-8 shrink-0 hover:bg-elevated"
               : "gap-3 px-3 py-2 hover:bg-elevated w-full"
           )}>
-            <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white text-[10px] font-bold shadow-sm shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0 group-hover:scale-105 transition-transform">
               {activeWorkspace?.logoUrl ? (
                 <img src={activeWorkspace.logoUrl} alt={activeWorkspace.name} className="w-full h-full object-cover rounded-lg" referrerPolicy="no-referrer" />
               ) : (
@@ -64,7 +64,7 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
                   <span className="text-sm font-bold text-primary truncate">
                     {activeWorkspace?.name}
                   </span>
-                  <span className="text-[10px] text-tertiary font-bold uppercase tracking-wider">
+                  <span className="text-xs text-tertiary font-bold uppercase tracking-wider">
                     {activeWorkspace?.plan}
                   </span>
                 </div>
@@ -76,13 +76,13 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
 
         <DropdownMenu.Portal>
           <DropdownMenu.Content 
-            className="w-[280px] bg-elevated border border-default rounded-2xl p-1.5 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-100"
+            className="w-[280px] bg-elevated border border-default rounded-xl p-1.5 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-100"
             side={collapsed ? "right" : "bottom"}
             align={collapsed ? "start" : "start"}
             sideOffset={10}
           >
             <div className="px-2.5 py-2">
-              <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Workspaces</span>
+              <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Workspaces</span>
             </div>
             
             <div className="space-y-0.5 mb-2">
@@ -95,7 +95,7 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
                     ws.id === activeWorkspaceId ? "bg-accent-muted" : "hover:bg-surface"
                   )}
                 >
-                  <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white text-[10px] font-bold shadow-sm shrink-0">
+                  <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center text-white text-xs font-bold shadow-sm shrink-0">
                     {ws.logoUrl ? (
                       <img src={ws.logoUrl} alt={ws.name} className="w-full h-full object-cover rounded-lg" referrerPolicy="no-referrer" />
                     ) : (
@@ -106,7 +106,7 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
                     <span className="text-sm font-medium text-primary truncate">{ws.name}</span>
                     <div className="flex items-center gap-1.5">
                       {getRoleIcon('owner')} {/* Mock role for now */}
-                      <span className="text-[10px] text-tertiary font-bold uppercase tracking-wider">Owner</span>
+                      <span className="text-xs text-tertiary font-bold uppercase tracking-wider">Owner</span>
                     </div>
                   </div>
                   {ws.id === activeWorkspaceId && <Check size={14} className="text-accent" />}
@@ -117,7 +117,7 @@ export function WorkspaceSwitcher({ collapsed = false }: WorkspaceSwitcherProps)
             <Separator.Root className="h-[1px] bg-default my-1.5 mx-2" />
             
             <div className="px-2.5 py-2">
-              <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">Actions</span>
+              <span className="text-xs font-bold text-tertiary uppercase tracking-wider">Actions</span>
             </div>
 
             <div className="space-y-0.5">

@@ -53,7 +53,7 @@ export default function CheckpointsTab() {
       <div className="h-10 px-4 flex items-center gap-2 border-b border-default bg-surface shrink-0">
         <History size={14} className="text-accent-hover" />
         <span className="text-xs font-bold text-primary">Checkpoints</span>
-        <span className="text-[10px] text-tertiary ml-auto">Snapshot &amp; restore your workspace</span>
+        <span className="text-xs text-tertiary ml-auto">Snapshot &amp; restore your workspace</span>
       </div>
 
       {error && <p className="mx-4 mt-3 text-xs text-error">{error}</p>}
@@ -79,7 +79,7 @@ export default function CheckpointsTab() {
               <GitCommit size={14} className="text-tertiary shrink-0" />
               <div className="flex-1 min-w-0">
                 <span className="text-sm text-primary truncate block">{c.label || 'Checkpoint'}</span>
-                <span className="text-[10px] text-tertiary">
+                <span className="text-xs text-tertiary">
                   {c.fileCount} file{c.fileCount === 1 ? '' : 's'} · {formatDate(c.createdAt)}
                 </span>
               </div>
@@ -124,7 +124,7 @@ export default function CheckpointsTab() {
             Checkpoint
           </button>
         </div>
-        <p className="text-[10px] text-secondary mt-2 ml-1">
+        <p className="text-xs text-secondary mt-2 ml-1">
           Restore overwrites current files with the snapshot; files added since remain.
         </p>
       </div>
@@ -219,15 +219,15 @@ function WorkspaceSnapshotsSection({ projectId }: { projectId: string }) {
         <button
           onClick={() => void handleSnapshot()}
           disabled={busy}
-          className="flex items-center gap-1.5 rounded-md bg-elevated px-2 py-1 text-[10px] font-bold text-secondary transition-colors hover:text-primary disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-md bg-elevated px-2 py-1 text-xs font-bold text-secondary transition-colors hover:text-primary disabled:opacity-50"
         >
           {busy ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
           Snapshot now
         </button>
       </div>
-      {note && <p className="mb-2 text-[10px] text-tertiary">{note}</p>}
+      {note && <p className="mb-2 text-xs text-tertiary">{note}</p>}
       {snapshots.length === 0 ? (
-        <p className="text-[10px] text-tertiary">
+        <p className="text-xs text-tertiary">
           Runtime-native snapshots capture the whole workspace so you can restore in place or fork a new
           copy — the microVM branch-your-world primitive.
         </p>
@@ -245,7 +245,7 @@ function WorkspaceSnapshotsSection({ projectId }: { projectId: string }) {
             <button
               onClick={() => void handleRestore(s.id)}
               disabled={busy}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-secondary hover:bg-elevated hover:text-primary disabled:opacity-50"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-secondary hover:bg-elevated hover:text-primary disabled:opacity-50"
               title="Restore this snapshot in place"
             >
               <RotateCcw size={11} /> Restore
@@ -253,7 +253,7 @@ function WorkspaceSnapshotsSection({ projectId }: { projectId: string }) {
             <button
               onClick={() => void handleFork(s.id)}
               disabled={busy}
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-secondary hover:bg-elevated hover:text-primary disabled:opacity-50"
+              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-secondary hover:bg-elevated hover:text-primary disabled:opacity-50"
               title="Fork a new project from this snapshot"
             >
               <GitFork size={11} /> Fork

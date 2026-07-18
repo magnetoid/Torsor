@@ -30,7 +30,7 @@ const CodeBlock = ({ code, language = 'bash' }: { code: string; language?: strin
   return (
     <div className="relative group bg-inset border border-default rounded-xl overflow-hidden mb-4">
       <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-default">
-        <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">{language}</span>
+        <span className="text-xs font-bold text-tertiary uppercase tracking-wider">{language}</span>
         <button 
           onClick={handleCopy}
           className="p-1.5 text-secondary hover:text-primary transition-colors"

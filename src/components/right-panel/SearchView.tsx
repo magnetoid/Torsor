@@ -68,11 +68,11 @@ export default function SearchView() {
         {searchQuery.trim().length < 2 ? (
           <div className="h-full flex flex-col items-center justify-center text-tertiary gap-2 px-4 text-center">
             <Search size={24} />
-            <p className="text-[10px]">Type at least 2 characters to search</p>
+            <p className="text-xs">Type at least 2 characters to search</p>
           </div>
         ) : searchResults.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-tertiary gap-2 px-4 text-center">
-            <p className="text-[10px]">No results found for "{searchQuery}"</p>
+            <p className="text-xs">No results found for "{searchQuery}"</p>
           </div>
         ) : (
           <div className="space-y-1 px-1">
@@ -85,9 +85,9 @@ export default function SearchView() {
                 <div className="flex items-center gap-2 mb-1">
                   <FileCode size={12} className="text-accent-hover" />
                   <span className="text-[11px] text-primary font-medium truncate">{result.filePath}</span>
-                  <span className="text-[10px] text-tertiary ml-auto">Ln {result.line}</span>
+                  <span className="text-xs text-tertiary ml-auto">Ln {result.line}</span>
                 </div>
-                <div className="text-[10px] text-secondary font-mono truncate pl-5 group-hover:text-primary transition-colors">
+                <div className="text-xs text-secondary font-mono truncate pl-5 group-hover:text-primary transition-colors">
                   {result.text}
                 </div>
               </div>

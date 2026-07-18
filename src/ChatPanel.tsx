@@ -127,7 +127,7 @@ export default function ChatPanel() {
                   <span className="w-1 h-1 rounded-full bg-accent animate-pulse" style={{ animationDelay: '150ms' }} />
                   <span className="w-1 h-1 rounded-full bg-accent animate-pulse" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span className="text-[10px] font-bold text-accent uppercase tracking-widest animate-pulse">
+                <span className="text-xs font-bold text-accent uppercase tracking-widest animate-pulse">
                   {/* Proactive status: name what's happening, not just that time passes. */}
                   {currentActivity ? `Torsor Agent — ${currentActivity}` : 'Torsor Agent Thinking'}
                   {agentStep > 0 ? ` · step ${agentStep}` : ''}{elapsed > 2 ? ` · ${elapsedLabel}` : ''}

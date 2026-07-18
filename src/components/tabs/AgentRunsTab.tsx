@@ -130,7 +130,7 @@ function RunComposer() {
         className="w-full resize-none rounded-lg border border-default bg-page px-3 py-2 text-xs text-primary placeholder:text-tertiary outline-none focus-visible:ring-2 focus-visible:ring-accent"
       />
       <div className="mt-2 flex items-center justify-between">
-        <span className="text-[10px] text-tertiary">Runs continue even if you close this tab.</span>
+        <span className="text-xs text-tertiary">Runs continue even if you close this tab.</span>
         <Button size="sm" onClick={() => void submit()} disabled={!task.trim() || !activeProjectId || busy}>
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
           Run in background
@@ -184,7 +184,7 @@ export default function AgentRunsTab() {
                     {r.status === 'processing' && <Loader2 size={9} className="animate-spin" />}
                     {r.status}
                   </Badge>
-                  <span className="text-[10px] text-tertiary">
+                  <span className="text-xs text-tertiary">
                     {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -216,7 +216,7 @@ export default function AgentRunsTab() {
               <div className="flex items-center gap-2">
                 {detail && <Badge variant={statusVariant(detail.status)}>{detail.status}</Badge>}
                 {attaching && (
-                  <span className="flex items-center gap-1 text-[10px] text-tertiary">
+                  <span className="flex items-center gap-1 text-xs text-tertiary">
                     <Loader2 size={10} className="animate-spin" /> live
                   </span>
                 )}

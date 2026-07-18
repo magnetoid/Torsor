@@ -19,7 +19,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({ className }) => {
 
 export const ProjectCardSkeleton: React.FC = () => {
   return (
-    <div className="bg-surface border border-default rounded-2xl overflow-hidden shadow-sm flex flex-col h-[280px]">
+    <div className="bg-surface border border-default rounded-xl overflow-hidden shadow-sm flex flex-col h-[280px]">
       <Skeleton className="h-[140px] w-full rounded-none" />
       <div className="p-4 flex-1 flex flex-col gap-3">
         <Skeleton className="h-5 w-3/4" />
@@ -73,7 +73,7 @@ export const ChatMessageSkeleton: React.FC<{ isAgent?: boolean }> = ({ isAgent }
         !isAgent && "items-end flex flex-col"
       )}>
         <Skeleton className={cn(
-          "h-16 rounded-2xl",
+          "h-16 rounded-xl",
           isAgent ? "w-[320px]" : "w-[240px]"
         )} />
         <Skeleton className="h-3 w-16" />
@@ -84,7 +84,7 @@ export const ChatMessageSkeleton: React.FC<{ isAgent?: boolean }> = ({ isAgent }
 
 export const SettingsBlockSkeleton: React.FC = () => {
   return (
-    <div className="space-y-4 p-6 bg-surface border border-default rounded-2xl">
+    <div className="space-y-4 p-6 bg-surface border border-default rounded-xl">
       <div className="space-y-2">
         <Skeleton className="h-5 w-48" />
         <Skeleton className="h-4 w-full max-w-md" />

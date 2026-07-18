@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Editor, { OnMount } from '@monaco-editor/react';
+import Editor, { OnMount, useMonaco } from '@monaco-editor/react';
 import { 
   X, 
   ChevronRight, 
@@ -17,12 +17,17 @@ import {
 import { useAppStore } from '../../useAppStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { cn } from '../../lib/utils';
+import { useThemeColors, useThemeStore } from '../../lib/theme';
 
 export default function CodeEditorTab() {
   const { files, updateFileContent, saveFile, saveStatus, workspaceProjectId } = useAppStore();
   const { openFileIds, activeFileId, setActiveFile, closeFile } = useEditorStore();
   const [editorValue, setEditorValue] = useState('');
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+
+  const { theme } = useThemeStore();
+  const colors = useThemeColors();
+  const monaco = useMonaco();
 
   const activeFile = files.find(f => f.id === activeFileId);
   const openFiles = openFileIds.map(id => files.find(f => f.id === id)).filter(Boolean);
@@ -33,6 +38,33 @@ export default function CodeEditorTab() {
       setEditorValue(activeFile.content || '');
     }
   }, [activeFileId, activeFile?.content]);
+
+  // Dynamic Theme Generation
+  useEffect(() => {
+    if (monaco && colors && Object.keys(colors).length > 0) {
+      monaco.editor.defineTheme('torsor-theme', {
+        base: theme === 'dark' ? 'vs-dark' : 'vs',
+        inherit: true,
+        rules: [
+          { token: 'comment', foreground: (colors['text-tertiary'] || '#6D6D74').replace('#', '') },
+          { token: 'keyword', foreground: (colors['accent'] || '#8577F2').replace('#', '') },
+          { token: 'string', foreground: (colors['success'] || '#3DD263').replace('#', '') },
+          { token: 'number', foreground: (colors['warning'] || '#FFA71F').replace('#', '') },
+        ],
+        colors: {
+          'editor.background': colors['bg-page'] || '#202023',
+          'editor.lineHighlightBackground': colors['bg-surface'] || '#303034',
+          'editorLineNumber.foreground': colors['text-tertiary'] || '#6D6D74',
+          'editorLineNumber.activeForeground': colors['text-primary'] || '#F6F6F8',
+          'editorIndentGuide.background': colors['border'] || '#43434A',
+          'editor.selectionBackground': colors['accent-muted'] || '#8577F240',
+          'editorWidget.background': colors['bg-surface'] || '#303034',
+          'editorWidget.border': colors['border'] || '#43434A',
+        }
+      });
+      monaco.editor.setTheme('torsor-theme');
+    }
+  }, [monaco, colors, theme]);
 
   // Cmd/Ctrl+S forces an immediate save (bypassing the debounce) for workspace-backed files.
   useEffect(() => {
@@ -54,23 +86,6 @@ export default function CodeEditorTab() {
   };
 
   const handleEditorMount: OnMount = (editor, monaco) => {
-    // Custom theme matching --bg-page
-    monaco.editor.defineTheme('torsor-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': '#202023',
-        'editor.lineHighlightBackground': '#303034',
-        'editorLineNumber.foreground': '#6D6D74',
-        'editorLineNumber.activeForeground': '#F6F6F8',
-        'editorIndentGuide.background': '#3B3B41',
-        'editor.selectionBackground': '#8577F240',
-        'editorWidget.background': '#303034',
-        'editorWidget.border': '#48484E',
-      }
-    });
-    monaco.editor.setTheme('torsor-dark');
 
     // Add custom context menu items
     editor.addAction({
@@ -156,7 +171,7 @@ export default function CodeEditorTab() {
   if (!activeFileId) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-secondary gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-surface border border-default flex items-center justify-center">
+        <div className="w-16 h-16 rounded-xl bg-surface border border-default flex items-center justify-center">
           <Code2 size={32} />
         </div>
         <p className="text-sm font-medium">Select a file to edit</p>
@@ -198,7 +213,7 @@ export default function CodeEditorTab() {
       </div>
 
       {/* BREADCRUMB */}
-      <div className="h-6 px-3 flex items-center gap-1 text-[10px] text-tertiary border-b border-default bg-page shrink-0">
+      <div className="h-6 px-3 flex items-center gap-1 text-xs text-tertiary border-b border-default bg-page shrink-0">
         {getBreadcrumbs().map((part, idx, arr) => (
           <React.Fragment key={idx}>
             <span className={cn(idx === arr.length - 1 && "text-secondary")}>{part}</span>
@@ -239,7 +254,7 @@ export default function CodeEditorTab() {
       </div>
 
       {/* BOTTOM STATUS */}
-      <div className="h-6 px-3 flex items-center justify-between text-[10px] text-tertiary border-t border-default bg-page shrink-0">
+      <div className="h-6 px-3 flex items-center justify-between text-xs text-tertiary border-t border-default bg-page shrink-0">
         <div className="flex items-center gap-3">
           <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
           <span>Spaces: 2</span>

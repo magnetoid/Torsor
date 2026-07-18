@@ -117,7 +117,7 @@ export const ActivityFeed: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-surface border border-default rounded-2xl overflow-hidden">
+      <div className="bg-surface border border-default rounded-xl overflow-hidden">
         <div className="divide-y divide-subtle">
           {MOCK_ACTIVITY.map((item) => (
             <div 
@@ -150,11 +150,11 @@ export const ActivityFeed: React.FC = () => {
                 <div className="flex items-center gap-2 mt-0.5">
                   <div className="flex items-center gap-1">
                     {getActivityIcon(item.type)}
-                    <span className="text-[10px] font-bold text-tertiary uppercase tracking-wider">
+                    <span className="text-xs font-bold text-tertiary uppercase tracking-wider">
                       {item.type}
                     </span>
                   </div>
-                  <span className="text-[10px] text-tertiary font-medium">
+                  <span className="text-xs text-tertiary font-medium">
                     · {formatDistanceToNow(item.timestamp)}
                   </span>
                 </div>

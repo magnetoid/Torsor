@@ -112,14 +112,14 @@ function ServerRow({ server, onChanged }: { server: MCPServer; onChanged: () => 
             {server.hasAuth && <Badge variant="muted">auth</Badge>}
           </div>
           <div className="truncate font-mono text-[10.5px] text-tertiary">{server.url}</div>
-          <div className="text-[10px] text-tertiary">{server.transport}</div>
+          <div className="text-xs text-tertiary">{server.transport}</div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Button size="sm" variant="ghost" onClick={() => void runTest()} disabled={testing}>
             {testing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             Test
           </Button>
-          <label className="flex cursor-pointer items-center gap-1 text-[10px] text-secondary">
+          <label className="flex cursor-pointer items-center gap-1 text-xs text-secondary">
             <input
               type="checkbox"
               checked={server.enabled}
@@ -163,20 +163,20 @@ function LocalModelsCard() {
         <Cpu size={13} className="text-accent" /> Local models (Ollama)
       </div>
       <div className="flex flex-wrap gap-1">
-        <span className="text-[10px] text-tertiary">Recommended:</span>
+        <span className="text-xs text-tertiary">Recommended:</span>
         {(catalog?.recommended ?? ['qwen3-coder', 'devstral']).map((m) => (
           <Badge key={m} variant="accent">{m}</Badge>
         ))}
       </div>
       {catalog?.reachable && catalog.items.length > 0 ? (
         <div className="flex flex-wrap gap-1">
-          <span className="text-[10px] text-tertiary">Installed:</span>
+          <span className="text-xs text-tertiary">Installed:</span>
           {catalog.items.map((m) => (
             <Badge key={m.name} variant="muted">{m.name}</Badge>
           ))}
         </div>
       ) : (
-        <div className="text-[10px] text-tertiary">
+        <div className="text-xs text-tertiary">
           {catalog && !catalog.reachable
             ? 'Ollama not reachable from the server — install a model with `ollama pull qwen3-coder`.'
             : 'No local models detected yet.'}

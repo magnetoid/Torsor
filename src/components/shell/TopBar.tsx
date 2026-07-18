@@ -92,7 +92,7 @@ export function TopBar() {
               </button>
             </Tooltip.Trigger>
             <Tooltip.Portal>
-              <Tooltip.Content className="bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
+              <Tooltip.Content className="bg-elevated text-primary text-xs px-2 py-1 rounded border border-default shadow-xl" sideOffset={5}>
                 {building ? 'Starting… (see Preview)' : 'Run project'}
                 <Tooltip.Arrow className="fill-default" />
               </Tooltip.Content>

@@ -35,7 +35,7 @@ const RailIcon = ({ icon: Icon, label, active, onClick, className }: RailIconPro
       </Tooltip.Trigger>
       <Tooltip.Portal>
         <Tooltip.Content
-          className={cn('bg-elevated text-primary text-[10px] px-2 py-1 rounded border border-default shadow-xl z-[100]', tooltipMotion)}
+          className={cn('bg-elevated text-primary text-xs px-2 py-1 rounded border border-default shadow-xl z-[100]', tooltipMotion)}
           side="right"
           sideOffset={8}
         >
@@ -112,7 +112,7 @@ export function Rail({ className }: { className?: string }) {
               {groups.map(({ group, tabs }, gi) => (
                 <React.Fragment key={group.id}>
                   {gi > 0 && <DropdownMenu.Separator className="h-[1px] bg-border-subtle my-1" />}
-                  <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-[10px] font-medium uppercase tracking-wider text-tertiary">
+                  <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-xs font-medium uppercase tracking-wider text-tertiary">
                     {group.label}
                   </DropdownMenu.Label>
                   {tabs.map((tab) => {

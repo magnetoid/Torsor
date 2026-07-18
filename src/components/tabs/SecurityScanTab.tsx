@@ -139,7 +139,7 @@ export default function SecurityScanTab() {
           <Play size={16} fill="currentColor" />
           Run Scan
         </button>
-        <p className="mt-6 text-[10px] text-tertiary uppercase tracking-widest font-bold">
+        <p className="mt-6 text-xs text-tertiary uppercase tracking-widest font-bold">
           Powered by Torsor Agent · Balanced mode
         </p>
       </div>
@@ -184,10 +184,10 @@ export default function SecurityScanTab() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-page overflow-y-auto no-scrollbar p-6">
+    <div className="flex-1 flex flex-col bg-page overflow-y-auto custom-scrollbar p-6">
       {/* SUMMARY HEADER */}
       <div className="flex items-start justify-between mb-8 max-w-4xl mx-auto w-full">
-        <div className="flex-1 bg-surface rounded-2xl border border-default p-6 mr-6 relative overflow-hidden">
+        <div className="flex-1 bg-surface rounded-xl border border-default p-6 mr-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-5">
             <ShieldAlert size={120} />
           </div>
@@ -199,22 +199,22 @@ export default function SecurityScanTab() {
             </p>
             <div className="flex gap-4">
               <div className="px-3 py-1.5 rounded-lg bg-error/10 border border-error/20">
-                <span className="text-[10px] font-bold text-error uppercase tracking-wider block">Critical</span>
+                <span className="text-xs font-bold text-error uppercase tracking-wider block">Critical</span>
                 <span className="text-xl font-bold text-primary">1</span>
               </div>
               <div className="px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20">
-                <span className="text-[10px] font-bold text-warning uppercase tracking-wider block">Warning</span>
+                <span className="text-xs font-bold text-warning uppercase tracking-wider block">Warning</span>
                 <span className="text-xl font-bold text-primary">1</span>
               </div>
               <div className="px-3 py-1.5 rounded-lg bg-info/10 border border-info/20">
-                <span className="text-[10px] font-bold text-info uppercase tracking-wider block">Info</span>
+                <span className="text-xs font-bold text-info uppercase tracking-wider block">Info</span>
                 <span className="text-xl font-bold text-primary">1</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="w-48 bg-surface rounded-2xl border border-default p-6 flex flex-col items-center justify-center shrink-0">
+        <div className="w-48 bg-surface rounded-xl border border-default p-6 flex flex-col items-center justify-center shrink-0">
           <div className="relative w-20 h-20 flex items-center justify-center mb-2">
             <svg className="w-full h-full -rotate-90">
               <circle 
@@ -233,7 +233,7 @@ export default function SecurityScanTab() {
             </svg>
             <span className="absolute text-2xl font-black text-warning">B+</span>
           </div>
-          <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Security Score</span>
+          <span className="text-xs font-bold text-secondary uppercase tracking-widest">Security Score</span>
         </div>
       </div>
 
@@ -263,7 +263,7 @@ export default function SecurityScanTab() {
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-3">
                 <div className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                  "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider",
                   issue.severity === 'critical' ? "bg-error/10 text-error" : 
                   issue.severity === 'warning' ? "bg-warning/10 text-warning" : "bg-info/10 text-info"
                 )}>
@@ -273,7 +273,7 @@ export default function SecurityScanTab() {
               </div>
               <button 
                 onClick={() => openFile(issue.file)}
-                className="flex items-center gap-1.5 text-[10px] text-secondary hover:text-accent transition-colors"
+                className="flex items-center gap-1.5 text-xs text-secondary hover:text-accent transition-colors"
               >
                 <span className="font-mono">{issue.file}:{issue.line}</span>
                 <ExternalLink size={10} />
@@ -285,12 +285,12 @@ export default function SecurityScanTab() {
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => handleFix(issue)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-[10px] font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/10"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/10"
               >
                 <Zap size={12} fill="currentColor" />
                 Fix with Agent
               </button>
-              <button className="text-[10px] text-tertiary hover:text-secondary font-bold uppercase tracking-widest transition-colors">
+              <button className="text-xs text-tertiary hover:text-secondary font-bold uppercase tracking-widest transition-colors">
                 Ignore
               </button>
             </div>

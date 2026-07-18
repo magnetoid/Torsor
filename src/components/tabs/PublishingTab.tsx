@@ -93,7 +93,7 @@ export default function PublishingTab() {
                 key={env}
                 onClick={() => updateSettings({ environment: env })}
                 className={cn(
-                  "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all",
+                  "px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wider transition-all",
                   settings.environment === env ? "bg-elevated text-primary" : "text-secondary hover:text-primary"
                 )}
               >
@@ -119,12 +119,12 @@ export default function PublishingTab() {
           <h3 className="text-xs font-bold text-primary uppercase tracking-wider mb-4">Current Deployment</h3>
           {currentDeployment ? (
             <div className={cn(
-              "p-6 rounded-2xl border flex flex-col md:flex-row items-center justify-between gap-6 transition-all",
+              "p-6 rounded-xl border flex flex-col md:flex-row items-center justify-between gap-6 transition-all",
               currentDeployment.status === 'success' ? "bg-success/5 border-success/20" : "bg-accent/5 border-accent/20"
             )}>
               <div className="flex items-center gap-5">
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center",
+                  "w-12 h-12 rounded-xl flex items-center justify-center",
                   currentDeployment.status === 'success' ? "bg-success/10 text-success" : "bg-accent/10 text-accent"
                 )}>
                   {currentDeployment.status === 'success' ? <CheckCircle2 size={24} /> : <Loader2 size={24} className="animate-spin" />}
@@ -180,8 +180,8 @@ export default function PublishingTab() {
               </div>
             </div>
           ) : (
-            <div className="bg-surface border border-default border-dashed rounded-2xl p-12 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-page border border-default flex items-center justify-center mx-auto mb-4">
+            <div className="bg-surface border border-default border-dashed rounded-xl p-12 text-center">
+              <div className="w-12 h-12 rounded-xl bg-page border border-default flex items-center justify-center mx-auto mb-4">
                 <Rocket size={24} className="text-tertiary" />
               </div>
               <h4 className="text-sm font-bold text-primary mb-1">Not published yet</h4>
@@ -200,7 +200,7 @@ export default function PublishingTab() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Deployment Targets</h3>
-            <span className="text-[10px] text-secondary font-medium">Torsor Cloud available now</span>
+            <span className="text-xs text-secondary font-medium">Torsor Cloud available now</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {targets.map(target => {
@@ -224,7 +224,7 @@ export default function PublishingTab() {
                   )}
                 </div>
                 <h4 className="text-xs font-bold text-primary mb-1">{target.name}</h4>
-                <p className="text-[10px] text-secondary mb-4 flex-1">{target.description}</p>
+                <p className="text-xs text-secondary mb-4 flex-1">{target.description}</p>
                 <button
                   disabled={isDeploying || !available}
                   onClick={() => handleDeploy(target.id)}
@@ -247,7 +247,7 @@ export default function PublishingTab() {
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Build Settings</h3>
             <div className="bg-surface border border-default rounded-xl p-5 space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-secondary uppercase mb-1.5">Build Command</label>
+                <label className="block text-xs font-bold text-secondary uppercase mb-1.5">Build Command</label>
                 <div className="relative">
                   <Terminal size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
                   <input 
@@ -259,7 +259,7 @@ export default function PublishingTab() {
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-secondary uppercase mb-1.5">Output Directory</label>
+                <label className="block text-xs font-bold text-secondary uppercase mb-1.5">Output Directory</label>
                 <input 
                   type="text" 
                   value={settings.outputDir}
@@ -270,7 +270,7 @@ export default function PublishingTab() {
               <div className="flex items-center justify-between pt-2">
                 <div>
                   <p className="text-xs font-bold text-primary">Node.js Version</p>
-                  <p className="text-[10px] text-secondary">Runtime version for build</p>
+                  <p className="text-xs text-secondary">Runtime version for build</p>
                 </div>
                 <select 
                   value={settings.nodeVersion}
@@ -335,9 +335,9 @@ export default function PublishingTab() {
               <div className="p-3 bg-accent/5 border border-accent/10 rounded-lg">
                 <div className="flex items-center gap-2 mb-1 text-accent">
                   <AlertCircle size={12} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Setup Instructions</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Setup Instructions</span>
                 </div>
-                <p className="text-[10px] text-secondary leading-relaxed">
+                <p className="text-xs text-secondary leading-relaxed">
                   Point your domain's A record to <code className="text-accent">76.76.21.21</code> or CNAME to <code className="text-accent">cname.torsor.app</code>.
                 </p>
               </div>
@@ -384,7 +384,7 @@ export default function PublishingTab() {
         <section>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Deploy History</h3>
-            <button className="text-[10px] font-bold text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
+            <button className="text-xs font-bold text-accent hover:text-accent-hover transition-colors flex items-center gap-1">
               <History size={12} />
               View full history
             </button>
@@ -393,12 +393,12 @@ export default function PublishingTab() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-default bg-elevated/50">
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Target</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Environment</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider">Duration</th>
-                  <th className="px-4 py-2 text-[10px] font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Target</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Environment</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider">Duration</th>
+                  <th className="px-4 py-2 text-xs font-bold text-secondary uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -428,7 +428,7 @@ export default function PublishingTab() {
                     <td className="px-4 py-3 text-right">
                       <button 
                         onClick={() => rollback(deploy.id)}
-                        className="text-[10px] font-bold text-accent hover:text-accent-hover transition-colors"
+                        className="text-xs font-bold text-accent hover:text-accent-hover transition-colors"
                       >
                         Rollback
                       </button>

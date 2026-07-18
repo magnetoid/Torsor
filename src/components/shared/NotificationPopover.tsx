@@ -45,7 +45,7 @@ export const NotificationPopover: React.FC = () => {
 
   return (
     <Popover.Content 
-      className="w-[380px] bg-surface border border-default rounded-2xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+      className="w-[380px] bg-surface border border-default rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
       align="end"
       sideOffset={8}
     >
@@ -119,16 +119,16 @@ export const NotificationPopover: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-tertiary font-medium">
+                      <span className="text-xs text-tertiary font-medium">
                         {formatDistanceToNow(n.timestamp)}
                       </span>
                       
                       {n.type === 'invite_received' && !n.isRead && (
                         <div className="flex gap-2 mt-1">
-                          <button className="px-2 py-0.5 bg-accent text-white text-[10px] font-bold rounded hover:bg-accent-hover transition-colors">
+                          <button className="px-2 py-0.5 bg-accent text-white text-xs font-bold rounded hover:bg-accent-hover transition-colors">
                             Accept
                           </button>
-                          <button className="px-2 py-0.5 bg-elevated text-secondary text-[10px] font-bold rounded border border-default hover:bg-inset transition-colors">
+                          <button className="px-2 py-0.5 bg-elevated text-secondary text-xs font-bold rounded border border-default hover:bg-inset transition-colors">
                             Decline
                           </button>
                         </div>

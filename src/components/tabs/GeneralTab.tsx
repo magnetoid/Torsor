@@ -137,7 +137,7 @@ export function GeneralTab() {
               </AlertDialog.Trigger>
               <AlertDialog.Portal>
                 <AlertDialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] animate-in fade-in duration-200" />
-                <AlertDialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-page border border-default rounded-3xl p-6 shadow-2xl z-[201] animate-in zoom-in-95 fade-in duration-200">
+                <AlertDialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-page border border-default rounded-xl p-6 shadow-2xl z-[201] animate-in zoom-in-95 fade-in duration-200">
                   <AlertDialog.Title className="text-xl font-bold text-primary">Are you absolutely sure?</AlertDialog.Title>
                   <AlertDialog.Description className="text-sm text-secondary mt-2">
                     This action cannot be undone. This will permanently delete the 

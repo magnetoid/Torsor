@@ -100,6 +100,19 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/projects/{projectID}/files/{fileID}", s.handleUpdateFile)
 			r.Delete("/projects/{projectID}/files/{fileID}", s.handleDeleteFile)
 
+			// Teams / Organizations (replaces frontend "Workspaces" mock)
+			r.Get("/teams", s.handleListTeams)
+			r.Post("/teams", s.handleCreateTeam)
+			r.Get("/teams/{teamID}", s.handleGetTeam)
+			r.Patch("/teams/{teamID}", s.handleUpdateTeam)
+			r.Delete("/teams/{teamID}", s.handleDeleteTeam)
+			r.Get("/teams/{teamID}/members", s.handleListTeamMembers)
+			r.Post("/teams/{teamID}/invites", s.handleCreateTeamInvite)
+			r.Delete("/teams/{teamID}/members/{userID}", s.handleRemoveTeamMember)
+			r.Patch("/teams/{teamID}/members/{userID}/role", s.handleUpdateTeamMemberRole)
+			r.Post("/teams/invites/{inviteID}/accept", s.handleAcceptTeamInvite)
+			r.Delete("/teams/invites/{inviteID}", s.handleRevokeTeamInvite)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
