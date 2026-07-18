@@ -12,7 +12,7 @@ compile and where an external identity provider exists.
 | Git | `internal/server/git_handlers.go` (real `git` via `WorkspaceRuntime.Exec`) | go vet/build/test, tsc, build |
 | Notifications | `0012_notifications.sql` + `notification_handlers.go`, emits on invite | go vet/test, tsc, build |
 | Audit log | `audit_handlers.go` (server-written events) | go vet/test, tsc, build |
-| App Storage | `storage_handlers.go` (assets under `.torsor/storage/`) | tsc; **Go gofmt-clean, NOT compile-run** (host disk full) |
+| App Storage | `storage_handlers.go` (assets under `.torsor/storage/`) | tsc; **Go build/vet/test ✓** (compile-run confirmed once disk was freed) |
 | Database explorer | frontend-only via `apiExecCollect` running `sqlite3 -json` | tsc |
 | Integrations | frontend-only; credentials stored via `/api/v1/secrets` | tsc |
 
@@ -57,8 +57,10 @@ interactivity needs stdin + a PTY, which the current one-way SSE exec can't do:
   couldn't be done on the disk-full host.
 
 ## Environment notes
-- Local Go builds need ~1 GiB scratch; the dev Mac's APFS container is full
-  (~215 MiB free), so all Go verification must happen on the Linux server.
+- Local Go builds need ~1 GiB scratch. The dev Mac's APFS container was full
+  (~215 MiB free) during the initial pass, but has since been cleared — the full
+  `go build/vet/test ./...` now passes locally (all packages `ok`), so App Storage
+  is compile-run verified and no longer server-only.
 - App Storage assumes `stat`/`find`/`rm` in the container (busybox-compatible flags used).
 - Database explorer assumes `sqlite3` in the container; it degrades to an honest
   empty state when absent.
