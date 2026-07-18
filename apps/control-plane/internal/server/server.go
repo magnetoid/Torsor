@@ -113,6 +113,16 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/teams/invites/{inviteID}/accept", s.handleAcceptTeamInvite)
 			r.Delete("/teams/invites/{inviteID}", s.handleRevokeTeamInvite)
 
+			// Audit log (per-user, server-written events).
+			r.Get("/audit", s.handleListAudit)
+
+			// Notifications feed (per-user, real DB-backed).
+			r.Get("/notifications", s.handleListNotifications)
+			r.Post("/notifications/{notificationID}/read", s.handleMarkNotificationRead)
+			r.Post("/notifications/read-all", s.handleMarkAllNotificationsRead)
+			r.Delete("/notifications/{notificationID}", s.handleDeleteNotification)
+			r.Delete("/notifications", s.handleClearNotifications)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
@@ -136,6 +146,27 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/workspace/files", s.handleListProjectWorkspaceFiles)
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
+
+			// Git over the workspace (real `git` via WorkspaceRuntime.Exec), ownership-scoped.
+			r.Get("/projects/{projectID}/git/status", s.handleGitStatus)
+			r.Get("/projects/{projectID}/git/log", s.handleGitLog)
+			r.Get("/projects/{projectID}/git/branches", s.handleGitBranches)
+			r.Get("/projects/{projectID}/git/diff", s.handleGitDiff)
+			r.Post("/projects/{projectID}/git/init", s.handleGitInit)
+			r.Post("/projects/{projectID}/git/stage", s.handleGitStage)
+			r.Post("/projects/{projectID}/git/unstage", s.handleGitUnstage)
+			r.Post("/projects/{projectID}/git/commit", s.handleGitCommit)
+			r.Post("/projects/{projectID}/git/branch", s.handleGitCreateBranch)
+			r.Post("/projects/{projectID}/git/checkout", s.handleGitCheckout)
+			r.Post("/projects/{projectID}/git/revert", s.handleGitRevert)
+			r.Post("/projects/{projectID}/git/push", s.handleGitPush)
+			r.Post("/projects/{projectID}/git/pull", s.handleGitPull)
+
+			// App Storage over the workspace filesystem (ownership-scoped, auth-gated).
+			r.Get("/projects/{projectID}/storage/files", s.handleStorageList)
+			r.Post("/projects/{projectID}/storage/upload", s.handleStorageUpload)
+			r.Delete("/projects/{projectID}/storage/file", s.handleStorageDelete)
+			r.Get("/projects/{projectID}/storage/file", s.handleStorageDownload)
 
 			// Snapshot / restore / fork (microVM sandbox pattern) over the WorkspaceRuntime
 			// capability. Runtimes without support return 501; the snapshot handle is a

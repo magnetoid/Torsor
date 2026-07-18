@@ -27,6 +27,7 @@ interface WorkspaceState {
   // Actions
   fetchWorkspaces: () => Promise<void>;
   fetchMembers: (workspaceId: string) => Promise<void>;
+  fetchAuditLog: () => Promise<void>;
   switchWorkspace: (id: string) => void;
   createWorkspace: (name: string, slug: string) => Promise<string>;
   updateWorkspace: (id: string, data: Partial<Workspace>) => Promise<void>;
@@ -88,6 +89,19 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           set({ members: response.items, isLoading: false });
         } catch (error) {
           set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to fetch members' });
+        }
+      },
+
+      fetchAuditLog: async () => {
+        try {
+          const response = await apiRequest<{ items: Omit<AuditLogEntry, 'workspaceId'>[] }>(
+            '/api/v1/audit',
+            { auth: true },
+          );
+          const workspaceId = get().activeWorkspaceId;
+          set({ auditLog: response.items.map((e) => ({ ...e, workspaceId })) });
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to fetch audit log' });
         }
       },
 

@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../../useAppStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useChatStore } from '../../stores/chatStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 import { cn } from '../../lib/utils';
 import { useThemeColors, useThemeStore } from '../../lib/theme';
 
@@ -85,6 +87,38 @@ export default function CodeEditorTab() {
     }
   };
 
+  // Send the current selection (or whole file) to the chat composer as a
+  // context-prefilled draft. Uses composerDraft, which the chat input consumes
+  // and focuses but never auto-sends — the user reviews and hits send.
+  const sendToAgent = (editor: Parameters<OnMount>[0], intent: 'ask' | 'fix' | 'explain' | 'refactor') => {
+    const model = editor.getModel();
+    const selection = editor.getSelection();
+    const selected = model && selection ? model.getValueInRange(selection) : '';
+    const code = selected.trim() || model?.getValue() || '';
+    if (!code.trim()) return;
+
+    const activeId = useEditorStore.getState().activeFileId;
+    const file = useAppStore.getState().files.find((f) => f.id === activeId);
+    const fileName = file?.name || 'the current file';
+    const lang = fileName.includes('.') ? fileName.split('.').pop() : '';
+    const scope = selected.trim() ? 'selection' : 'file';
+
+    const lead: Record<typeof intent, string> = {
+      ask: `Question about this ${scope} from ${fileName}:`,
+      fix: `Fix any bugs or issues in this ${scope} from ${fileName}:`,
+      explain: `Explain what this ${scope} from ${fileName} does:`,
+      refactor: `Refactor this ${scope} from ${fileName} for clarity and maintainability:`,
+    };
+
+    const draft = `${lead[intent]}\n\n\`\`\`${lang}\n${code}\n\`\`\`\n`;
+    useChatStore.getState().setComposerDraft(draft);
+
+    // Make sure the chat panel is visible so the draft is seen.
+    if (!useLayoutStore.getState().leftPanelOpen) {
+      useLayoutStore.getState().toggleLeftPanel();
+    }
+  };
+
   const handleEditorMount: OnMount = (editor, monaco) => {
 
     // Add custom context menu items
@@ -93,10 +127,7 @@ export default function CodeEditorTab() {
       label: 'Ask Agent',
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 1,
-      run: () => {
-        console.log('Ask Agent triggered');
-        // In a real app, this would open the chat with context
-      }
+      run: () => sendToAgent(editor, 'ask'),
     });
 
     editor.addAction({
@@ -104,7 +135,7 @@ export default function CodeEditorTab() {
       label: 'Fix this',
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 2,
-      run: () => console.log('Fix this triggered')
+      run: () => sendToAgent(editor, 'fix'),
     });
 
     editor.addAction({
@@ -112,7 +143,7 @@ export default function CodeEditorTab() {
       label: 'Explain',
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 3,
-      run: () => console.log('Explain triggered')
+      run: () => sendToAgent(editor, 'explain'),
     });
 
     editor.addAction({
@@ -120,7 +151,7 @@ export default function CodeEditorTab() {
       label: 'Refactor',
       contextMenuGroupId: 'navigation',
       contextMenuOrder: 4,
-      run: () => console.log('Refactor triggered')
+      run: () => sendToAgent(editor, 'refactor'),
     });
 
     editor.onDidChangeCursorPosition((e) => {

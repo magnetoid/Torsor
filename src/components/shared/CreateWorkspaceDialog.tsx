@@ -31,7 +31,8 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
   const handleCreate = async () => {
     if (!name || !slug) return;
 
-    // Validate slug uniqueness (mock)
+    // Client-side pre-check for a nicer message; the backend also enforces a
+    // unique slug and is the source of truth.
     const isSlugTaken = workspaces.some(ws => ws.slug === slug);
     if (isSlugTaken) {
       toast.error('This slug is already taken.');
@@ -39,21 +40,21 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
     }
 
     setIsCreating(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const newId = createWorkspace(name, slug);
-    
-    toast.success('Workspace created successfully!');
-    setIsCreating(false);
-    onOpenChange(false);
-    setName('');
-    setSlug('');
-    setLogo(null);
-    
-    // Navigate home to refresh state
-    window.location.href = '/';
+    try {
+      // Hits POST /api/v1/teams and sets the new workspace active on success.
+      await createWorkspace(name, slug);
+      toast.success('Workspace created successfully!');
+      onOpenChange(false);
+      setName('');
+      setSlug('');
+      setLogo(null);
+      // Reload so workspace-scoped state re-initializes against the new active team.
+      window.location.href = '/';
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not create workspace');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (

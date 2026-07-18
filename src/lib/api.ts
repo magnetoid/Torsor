@@ -636,3 +636,164 @@ export async function apiForkWorkspace(
     body: JSON.stringify(opts),
   });
 }
+
+// ---- Git (real `git` in the project workspace, via the control plane) ----
+
+export interface ApiGitFile {
+  path: string;
+  status: 'modified' | 'added' | 'deleted' | 'untracked';
+  staged: boolean;
+  additions: number;
+  deletions: number;
+}
+
+export interface ApiGitStatus {
+  initialized: boolean;
+  branch: string;
+  ahead: number;
+  behind: number;
+  changes: ApiGitFile[];
+  remoteUrl: string;
+}
+
+export interface ApiGitCommit {
+  hash: string;
+  message: string;
+  author: string;
+  timestamp: number;
+}
+
+const gitBase = (projectId: string) => `/api/v1/projects/${encodeURIComponent(projectId)}/git`;
+
+export function apiGitStatus(projectId: string): Promise<ApiGitStatus> {
+  return apiRequest<ApiGitStatus>(`${gitBase(projectId)}/status`, { auth: true });
+}
+
+export async function apiGitLog(projectId: string): Promise<ApiGitCommit[]> {
+  const data = await apiRequest<{ items: ApiGitCommit[] }>(`${gitBase(projectId)}/log`, { auth: true });
+  return data.items ?? [];
+}
+
+export async function apiGitBranches(projectId: string): Promise<string[]> {
+  const data = await apiRequest<{ items: string[] }>(`${gitBase(projectId)}/branches`, { auth: true });
+  return data.items ?? [];
+}
+
+export function apiGitInit(projectId: string): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/init`, { method: 'POST', auth: true });
+}
+
+export function apiGitStage(projectId: string, paths?: string[]): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/stage`, { method: 'POST', auth: true, body: JSON.stringify({ paths }) });
+}
+
+export function apiGitUnstage(projectId: string, paths?: string[]): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/unstage`, { method: 'POST', auth: true, body: JSON.stringify({ paths }) });
+}
+
+export function apiGitCommit(projectId: string, message: string, opts?: { paths?: string[]; amend?: boolean }): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/commit`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ message, paths: opts?.paths, amend: opts?.amend }),
+  });
+}
+
+export function apiGitCreateBranch(projectId: string, name: string): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/branch`, { method: 'POST', auth: true, body: JSON.stringify({ name }) });
+}
+
+export function apiGitCheckout(projectId: string, branch: string): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/checkout`, { method: 'POST', auth: true, body: JSON.stringify({ branch }) });
+}
+
+export function apiGitRevert(projectId: string, hash: string): Promise<{ ok: boolean }> {
+  return apiRequest(`${gitBase(projectId)}/revert`, { method: 'POST', auth: true, body: JSON.stringify({ hash }) });
+}
+
+export function apiGitPush(projectId: string): Promise<{ ok: boolean; output: string }> {
+  return apiRequest(`${gitBase(projectId)}/push`, { method: 'POST', auth: true });
+}
+
+export function apiGitPull(projectId: string): Promise<{ ok: boolean; output: string }> {
+  return apiRequest(`${gitBase(projectId)}/pull`, { method: 'POST', auth: true });
+}
+
+export async function apiGitDiff(projectId: string, path?: string, staged?: boolean): Promise<string> {
+  const params = new URLSearchParams();
+  if (path) params.set('path', path);
+  if (staged) params.set('staged', 'true');
+  const q = params.toString();
+  const data = await apiRequest<{ diff: string }>(`${gitBase(projectId)}/diff${q ? `?${q}` : ''}`, { auth: true });
+  return data.diff ?? '';
+}
+
+// ---- App Storage (real per-project asset storage over the workspace fs) ----
+
+export interface ApiStorageFile {
+  id: string;
+  name: string;
+  type: 'image' | 'video' | 'document' | 'other';
+  size: number;
+  uploadedAt: number;
+  path: string;
+}
+
+const storageBase = (projectId: string) => `/api/v1/projects/${encodeURIComponent(projectId)}/storage`;
+
+export async function apiStorageList(projectId: string): Promise<ApiStorageFile[]> {
+  const data = await apiRequest<{ items: ApiStorageFile[] }>(`${storageBase(projectId)}/files`, { auth: true });
+  return data.items ?? [];
+}
+
+export function apiStorageUpload(
+  projectId: string,
+  file: { name: string; path: string; contentBase64: string },
+): Promise<ApiStorageFile> {
+  return apiRequest<ApiStorageFile>(`${storageBase(projectId)}/upload`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify(file),
+  });
+}
+
+export function apiStorageDelete(projectId: string, path: string): Promise<{ ok: boolean }> {
+  return apiRequest(`${storageBase(projectId)}/file?path=${encodeURIComponent(path)}`, { method: 'DELETE', auth: true });
+}
+
+export async function apiStorageDownload(
+  projectId: string,
+  path: string,
+): Promise<{ name: string; type: string; size: number; contentBase64: string }> {
+  return apiRequest(`${storageBase(projectId)}/file?path=${encodeURIComponent(path)}`, { auth: true });
+}
+
+// ---- Exec collect: run a command in the workspace and gather its full output ----
+// A synchronous wrapper over the streaming exec endpoint, for features (DB
+// explorer, tooling) that need a command's complete result rather than a live tail.
+
+export interface ExecResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
+export async function apiExecCollect(
+  projectId: string,
+  command: string[],
+  opts: { signal?: AbortSignal; workingDir?: string } = {},
+): Promise<ExecResult> {
+  let stdout = '';
+  let stderr = '';
+  let exitCode = 0;
+  await apiExecStream(projectId, command, {
+    signal: opts.signal,
+    workingDir: opts.workingDir,
+    onChunk: (c) => {
+      if (c.stdout) stdout += c.stdout;
+      if (c.stderr) stderr += c.stderr;
+      if (c.done && typeof c.exitCode === 'number') exitCode = c.exitCode;
+    },
+  });
+  return { stdout, stderr, exitCode };
+}

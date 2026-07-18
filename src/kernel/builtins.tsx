@@ -82,7 +82,7 @@ const BUILTIN_TABS: BuiltinTab[] = [
   { type: 'database', label: 'Database', component: DatabaseTab, icon: Database, group: 'labs', order: 0, maturity: 'preview', previewFeature: 'the Database explorer' },
   { type: 'storage', label: 'App Storage', component: AppStorageTab, icon: HardDrive, group: 'labs', order: 1, maturity: 'preview', previewFeature: 'App Storage' },
   { type: 'auth', label: 'Authentication', component: AuthTab, icon: UserCheck, group: 'labs', order: 2, maturity: 'preview', previewFeature: 'the Authentication manager' },
-  { type: 'git', label: 'Git', component: GitTab, icon: GitBranch, group: 'labs', order: 3, maturity: 'preview', previewFeature: 'the Git panel' },
+  { type: 'git', label: 'Git', component: GitTab, icon: GitBranch, group: 'build', order: 3 },
   { type: 'security', label: 'Security Scan', component: SecurityScanTab, icon: Shield, group: 'labs', order: 4, maturity: 'preview', previewFeature: 'the Security Scan' },
   { type: 'validation', label: 'Validation', component: ValidationTab, icon: CheckCircle, group: 'labs', order: 5, maturity: 'preview', previewFeature: 'Validation' },
   { type: 'testing', label: 'App Testing', component: AppTestingTab, icon: MonitorPlay, group: 'labs', order: 6, maturity: 'preview', previewFeature: 'App Testing' },

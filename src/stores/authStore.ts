@@ -25,6 +25,7 @@ interface AuthState {
   isLoading: boolean;
   initialized: boolean;
   error: string | null;
+  clearError: () => void;
   initialize: () => Promise<void>;
   loginWithGitHub: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthState>()(
       isLoading: false,
       initialized: false,
       error: null,
+      clearError: () => set({ error: null }),
       initialize: async () => {
         if (get().initialized) return;
 

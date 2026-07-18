@@ -37,6 +37,7 @@ export function AppShell() {
 
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const compactShell = isTablet;
 
   useEffect(() => {
     const handleResize = () => {
@@ -85,7 +86,7 @@ export function AppShell() {
               drag/toggle reflow the whole row through an easing curve (jank). */}
           <div className="flex flex-1 min-w-0 overflow-hidden">
             {/* Left file manager (TopBar toggle, next to the account menu) + drag handle. */}
-            {!isMobile && fileManagerOpen && (
+            {!compactShell && fileManagerOpen && (
               <>
                 <FileManagerPanel />
                 <PanelResizer
@@ -98,13 +99,13 @@ export function AppShell() {
 
             <LeftPanel className={cn(
               // Focus: chat gets a bit more room and a centered, roomier feel.
-              focus && !isTablet && "flex-1 max-w-[520px] mx-auto",
-              isTablet && "fixed top-10 bottom-0 left-9 w-[320px] z-40 shadow-2xl transition-transform duration-300",
+              focus && !compactShell && "flex-1 max-w-[520px] mx-auto",
+              compactShell && "fixed top-10 bottom-0 left-0 w-[min(90vw,320px)] z-40 shadow-2xl transition-transform duration-300",
               isTablet && !leftPanelOpen && "-translate-x-full"
             )} />
 
             {/* Chat ↔ center drag handle (desktop IDE only — Focus centers the chat). */}
-            {!isMobile && !isTablet && !focus && leftPanelOpen && (
+            {!compactShell && !focus && leftPanelOpen && (
               <PanelResizer
                 width={panelWidths.left}
                 onWidth={(w) => setPanelWidth('left', w)}
@@ -115,7 +116,7 @@ export function AppShell() {
             <CenterWorkArea />
 
             {/* Center ↔ right drag handle (sign -1: dragging left grows the right panel). */}
-            {!isMobile && !isTablet && !focus && rightPanelOpen && (
+            {!compactShell && !focus && rightPanelOpen && (
               <PanelResizer
                 width={panelWidths.right}
                 onWidth={(w) => setPanelWidth('right', w)}
@@ -125,7 +126,7 @@ export function AppShell() {
             )}
 
             {/* Files/library/search side panel is IDE-only. */}
-            {!isMobile && !focus && (
+            {!compactShell && !focus && (
               <RightPanel className={cn(
                 isTablet && "fixed top-10 bottom-0 right-0 w-[260px] z-40 shadow-2xl transition-transform duration-300",
                 isTablet && !rightPanelOpen && "translate-x-full"

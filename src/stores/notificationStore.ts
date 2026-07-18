@@ -1,14 +1,14 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { apiRequest } from '../lib/api';
 
-export type NotificationType = 
-  | 'invite_received' 
-  | 'member_joined' 
-  | 'deploy_success' 
-  | 'deploy_failed' 
-  | 'plan_limit_warning' 
-  | 'plan_upgraded' 
-  | 'security_alert' 
+export type NotificationType =
+  | 'invite_received'
+  | 'member_joined'
+  | 'deploy_success'
+  | 'deploy_failed'
+  | 'plan_limit_warning'
+  | 'plan_upgraded'
+  | 'security_alert'
   | 'agent_complete';
 
 export interface Notification {
@@ -25,11 +25,20 @@ export interface Notification {
     userName?: string;
     userAvatar?: string;
     location?: string;
+    // Present on real `invite_received` notifications so the Accept action can
+    // hit POST /api/v1/teams/invites/{inviteId}/accept.
+    inviteId?: string;
   };
+  // Client-only notifications from live events (deploys, agent runs) that were
+  // never persisted server-side. Kept out of server round-trips so their
+  // read/delete calls don't 404.
+  _local?: boolean;
 }
 
 interface NotificationState {
   notifications: Notification[];
+  isLoading: boolean;
+  fetchNotifications: () => Promise<void>;
   addNotification: (notification: Omit<Notification, 'id' | 'isRead' | 'timestamp'>) => void;
   markAsRead: (id: string) => void;
   markAllRead: () => void;
@@ -38,134 +47,87 @@ interface NotificationState {
   getUnreadCount: () => number;
 }
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    type: 'invite_received',
-    title: 'Workspace Invitation',
-    message: 'Sarah invited you to Irving Studio',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-    isRead: false,
-    metadata: {
-      userName: 'Sarah Chen',
-      userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-      workspaceId: 'ws-irving'
+interface ApiNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string | null;
+  metadata?: Notification['metadata'];
+  isRead: boolean;
+  timestamp: string;
+}
+
+export const useNotificationStore = create<NotificationState>()((set, get) => ({
+  notifications: [],
+  isLoading: false,
+
+  // Load the real per-user feed and merge it under any client-only live events.
+  fetchNotifications: async () => {
+    set({ isLoading: true });
+    try {
+      const data = await apiRequest<{ items: ApiNotification[] }>('/api/v1/notifications', { auth: true });
+      const server: Notification[] = (data.items ?? []).map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        link: n.link ?? undefined,
+        metadata: n.metadata ?? undefined,
+        isRead: n.isRead,
+        timestamp: n.timestamp,
+      }));
+      set((state) => ({
+        notifications: [...state.notifications.filter((n) => n._local), ...server],
+        isLoading: false,
+      }));
+    } catch {
+      // No backend / not authed yet — keep whatever we have (incl. local events).
+      set({ isLoading: false });
     }
   },
-  {
-    id: '2',
-    type: 'deploy_success',
-    title: 'Deploy Successful',
-    message: 'Project "torsor-api" deployed successfully to Vercel',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
-    isRead: false,
-    link: '/project/torsor-api'
+
+  addNotification: (notification) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: `local-${Math.random().toString(36).substring(2, 9)}`,
+      isRead: false,
+      timestamp: new Date().toISOString(),
+      _local: true,
+    };
+    set((state) => ({ notifications: [newNotification, ...state.notifications] }));
   },
-  {
-    id: '3',
-    type: 'plan_limit_warning',
-    title: 'Usage Warning',
-    message: "You've used 80% of your monthly token limit",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(), // 12 hours ago
-    isRead: true,
-    link: '/settings/billing'
-  },
-  {
-    id: '4',
-    type: 'agent_complete',
-    title: 'Agent Task Finished',
-    message: 'Torsor Agent finished building "auth-module"',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-    isRead: true,
-    link: '/project/auth-module'
-  },
-  {
-    id: '5',
-    type: 'security_alert',
-    title: 'Security Alert',
-    message: 'New login detected from San Francisco, CA',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-    isRead: true,
-    metadata: {
-      location: 'San Francisco, CA'
+
+  markAsRead: (id) => {
+    const n = get().notifications.find((x) => x.id === id);
+    set((state) => ({
+      notifications: state.notifications.map((x) => (x.id === id ? { ...x, isRead: true } : x)),
+    }));
+    if (n && !n._local) {
+      void apiRequest(`/api/v1/notifications/${encodeURIComponent(id)}/read`, { method: 'POST', auth: true }).catch(() => {});
     }
   },
-  {
-    id: '6',
-    type: 'member_joined',
-    title: 'New Member',
-    message: 'Alex Rivera joined your workspace',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 days ago
-    isRead: true,
-    metadata: {
-      userName: 'Alex Rivera',
-      userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=alex'
+
+  markAllRead: () => {
+    set((state) => ({ notifications: state.notifications.map((n) => ({ ...n, isRead: true })) }));
+    void apiRequest('/api/v1/notifications/read-all', { method: 'POST', auth: true }).catch(() => {});
+  },
+
+  removeNotification: (id) => {
+    const n = get().notifications.find((x) => x.id === id);
+    set((state) => ({ notifications: state.notifications.filter((x) => x.id !== id) }));
+    if (n && !n._local) {
+      void apiRequest(`/api/v1/notifications/${encodeURIComponent(id)}`, { method: 'DELETE', auth: true }).catch(() => {});
     }
-  }
-];
+  },
 
-// Ids of the demo seed rows above — used by the persist migration to strip them from
-// existing users' storage so real accounts see real notifications (or the empty state).
-const MOCK_IDS = new Set(MOCK_NOTIFICATIONS.map((n) => n.id));
-
-export const useNotificationStore = create<NotificationState>()(
-  persist(
-    (set, get) => ({
-      // Demo rows only in dev builds; production starts at the real empty state and fills
-      // from real events (deploys, agent runs) via addNotification.
-      notifications: import.meta.env.DEV ? MOCK_NOTIFICATIONS : [],
-      
-      addNotification: (notification) => {
-        const newNotification: Notification = {
-          ...notification,
-          id: Math.random().toString(36).substring(7),
-          isRead: false,
-          timestamp: new Date().toISOString(),
-        };
-        set((state) => ({
-          notifications: [newNotification, ...state.notifications]
-        }));
-      },
-
-      markAsRead: (id) => {
-        set((state) => ({
-          notifications: state.notifications.map((n) => 
-            n.id === id ? { ...n, isRead: true } : n
-          )
-        }));
-      },
-
-      markAllRead: () => {
-        set((state) => ({
-          notifications: state.notifications.map((n) => ({ ...n, isRead: true }))
-        }));
-      },
-
-      removeNotification: (id) => {
-        set((state) => ({
-          notifications: state.notifications.filter((n) => n.id !== id)
-        }));
-      },
-
-      clearAll: () => {
-        set({ notifications: [] });
-      },
-
-      getUnreadCount: () => {
-        return get().notifications.filter((n) => !n.isRead).length;
-      },
-    }),
-    {
-      name: 'torsor-notifications',
-      version: 1,
-      // v0 → v1: drop the fabricated demo rows that used to ship to every account.
-      migrate: (persisted: unknown) => {
-        const state = persisted as { notifications?: Notification[] } | undefined;
-        return {
-          ...(state ?? {}),
-          notifications: (state?.notifications ?? []).filter((n) => !MOCK_IDS.has(n.id)),
-        };
-      },
+  clearAll: () => {
+    const hadServer = get().notifications.some((n) => !n._local);
+    set({ notifications: [] });
+    if (hadServer) {
+      void apiRequest('/api/v1/notifications', { method: 'DELETE', auth: true }).catch(() => {});
     }
-  )
-);
+  },
+
+  getUnreadCount: () => get().notifications.filter((n) => !n.isRead).length,
+}));

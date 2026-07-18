@@ -26,16 +26,17 @@ export function InviteMembersDialog({ open, onOpenChange }: InviteMembersDialogP
     }
 
     setIsInviting(true);
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    inviteMember(email, role);
-    
-    toast.success(`Invite sent to ${email}!`);
-    setIsInviting(false);
-    setEmail('');
-    onOpenChange(false);
+    try {
+      // Hits POST /api/v1/teams/{activeWorkspaceId}/invites.
+      await inviteMember(email, role);
+      toast.success(`Invite sent to ${email}!`);
+      setEmail('');
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not send invite');
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   return (

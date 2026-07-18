@@ -13,7 +13,7 @@ An open-source, self-hostable, modular "vibe-coding" cloud IDE. The repo is **mi
 - **`apps/api/`** — Express + TypeScript REST API. The **legacy** backend, retained for reference and rollback; no longer in the default stack. Kept until the control-plane is battle-tested, then removed.
 - **`apps/worker/`** — legacy background job processor (polled `ai_tasks`, woke on the `torsor:jobs` Redis channel). Retired from the default stack; the control-plane's agent loop replaces it.
 
-`apps/api` and `apps/control-plane` share the **same Postgres schema and `schema_migrations` table** with idempotent SQL, so either service can run migrations against a shared DB without conflict.
+`apps/api` and `apps/control-plane` share the **same Postgres schema and `schema_migrations` table** with idempotent SQL, so either service can run migrations against a shared DB without conflict. The migration files are **duplicated** in two dirs — [apps/api/migrations/](apps/api/migrations/) (`0001`–`0010`) and [apps/control-plane/internal/migrations/](apps/control-plane/internal/migrations/) (`0001`–`0011`); keep numbering in lockstep and add matching idempotent SQL to both when a change must apply to whichever service runs first.
 
 ## Commands
 
@@ -79,7 +79,11 @@ The **coding agent loop** (`internal/agent`) is the vibe-coding core: a ReAct lo
 
 ## Data model
 
-Postgres, UUID PKs, jsonb. Key tables (migrations `0001`–`0003` in [apps/api/migrations/](apps/api/migrations/)): `users`, `projects`, `project_files` (versioned via upsert that bumps `version`), `ai_tasks` (the async queue), `sessions`, `secrets`, `audit_logs`, and `workspaces` (one row per project — `project_id` is `UNIQUE` — owned by a user, records `runtime` / `container_id` / `image` / `status`; lets control-plane workspace ops be scoped to project ownership and survive restarts). The worker reserves pending tasks with `FOR UPDATE SKIP LOCKED` so multiple workers don't double-claim.
+Postgres, UUID PKs, jsonb. Core tables (migrations `0001`+): `users`, `projects` (now carries a nullable `team_id` — see terminology note below), `project_files` (versioned via upsert that bumps `version`), `ai_tasks` (the async queue), `sessions`, `secrets`, `audit_logs`. Later migrations add `workspaces` (0003 — per-project runtime, see note), `usage_events` (0004), `checkpoints` (0006), `deployments` (0007), `task_events` (0008), `mcp_servers` (0009), `workspace_snapshots` (0010), and `teams` / `team_members` / `team_invites` (0011). The worker reserves pending tasks with `FOR UPDATE SKIP LOCKED` so multiple workers don't double-claim.
+
+**Terminology — "workspace" is overloaded, keep the two senses distinct:**
+- **Runtime workspace** (the `workspaces` table + `WorkspaceRuntime` plugin): one per project (`project_id` `UNIQUE`), owned by a user, records `runtime` / `container_id` / `image` / `status`. This is the per-project cloud sandbox the agent loop executes in; ops are scoped to project ownership and survive restarts.
+- **Team workspace** (the `teams` table + `team_handlers.go`, ADR-era feature added in `0011`): an organization with `team_members` (the creator gets `owner`; the role column defaults to `viewer` and is otherwise free-form — the handler doesn't enforce an enum, only that the `owner` role can't be reassigned) and `team_invites`. A project may belong to a team via `projects.team_id` (null = personal). Surfaced in the UI as "workspaces" — `WorkspaceSwitcher`, `CreateWorkspaceDialog`, `InviteMembersDialog`, and `src/stores/workspaceStore.ts`. Routes live under `/api/v1/teams/*` in the control plane.
 
 ## Deployment notes
 

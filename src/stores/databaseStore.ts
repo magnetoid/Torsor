@@ -1,148 +1,163 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { useProjectStore } from './projectStore';
+import { apiExecCollect } from '../lib/api';
 
-export type ColumnType = 'text' | 'int4' | 'uuid' | 'timestamp' | 'bool';
+// Real SQLite explorer. Every operation runs `sqlite3` inside the project's
+// workspace container via the existing exec primitive — no bespoke DB engine and
+// no new backend. It works against any SQLite file already in the workspace;
+// when none exists (or sqlite3 isn't installed) it reports that honestly rather
+// than showing fabricated tables.
 
-export interface ColumnDefinition {
+export interface DBColumn {
   name: string;
-  type: ColumnType;
+  type: string;
   isPK?: boolean;
-  isFK?: boolean;
   isNullable?: boolean;
-  isUnique?: boolean;
-  references?: string; // "table.column"
-}
-
-export interface TableDefinition {
-  id: string;
-  name: string;
-  columns: ColumnDefinition[];
-  rows: any[];
 }
 
 export interface DatabaseState {
-  tables: TableDefinition[];
+  sqliteAvailable: boolean;
+  databases: string[];
+  activeDb: string | null;
+  tables: string[];
+  activeTable: string | null;
+  columns: DBColumn[];
+  rows: Record<string, unknown>[];
+  queryResult: { columns: string[]; rows: Record<string, unknown>[] } | null;
+  queryError: string | null;
   queryHistory: string[];
-  isProvisioning: boolean;
-  isReady: boolean;
-  activeTableId: string | null;
-  
-  // Actions
-  provision: () => Promise<void>;
-  addTable: (name: string, columns: ColumnDefinition[]) => void;
-  deleteTable: (id: string) => void;
-  addRow: (tableId: string, row: any) => void;
-  updateCell: (tableId: string, rowIndex: number, column: string, value: any) => void;
-  deleteRow: (tableId: string, rowIndex: number) => void;
-  addQueryToHistory: (query: string) => void;
-  setActiveTable: (id: string | null) => void;
+  isLoading: boolean;
+  error: string | null;
+
+  detectDatabases: () => Promise<void>;
+  selectDatabase: (path: string) => Promise<void>;
+  selectTable: (table: string) => Promise<void>;
+  runQuery: (sql: string) => Promise<void>;
 }
 
-const INITIAL_TABLES: TableDefinition[] = [
-  {
-    id: 't1',
-    name: 'users',
-    columns: [
-      { name: 'id', type: 'uuid', isPK: true },
-      { name: 'email', type: 'text', isUnique: true },
-      { name: 'full_name', type: 'text' },
-      { name: 'created_at', type: 'timestamp' },
-      { name: 'is_active', type: 'bool' },
-    ],
-    rows: [
-      { id: 'u1', email: 'marko@tesseract.ai', full_name: 'Marko Tiosavljevic', created_at: '2026-03-16T10:00:00Z', is_active: true },
-      { id: 'u2', email: 'jane@example.com', full_name: 'Jane Doe', created_at: '2026-03-16T11:30:00Z', is_active: true },
-      { id: 'u3', email: 'bob@dev.io', full_name: 'Bob Smith', created_at: '2026-03-17T09:15:00Z', is_active: false },
-    ]
-  },
-  {
-    id: 't2',
-    name: 'projects',
-    columns: [
-      { name: 'id', type: 'uuid', isPK: true },
-      { name: 'name', type: 'text' },
-      { name: 'user_id', type: 'uuid', isFK: true, references: 'users.id' },
-      { name: 'description', type: 'text', isNullable: true },
-    ],
-    rows: [
-      { id: 'p1', name: 'Tesseract Platform', user_id: 'u1', description: 'Next-gen AI IDE' },
-      { id: 'p2', name: 'Personal Blog', user_id: 'u2', description: 'My daily thoughts' },
-    ]
-  },
-  {
-    id: 't3',
-    name: 'messages',
-    columns: [
-      { name: 'id', type: 'int4', isPK: true },
-      { name: 'content', type: 'text' },
-      { name: 'sender_id', type: 'uuid', isFK: true, references: 'users.id' },
-      { name: 'sent_at', type: 'timestamp' },
-    ],
-    rows: [
-      { id: 1, content: 'Hello world!', sender_id: 'u1', sent_at: '2026-03-17T03:00:00Z' },
-      { id: 2, content: 'Database is ready.', sender_id: 'u1', sent_at: '2026-03-17T03:05:00Z' },
-    ]
+const activeProjectId = () => useProjectStore.getState().activeProjectId;
+
+// Parse `sqlite3 -json` output — a JSON array of row objects, or empty on no rows.
+function parseJsonRows(stdout: string): Record<string, unknown>[] {
+  const s = stdout.trim();
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
-];
+}
 
-export const useDatabaseStore = create<DatabaseState>()(
-  persist(
-    (set) => ({
-      tables: INITIAL_TABLES,
-      queryHistory: [],
-      isProvisioning: false,
-      isReady: false,
-      activeTableId: 't1',
+export const useDatabaseStore = create<DatabaseState>()((set, get) => ({
+  sqliteAvailable: true,
+  databases: [],
+  activeDb: null,
+  tables: [],
+  activeTable: null,
+  columns: [],
+  rows: [],
+  queryResult: null,
+  queryError: null,
+  queryHistory: [],
+  isLoading: false,
+  error: null,
 
-      provision: async () => {
-        set({ isProvisioning: true });
-        await new Promise(r => setTimeout(r, 2500));
-        set({ isProvisioning: false, isReady: true });
-      },
-
-      addTable: (name, columns) => set((state) => ({
-        tables: [...state.tables, { id: `t-${Date.now()}`, name, columns, rows: [] }]
-      })),
-
-      deleteTable: (id) => set((state) => ({
-        tables: state.tables.filter(t => t.id !== id),
-        activeTableId: state.activeTableId === id ? (state.tables.find(t => t.id !== id)?.id || null) : state.activeTableId
-      })),
-
-      addRow: (tableId, row) => set((state) => ({
-        tables: state.tables.map(t => t.id === tableId ? { ...t, rows: [...t.rows, row] } : t)
-      })),
-
-      updateCell: (tableId, rowIndex, column, value) => set((state) => ({
-        tables: state.tables.map(t => {
-          if (t.id === tableId) {
-            const newRows = [...t.rows];
-            newRows[rowIndex] = { ...newRows[rowIndex], [column]: value };
-            return { ...t, rows: newRows };
-          }
-          return t;
-        })
-      })),
-
-      deleteRow: (tableId, rowIndex) => set((state) => ({
-        tables: state.tables.map(t => {
-          if (t.id === tableId) {
-            const newRows = [...t.rows];
-            newRows.splice(rowIndex, 1);
-            return { ...t, rows: newRows };
-          }
-          return t;
-        })
-      })),
-
-      addQueryToHistory: (query) => set((state) => ({
-        queryHistory: [query, ...state.queryHistory.slice(0, 4)]
-      })),
-
-      setActiveTable: (id) => set({ activeTableId: id }),
-    }),
-    {
-      name: 'tesseract-database-storage',
+  detectDatabases: async () => {
+    const projectId = activeProjectId();
+    if (!projectId) {
+      set({ error: 'No active project', databases: [] });
+      return;
     }
-  )
-);
+    set({ isLoading: true, error: null });
+    try {
+      // Is sqlite3 available in the container?
+      const probe = await apiExecCollect(projectId, ['sh', '-c', 'command -v sqlite3 || true']);
+      const sqliteAvailable = probe.stdout.trim() !== '';
+
+      // Find SQLite files (skip node_modules / .git).
+      const find = await apiExecCollect(projectId, [
+        'sh',
+        '-c',
+        "find . -maxdepth 6 \\( -name '*.db' -o -name '*.sqlite' -o -name '*.sqlite3' \\) -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null | head -50",
+      ]);
+      const databases = find.stdout
+        .split('\n')
+        .map((l) => l.trim().replace(/^\.\//, ''))
+        .filter(Boolean);
+
+      set({ sqliteAvailable, databases, isLoading: false });
+      if (sqliteAvailable && databases.length > 0 && !get().activeDb) {
+        await get().selectDatabase(databases[0]);
+      }
+    } catch (err) {
+      set({ isLoading: false, error: err instanceof Error ? err.message : 'Failed to inspect databases' });
+    }
+  },
+
+  selectDatabase: async (path) => {
+    const projectId = activeProjectId();
+    if (!projectId) return;
+    set({ activeDb: path, isLoading: true, tables: [], activeTable: null, columns: [], rows: [] });
+    try {
+      const res = await apiExecCollect(projectId, [
+        'sqlite3',
+        path,
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;",
+      ]);
+      const tables = res.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+      set({ tables, isLoading: false });
+      if (tables.length > 0) await get().selectTable(tables[0]);
+    } catch (err) {
+      set({ isLoading: false, error: err instanceof Error ? err.message : 'Failed to read tables' });
+    }
+  },
+
+  selectTable: async (table) => {
+    const projectId = activeProjectId();
+    const db = get().activeDb;
+    if (!projectId || !db) return;
+    set({ activeTable: table, isLoading: true });
+    try {
+      const [info, data] = await Promise.all([
+        apiExecCollect(projectId, ['sqlite3', '-json', db, `PRAGMA table_info('${table.replace(/'/g, "''")}');`]),
+        apiExecCollect(projectId, ['sqlite3', '-json', db, `SELECT * FROM '${table.replace(/'/g, "''")}' LIMIT 200;`]),
+      ]);
+      const columns: DBColumn[] = parseJsonRows(info.stdout).map((c) => ({
+        name: String(c.name ?? ''),
+        type: String(c.type ?? '').toLowerCase() || 'text',
+        isPK: Number(c.pk) > 0,
+        isNullable: Number(c.notnull) === 0,
+      }));
+      set({ columns, rows: parseJsonRows(data.stdout), isLoading: false });
+    } catch (err) {
+      set({ isLoading: false, error: err instanceof Error ? err.message : 'Failed to read table' });
+    }
+  },
+
+  runQuery: async (sql) => {
+    const projectId = activeProjectId();
+    const db = get().activeDb;
+    if (!projectId || !db) {
+      set({ queryError: 'No database selected' });
+      return;
+    }
+    set({ isLoading: true, queryError: null, queryResult: null });
+    try {
+      const res = await apiExecCollect(projectId, ['sqlite3', '-json', db, sql]);
+      if (res.exitCode !== 0) {
+        set({ isLoading: false, queryError: res.stderr.trim() || 'Query failed' });
+        return;
+      }
+      const rows = parseJsonRows(res.stdout);
+      const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+      set((state) => ({
+        isLoading: false,
+        queryResult: { columns, rows },
+        queryHistory: [sql, ...state.queryHistory.filter((q) => q !== sql)].slice(0, 25),
+      }));
+    } catch (err) {
+      set({ isLoading: false, queryError: err instanceof Error ? err.message : 'Query failed' });
+    }
+  },
+}));

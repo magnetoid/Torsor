@@ -46,7 +46,7 @@ export default function SearchView() {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* HEADER */}
       <div className="h-9 flex items-center px-3 shrink-0 border-b border-subtle">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-secondary">Search</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-secondary">Search</span>
       </div>
 
       {/* INPUT */}
@@ -55,6 +55,7 @@ export default function SearchView() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
           <input 
             type="text" 
+            aria-label="Search files"
             placeholder="Search files..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -64,7 +65,7 @@ export default function SearchView() {
       </div>
 
       {/* RESULTS */}
-      <div className="flex-1 overflow-y-auto py-2 no-scrollbar">
+      <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         {searchQuery.trim().length < 2 ? (
           <div className="h-full flex flex-col items-center justify-center text-tertiary gap-2 px-4 text-center">
             <Search size={24} />
@@ -77,20 +78,20 @@ export default function SearchView() {
         ) : (
           <div className="space-y-1 px-1">
             {searchResults.map((result) => (
-              <div 
+              <button
                 key={result.id}
                 onClick={() => handleResultClick(result)}
-                className="p-2 hover:bg-elevated cursor-pointer rounded-md transition-colors group"
+                className="w-full p-2 text-left hover:bg-elevated rounded-md transition-colors group focus-ring"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <FileCode size={12} className="text-accent-hover" />
-                  <span className="text-[11px] text-primary font-medium truncate">{result.filePath}</span>
+                  <span className="text-xs text-primary font-medium truncate">{result.filePath}</span>
                   <span className="text-xs text-tertiary ml-auto">Ln {result.line}</span>
                 </div>
                 <div className="text-xs text-secondary font-mono truncate pl-5 group-hover:text-primary transition-colors">
                   {result.text}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   HardDrive, 
   Upload, 
@@ -24,6 +24,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Progress from '@radix-ui/react-progress';
 import { cn } from '../../lib/utils';
 import { useStorageStore, StorageFile, FileType } from '../../stores/storageStore';
+import { useProjectStore } from '../../stores/projectStore';
 
 const formatSize = (bytes: number) => {
   if (bytes === 0) return '0 B';
@@ -43,18 +44,26 @@ const FileIcon = ({ type, className }: { type: FileType; className?: string }) =
 };
 
 export default function AppStorageTab() {
-  const { 
-    files, 
-    viewMode, 
-    setViewMode, 
-    totalCapacity, 
-    uploadFile, 
-    deleteFile, 
+  const {
+    files,
+    viewMode,
+    setViewMode,
+    totalCapacity,
+    uploadFile,
+    deleteFile,
     renameFile,
     uploads,
     currentPath,
-    setPath
+    setPath,
+    fetchFiles,
+    downloadFile,
   } = useStorageStore();
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+
+  // Load the real asset list for the active project.
+  useEffect(() => {
+    void fetchFiles();
+  }, [fetchFiles, activeProjectId]);
   
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -169,7 +178,7 @@ export default function AppStorageTab() {
 
       {/* Breadcrumbs */}
       <div className="h-8 px-4 flex items-center gap-2 border-b border-default bg-page text-xs text-secondary">
-        <button className="hover:text-primary transition-colors">Root</button>
+        <button onClick={() => setPath('/')} className="hover:text-primary transition-colors">Root</button>
         <ChevronRight size={12} />
         <span className="text-primary font-medium">All Files</span>
       </div>
@@ -396,7 +405,10 @@ export default function AppStorageTab() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-4">
-                  <button className="flex items-center justify-center gap-2 px-3 py-2 bg-elevated border border-default rounded-lg text-xs font-bold text-primary hover:bg-inset transition-all">
+                  <button
+                    onClick={() => selectedFile && void downloadFile(selectedFile.id)}
+                    className="flex items-center justify-center gap-2 px-3 py-2 bg-elevated border border-default rounded-lg text-xs font-bold text-primary hover:bg-inset transition-all focus-ring"
+                  >
                     <Download size={14} />
                     Download
                   </button>
