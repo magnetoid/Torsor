@@ -425,6 +425,9 @@ func (r runtime) Exec(ctx context.Context, spec plugin.ExecSpec, onChunk func(pl
 		}
 		if err := onChunk(chunk); err != nil {
 			_ = cmd.Process.Kill()
+			for range ch { // drain so the scanner goroutines finish, then reap the process
+			}
+			_ = cmd.Wait()
 			return err
 		}
 	}
@@ -493,6 +496,7 @@ func (r runtime) ExecInteractive(ctx context.Context, spec plugin.ExecSpec, in <
 		if n > 0 {
 			if cbErr := onChunk(plugin.ExecChunk{Stdout: string(buf[:n])}); cbErr != nil {
 				_ = cmd.Process.Kill()
+				_ = cmd.Wait() // reap the killed process so it doesn't become a zombie
 				return cbErr
 			}
 		}
