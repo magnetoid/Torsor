@@ -93,6 +93,9 @@ type Config struct {
 	// retrieve durable project context across runs. Wired by the server from the project's
 	// memories; nil hides both tools.
 	Memory MemoryStore
+	// Skills are user-defined instructions injected into the system prompt so the project's
+	// conventions shape both planning and execution. Empty = none.
+	Skills []Skill
 }
 
 // ExternalTool is a tool contributed from outside the built-in set (an MCP server today).
@@ -120,6 +123,14 @@ type MemoryStore interface {
 	Remember(ctx context.Context, content, kind string) (string, error)
 	// Recall returns memories matching query (or the most recent when empty) as text.
 	Recall(ctx context.Context, query string) (string, error)
+}
+
+// Skill is a user-defined, reusable capability injected into the system prompt for a run: a
+// named instruction that shapes how the agent works (e.g. "always validate forms with Zod").
+// The server loads the project's enabled skills; empty means none.
+type Skill struct {
+	Name        string
+	Instruction string
 }
 
 func (c *Config) withDefaults() {
@@ -292,6 +303,11 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 			system += memoryPrompt
 		}
 	}
+	// Skills (user-defined conventions) shape both planning and execution, so they're
+	// appended regardless of mode.
+	if len(r.cfg.Skills) > 0 {
+		system += skillsPrompt(r.cfg.Skills)
+	}
 
 	for i := 1; i <= r.cfg.MaxSteps; i++ {
 		result.Steps = i
@@ -384,6 +400,29 @@ func externalToolsPrompt(tools []ExternalTool) string {
 		fmt.Fprintf(&b, "- %s   %s\n", t.Name, desc)
 	}
 	b.WriteString("Use an MCP tool when the task needs the external data or actions it provides.")
+	return b.String()
+}
+
+// skillsPrompt renders the project's enabled skills as a system-prompt appendix so the agent
+// follows the user's conventions. Empty when there are none.
+func skillsPrompt(skills []Skill) string {
+	if len(skills) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\nProject skills — conventions you MUST follow for this project:\n")
+	for _, sk := range skills {
+		name := strings.TrimSpace(sk.Name)
+		instruction := strings.TrimSpace(sk.Instruction)
+		if instruction == "" {
+			continue
+		}
+		if name != "" {
+			fmt.Fprintf(&b, "- %s: %s\n", name, instruction)
+		} else {
+			fmt.Fprintf(&b, "- %s\n", instruction)
+		}
+	}
 	return b.String()
 }
 

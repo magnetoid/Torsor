@@ -112,6 +112,12 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/projects/{projectID}/memories/{memoryID}", s.handleUpdateMemory)
 			r.Delete("/projects/{projectID}/memories/{memoryID}", s.handleDeleteMemory)
 
+			// Agent skills (user-defined instructions injected into the agent's prompt)
+			r.Get("/projects/{projectID}/skills", s.handleListSkills)
+			r.Post("/projects/{projectID}/skills", s.handleCreateSkill)
+			r.Patch("/projects/{projectID}/skills/{skillID}", s.handleUpdateSkill)
+			r.Delete("/projects/{projectID}/skills/{skillID}", s.handleDeleteSkill)
+
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)
 			r.Post("/teams", s.handleCreateTeam)

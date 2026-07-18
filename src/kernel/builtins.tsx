@@ -89,7 +89,7 @@ const BUILTIN_TABS: BuiltinTab[] = [
   { type: 'validation', label: 'Validation', component: ValidationTab, icon: CheckCircle, group: 'labs', order: 5, maturity: 'preview', previewFeature: 'Validation' },
   { type: 'testing', label: 'App Testing', component: AppTestingTab, icon: MonitorPlay, group: 'labs', order: 6, maturity: 'preview', previewFeature: 'App Testing' },
   { type: 'integrations', label: 'Integrations', component: IntegrationsTab, icon: Puzzle, group: 'labs', order: 7, maturity: 'preview', previewFeature: 'Integrations' },
-  { type: 'skills', label: 'Agent Skills', component: AgentSkillsTab, icon: Sparkles, group: 'labs', order: 8, maturity: 'preview', previewFeature: 'Agent Skills' },
+  { type: 'skills', label: 'Agent Skills', component: AgentSkillsTab, icon: Sparkles, group: 'agent', order: 3 },
   { type: 'workflow', label: 'Workflows', component: WorkflowsTab, icon: Workflow, group: 'labs', order: 9, maturity: 'preview', previewFeature: 'Workflows' },
   { type: 'canvas', label: 'Canvas', component: CanvasTab, icon: Frame, group: 'labs', order: 10, maturity: 'preview', previewFeature: 'the Canvas' },
 ];
