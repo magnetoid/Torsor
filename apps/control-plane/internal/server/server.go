@@ -95,6 +95,7 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/secrets", s.handleCreateSecret)
 			r.Delete("/secrets/{name}", s.handleDeleteSecret)
 
+			r.Get("/templates", s.handleListTemplates)
 			r.Get("/projects", s.handleListProjects)
 			r.Post("/projects", s.handleCreateProject)
 			r.Get("/projects/{projectID}", s.handleGetProject)
@@ -144,6 +145,9 @@ func (s *Server) Handler() http.Handler {
 			// the runtime workspace id is the project id, never a client-supplied value.
 			r.Post("/projects/{projectID}/workspace", s.handleCreateProjectWorkspace)
 			r.Get("/projects/{projectID}/workspace", s.handleGetProjectWorkspace)
+			// Template-driven boot: provision (template image) + scaffold + setup + dev, so
+			// the preview comes up automatically for a templated project.
+			r.Post("/projects/{projectID}/workspace/prepare", s.handlePrepareWorkspace)
 			r.Post("/projects/{projectID}/workspace/start", s.handleStartProjectWorkspace)
 			r.Post("/projects/{projectID}/workspace/stop", s.handleStopProjectWorkspace)
 			r.Post("/projects/{projectID}/workspace/destroy", s.handleDestroyProjectWorkspace)

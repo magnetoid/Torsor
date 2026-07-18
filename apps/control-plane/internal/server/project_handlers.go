@@ -20,15 +20,16 @@ type project struct {
 	Description *string   `json:"description"`
 	Vibe        *string   `json:"vibe"`
 	IsPublic    bool      `json:"isPublic"`
+	Template    *string   `json:"template"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-const projectCols = `id, user_id, name, description, vibe, is_public, created_at, updated_at`
+const projectCols = `id, user_id, name, description, vibe, is_public, template, created_at, updated_at`
 
 func scanProject(row pgx.Row) (project, error) {
 	var p project
-	err := row.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Vibe, &p.IsPublic, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Vibe, &p.IsPublic, &p.Template, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -68,6 +69,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		Description *string `json:"description"`
 		Vibe        *string `json:"vibe"`
 		IsPublic    bool    `json:"isPublic"`
+		Template    *string `json:"template"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -89,11 +91,19 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	if body.Vibe != nil && *body.Vibe != "" {
 		vibe = *body.Vibe
 	}
+	// Only accept a known template id; ignore anything else so a bad value can't wedge
+	// provisioning later (null = blank workspace).
+	var template *string
+	if body.Template != nil {
+		if _, ok := templateByID(*body.Template); ok {
+			template = body.Template
+		}
+	}
 
 	p, err := scanProject(s.pool.QueryRow(r.Context(),
-		`INSERT INTO projects (user_id, name, description, vibe, is_public)
-		 VALUES ($1, $2, $3, $4, $5) RETURNING `+projectCols,
-		userID(r), name, desc, vibe, body.IsPublic))
+		`INSERT INTO projects (user_id, name, description, vibe, is_public, template)
+		 VALUES ($1, $2, $3, $4, $5, $6) RETURNING `+projectCols,
+		userID(r), name, desc, vibe, body.IsPublic, template))
 	if err != nil {
 		// UNIQUE(user_id, name) violation → 409, not a generic 500 that leaks the constraint.
 		var pgErr *pgconn.PgError

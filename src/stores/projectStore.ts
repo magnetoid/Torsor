@@ -76,6 +76,7 @@ const fromApiProject = (project: any): Project => ({
   teamMembers: [],
   techStack: [],
   mode: 'builder',
+  template: project.template || undefined,
 });
 
 const fromApiFile = (file: any): ProjectFile => ({
@@ -144,6 +145,7 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           description: projectData.description || '',
           vibe: projectData.vibe || projectData.type || 'builder',
           isPublic: Boolean(projectData.isPublished),
+          ...(projectData.template ? { template: projectData.template } : {}),
         }),
       });
       const project = { ...fromApiProject(created), workspaceId };
