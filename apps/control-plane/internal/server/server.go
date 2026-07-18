@@ -190,6 +190,7 @@ func (s *Server) Handler() http.Handler {
 			// (/d/{projectID}/, served by handleDeployProxy below). Owner-only controls.
 			r.Post("/projects/{projectID}/deploy", s.handleDeploy)
 			r.Get("/projects/{projectID}/deployment", s.handleGetDeployment)
+			r.Get("/projects/{projectID}/deployments", s.handleListDeployments)
 			r.Post("/projects/{projectID}/deployment/stop", s.handleStopDeployment)
 
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while

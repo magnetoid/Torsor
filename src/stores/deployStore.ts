@@ -29,6 +29,28 @@ export interface TargetConfig {
   config?: Record<string, string>;
 }
 
+// DeploymentEvent is one row of the server's append-only deploy history log.
+export interface DeploymentEvent {
+  id: string;
+  action: 'deploy' | 'stop';
+  status: 'running' | 'stopped' | 'error';
+  url: string;
+  createdAt: string;
+}
+
+/** Map a server deploy-history event to the Deployment shape the History view renders. */
+const eventToDeployment = (environment: Environment) => (e: DeploymentEvent): Deployment => ({
+  id: e.id,
+  target: 'torsor',
+  environment,
+  status: e.status === 'error' ? 'error' : 'success',
+  url: e.url || undefined,
+  deployedAt: new Date(e.createdAt).getTime(),
+  duration: '',
+  commit: e.action === 'deploy' ? 'Published workspace app' : 'Unpublished',
+  logs: [],
+});
+
 interface DeployState {
   currentDeployment: Deployment | null;
   history: Deployment[];
@@ -45,6 +67,7 @@ interface DeployState {
   // Actions
   deploy: (target: DeployTarget) => Promise<void>;
   fetchDeployment: () => Promise<void>;
+  fetchHistory: () => Promise<void>;
   unpublish: () => Promise<void>;
   connectTarget: (target: DeployTarget, config: Record<string, string>) => void;
   updateSettings: (settings: Partial<DeployState['settings']>) => void;
@@ -128,6 +151,8 @@ export const useDeployStore = create<DeployState>()(
             logs: [...base.logs, `[deploy] Live at ${res.url}`],
           };
           set({ isDeploying: false, currentDeployment: done, history: [done, ...get().history] });
+          // Reconcile with the server's persisted history (the deploy was logged there).
+          void get().fetchHistory();
           useLayoutStore.getState().pushDisclosure({
             kind: 'preview-ready',
             label: 'Your app is deployed and live.',
@@ -158,7 +183,8 @@ export const useDeployStore = create<DeployState>()(
         }
       },
 
-      // Fetch the active project's current deployment state from the server.
+      // Fetch the active project's current deployment state from the server, plus its real
+      // (server-persisted) deploy history.
       fetchDeployment: async () => {
         const projectId = useProjectStore.getState().activeProjectId;
         if (!projectId) return;
@@ -168,26 +194,41 @@ export const useDeployStore = create<DeployState>()(
             { auth: true }
           );
           if (res.status === 'running') {
-            const live: Deployment = {
-              id: `dep-${projectId}`,
-              target: 'torsor',
-              environment: get().settings.environment,
-              status: 'success',
-              url: res.url,
-              deployedAt: Date.now(),
-              duration: '',
-              commit: 'Deployed',
-              logs: [res.live ? '[deploy] App is live' : '[deploy] Published (app not currently reachable)'],
-            };
-            // Record the real live deployment in history (dedup by its stable id) so the
-            // History view reflects an actual deployment rather than staying empty.
-            const rest = get().history.filter(d => d.id !== live.id);
-            set({ currentDeployment: live, history: [live, ...rest] });
+            set({
+              currentDeployment: {
+                id: `dep-${projectId}`,
+                target: 'torsor',
+                environment: get().settings.environment,
+                status: 'success',
+                url: res.url,
+                deployedAt: Date.now(),
+                duration: '',
+                commit: 'Deployed',
+                logs: [res.live ? '[deploy] App is live' : '[deploy] Published (app not currently reachable)'],
+              },
+            });
           } else {
             set({ currentDeployment: null });
           }
         } catch {
           // leave state as-is on a transient error
+        }
+        // History comes from the server's append-only log, not local session memory.
+        await get().fetchHistory();
+      },
+
+      // Load the project's real deploy history from the server (append-only event log).
+      fetchHistory: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) return;
+        try {
+          const res = await apiRequest<{ items: DeploymentEvent[] }>(
+            `/api/v1/projects/${projectId}/deployments`,
+            { auth: true }
+          );
+          set({ history: res.items.map(eventToDeployment(get().settings.environment)) });
+        } catch {
+          // leave history as-is on a transient error
         }
       },
 
@@ -247,6 +288,14 @@ export const useDeployStore = create<DeployState>()(
             : [],
         };
       },
+      // Persist only client-owned config. currentDeployment and history are server-derived
+      // (fetched per active project), so persisting them would show stale/cross-project data
+      // on load — fetchDeployment/fetchHistory repopulate them.
+      partialize: (state) => ({
+        settings: state.settings,
+        targets: state.targets,
+        customDomains: state.customDomains,
+      }),
     }
   )
 );

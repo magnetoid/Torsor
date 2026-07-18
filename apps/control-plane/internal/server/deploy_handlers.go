@@ -60,7 +60,57 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.logDeploymentEvent(r.Context(), ws.ProjectID, userID(r), "deploy", "running", deployPath(ws.ProjectID))
 	writeJSON(w, http.StatusOK, deploymentDTO{Status: "running", URL: deployPath(ws.ProjectID), UpdatedAt: updatedAt})
+}
+
+// logDeploymentEvent appends to the deployment history log. Best-effort: a failed insert
+// must not fail the deploy/stop it records, so the error is swallowed (the append-only log
+// is observability, not the source of truth for current visibility — that's `deployments`).
+func (s *Server) logDeploymentEvent(ctx context.Context, projectID, uid, action, status, url string) {
+	_, _ = s.pool.Exec(ctx,
+		`INSERT INTO deployment_events (project_id, user_id, action, status, url) VALUES ($1, $2, $3, $4, $5)`,
+		projectID, uid, action, status, url)
+}
+
+// deploymentEventDTO is one row of a project's deploy history.
+type deploymentEventDTO struct {
+	ID        string    `json:"id"`
+	Action    string    `json:"action"` // "deploy" | "stop"
+	Status    string    `json:"status"` // "running" | "stopped" | "error"
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// handleListDeployments returns a project's recent deploy history (most recent first),
+// ownership-scoped like every other project route.
+func (s *Server) handleListDeployments(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := s.requireOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rows, err := s.pool.Query(r.Context(),
+		`SELECT id, action, status, url, created_at FROM deployment_events
+		 WHERE project_id = $1 ORDER BY created_at DESC LIMIT 50`, projectID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	defer rows.Close()
+	items := make([]deploymentEventDTO, 0)
+	for rows.Next() {
+		var e deploymentEventDTO
+		if err := rows.Scan(&e.ID, &e.Action, &e.Status, &e.URL, &e.CreatedAt); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		items = append(items, e)
+	}
+	if err := rows.Err(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 // handleGetDeployment returns the project's deployment state + a live reachability check.
@@ -103,6 +153,7 @@ func (s *Server) handleStopDeployment(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.logDeploymentEvent(r.Context(), projectID, userID(r), "stop", "stopped", "")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "stopped"})
 }
 
