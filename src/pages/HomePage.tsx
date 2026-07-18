@@ -1,16 +1,20 @@
 import React from 'react';
 import { HomeSidebar } from '../components/shell/HomeSidebar';
 import { HomeContent } from '../components/home/HomeContent';
+import { AccountBar } from '../components/shared/AccountBar';
 
 export function HomePage() {
-  // HomeSidebar is a sticky, in-flow flex child, so the content is just flex-1 — no
-  // margin offset (a margin would double-count the sidebar's width). HomeContent renders
-  // its own scrolling <main> with the shared AccountBar pinned top-right.
+  // Same shell shape as the project view (AppShell): a full-width top bar spanning the
+  // whole window, with the sidebar + content in a row BELOW it — so the left menu no
+  // longer rises alongside/over the top bar.
   return (
-    <div className="flex bg-page min-h-screen">
-      <HomeSidebar />
-      <div className="flex-1 min-w-0 animate-in fade-in slide-in-from-bottom-2 duration-slow">
-        <HomeContent />
+    <div className="flex flex-col h-screen bg-page">
+      <AccountBar title="Home" />
+      <div className="flex flex-1 min-h-0">
+        <HomeSidebar />
+        <div className="flex-1 min-w-0 flex flex-col animate-in fade-in slide-in-from-bottom-2 duration-slow">
+          <HomeContent />
+        </div>
       </div>
     </div>
   );

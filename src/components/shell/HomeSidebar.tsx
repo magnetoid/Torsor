@@ -141,7 +141,7 @@ export function HomeSidebar() {
     <Tooltip.Provider delayDuration={200}>
       <aside
         className={cn(
-          'bg-surface border-r border-default h-screen flex flex-col sticky left-0 top-0 z-[60]',
+          'bg-surface border-r border-default h-full flex flex-col sticky left-0 top-0 z-[60]',
           'overflow-hidden whitespace-nowrap transition-[width] duration-300 ease-in-out',
           collapsed ? 'w-[68px]' : 'w-[240px]'
         )}

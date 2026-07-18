@@ -22,7 +22,6 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { useAuthStore } from '../../stores/authStore';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
-import { AccountBar } from '../shared/AccountBar';
 import { cn } from '../../lib/utils';
 
 const PROJECT_TYPES = [
@@ -114,8 +113,7 @@ export function HomeContent() {
 
   return (
     <Tooltip.Provider delayDuration={200}>
-      <main className="flex-1 overflow-y-auto bg-page h-screen">
-        <AccountBar title="Home" />
+      <main className="flex-1 min-h-0 overflow-y-auto bg-page">
         <div className="max-w-3xl mx-auto px-6 py-8">
           {/* Workspace badge — a calm, non-interactive label (switching lives in the
               sidebar's WorkspaceSwitcher; a fake chevron here just teased a dropdown). */}
