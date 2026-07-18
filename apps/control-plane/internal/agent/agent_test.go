@@ -438,3 +438,48 @@ func TestMemoryToolsUnavailable(t *testing.T) {
 		t.Errorf("expected a 'not available' observation, events: %v", events)
 	}
 }
+
+// Configured skills are injected into the system prompt (both their name and instruction) so
+// the project's conventions shape the run.
+func TestRunInjectsSkills(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"done","final":"ok"}`,
+	}}
+	cfg := Config{
+		WorkspaceID: "p1",
+		Skills: []Skill{
+			{Name: "Zod validation", Instruction: "Always validate forms with Zod."},
+			{Name: "", Instruction: "Prefer server components."},
+		},
+	}
+	if _, err := NewRunner(model, newMemWorkspace(), cfg).Run(context.Background(), "build a form", nil); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if len(model.systems) == 0 {
+		t.Fatal("no system prompt captured")
+	}
+	sys := model.systems[0]
+	for _, want := range []string{"Project skills", "Zod validation", "Always validate forms with Zod.", "Prefer server components."} {
+		if !strings.Contains(sys, want) {
+			t.Errorf("system prompt missing %q; got:\n%s", want, sys)
+		}
+	}
+}
+
+// Skills also apply in planning mode (they shape the plan, not just execution).
+func TestSkillsApplyInPlanningMode(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"plan","plan":["step one","step two"]}`,
+	}}
+	cfg := Config{
+		WorkspaceID: "p1",
+		Mode:        "plan",
+		Skills:      []Skill{{Name: "TDD", Instruction: "Write tests first."}},
+	}
+	if _, err := NewRunner(model, newMemWorkspace(), cfg).Run(context.Background(), "add a feature", nil); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if len(model.systems) == 0 || !strings.Contains(model.systems[0], "Write tests first.") {
+		t.Errorf("skills not injected in planning mode; got:\n%s", model.systems[0])
+	}
+}
