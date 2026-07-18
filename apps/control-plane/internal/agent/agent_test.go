@@ -360,3 +360,81 @@ func TestCheckAppUnavailable(t *testing.T) {
 		t.Errorf("expected an 'not available' observation, events: %v", events)
 	}
 }
+
+// fakeMemory is an in-memory MemoryStore that records what was remembered and returns a
+// canned recall result.
+type fakeMemory struct {
+	remembered []string // "kind:content" of each Remember
+	recallOut  string
+	recalls    []string // queries passed to Recall
+}
+
+func (m *fakeMemory) Remember(_ context.Context, content, kind string) (string, error) {
+	m.remembered = append(m.remembered, kind+":"+content)
+	return "remembered", nil
+}
+
+func (m *fakeMemory) Recall(_ context.Context, query string) (string, error) {
+	m.recalls = append(m.recalls, query)
+	return m.recallOut, nil
+}
+
+// With a MemoryStore configured, the agent can recall prior context and remember new facts;
+// both tools are advertised and dispatched to the store.
+func TestRunUsesMemoryTools(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"load context","action":{"tool":"recall","args":{"query":"api base url"}}}`,
+		`{"thought":"note the decision","action":{"tool":"remember","args":{"content":"API base is /api/v1","kind":"decision"}}}`,
+		`{"thought":"done","final":"Recalled context and saved the API base decision."}`,
+	}}
+	ws := newMemWorkspace()
+	mem := &fakeMemory{recallOut: "- [fact] uses postgres\n"}
+
+	var events []Event
+	_, err := NewRunner(model, ws, Config{WorkspaceID: "p1", Memory: mem}).Run(context.Background(), "wire the client", collect(&events))
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	// Both tools advertised only because a store was configured.
+	if len(model.systems) == 0 || !strings.Contains(model.systems[0], "recall") || !strings.Contains(model.systems[0], "remember") {
+		t.Errorf("memory tools not advertised in system prompt")
+	}
+	// recall query reached the store and its result was fed back to the next prompt.
+	if len(mem.recalls) != 1 || mem.recalls[0] != "api base url" {
+		t.Errorf("recall queries = %v, want [\"api base url\"]", mem.recalls)
+	}
+	if len(model.prompts) < 2 || !strings.Contains(model.prompts[1], "uses postgres") {
+		t.Errorf("recall observation not fed back; 2nd prompt: %q", model.prompts[len(model.prompts)-1])
+	}
+	// remember persisted the decision with its kind.
+	if len(mem.remembered) != 1 || mem.remembered[0] != "decision:API base is /api/v1" {
+		t.Errorf("remembered = %v, want [\"decision:API base is /api/v1\"]", mem.remembered)
+	}
+}
+
+// Without a MemoryStore, remember/recall are neither advertised nor functional — they
+// degrade to an observation the agent can route around.
+func TestMemoryToolsUnavailable(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"try to recall","action":{"tool":"recall","args":{"query":"x"}}}`,
+		`{"thought":"no memory here","final":"Done without memory."}`,
+	}}
+	ws := newMemWorkspace()
+
+	var events []Event
+	if _, err := NewRunner(model, ws, Config{WorkspaceID: "p1"}).Run(context.Background(), "x", collect(&events)); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if len(model.systems) == 0 || strings.Contains(model.systems[0], "remember") {
+		t.Errorf("memory tools should not be advertised when no store is configured")
+	}
+	var sawUnavailable bool
+	for _, e := range events {
+		if e.Kind == EventToolResult && strings.Contains(e.Result, "not available") {
+			sawUnavailable = true
+		}
+	}
+	if !sawUnavailable {
+		t.Errorf("expected a 'not available' observation, events: %v", events)
+	}
+}
