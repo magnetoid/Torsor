@@ -122,6 +122,55 @@ func (r *runtime) Exec(ctx context.Context, spec plugin.ExecSpec, onChunk func(p
 	return onChunk(plugin.ExecChunk{ExitCode: 0, Done: true})
 }
 
+// ExecInteractive is a deterministic, dependency-free stand-in for a PTY: it echoes stdin
+// back (as a terminal in echo mode would), acknowledges resize events, and treats a line
+// equal to "exit" as end-of-session (exit code 0). No container or real tty is involved, so
+// the whole interactive path — bridge, stdin frames, resize, streamed output — is unit
+// testable end-to-end. Real runtimes attach an actual PTY instead (see cmd/docker-runtime).
+func (r *runtime) ExecInteractive(ctx context.Context, spec plugin.ExecSpec, in <-chan plugin.ExecInput, onChunk func(plugin.ExecChunk) error) error {
+	banner := fmt.Sprintf("[mock-pty %s] interactive shell (type 'exit' to quit)\r\n", spec.WorkspaceID)
+	if err := onChunk(plugin.ExecChunk{Stdout: banner}); err != nil {
+		return err
+	}
+	var buf string
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case input, ok := <-in:
+			if !ok {
+				// stdin closed by the caller: end the session cleanly.
+				return onChunk(plugin.ExecChunk{ExitCode: 0, Done: true})
+			}
+			if input.Resize != nil {
+				if err := onChunk(plugin.ExecChunk{Stdout: fmt.Sprintf("[resize %dx%d]\r\n", input.Resize.Cols, input.Resize.Rows)}); err != nil {
+					return err
+				}
+				continue
+			}
+			if len(input.Stdin) == 0 {
+				continue
+			}
+			// Echo what was typed, mirroring a PTY in echo mode.
+			if err := onChunk(plugin.ExecChunk{Stdout: string(input.Stdin)}); err != nil {
+				return err
+			}
+			buf += string(input.Stdin)
+			for {
+				idx := strings.IndexByte(buf, '\n')
+				if idx < 0 {
+					break
+				}
+				cmd := strings.TrimRight(buf[:idx], "\r")
+				buf = buf[idx+1:]
+				if cmd == "exit" {
+					return onChunk(plugin.ExecChunk{Stdout: "logout\r\n", ExitCode: 0, Done: true})
+				}
+			}
+		}
+	}
+}
+
 func (r *runtime) ListFiles(_ context.Context, workspaceID, dir string) ([]plugin.FileEntry, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

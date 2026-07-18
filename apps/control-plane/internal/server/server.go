@@ -66,6 +66,11 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/projects/{projectID}/presence/ws", s.handlePresenceWS)
 		r.Get("/projects/{projectID}/collab/ws", s.handleCollabWS)
 
+		// Interactive terminal (PTY): a WebSocket bridged to the runtime's ExecInteractive,
+		// carrying stdin/resize up and stdout/stderr down. Authenticated via access_token and
+		// scoped to project ownership, same as the other WebSocket routes.
+		r.Get("/projects/{projectID}/workspace/pty", s.handleWorkspacePTY)
+
 		// Live-preview proxy: an iframe can't send an Authorization header, so this also
 		// authenticates via the access_token query param. Ownership is still enforced.
 		r.HandleFunc("/projects/{projectID}/preview", s.handlePreviewProxy)

@@ -40,21 +40,30 @@ no backend. To make it real:
 - **Blocker**: requires an actual IdP tenant (Okta/Entra/Auth0) to configure and
   test against. Cannot function or be validated without one.
 
-### 2. Interactive terminal (PTY / stdin)
-The terminal already runs non-interactive commands (`apiExecStream`). True
-interactivity needs stdin + a PTY, which the current one-way SSE exec can't do:
+### 2. Interactive terminal (PTY / stdin) — BUILT (needs a container smoke test)
+Done once the disk was freed and the proto toolchain installed. What shipped:
 
-- **Contract**: add a bidirectional streaming RPC to `internal/plugin/proto/model.proto`
-  (or a new `ExecInteractive`) carrying stdin frames up and stdout/stderr down;
-  regenerate stubs with `protoc`.
-- **Runtime**: implement in `cmd/docker-runtime` via `docker exec -it` with a PTY
-  (`creack/pty` or docker's attach API); mock-runtime can echo.
-- **Transport**: a websocket endpoint (SSE is one-way) at
-  `/api/v1/projects/{id}/workspace/pty`.
-- **Frontend**: switch `TerminalTab` to the websocket and forward xterm `onData`
-  (stdin) + resize events.
-- **Blocker**: a versioned-contract change that must be compiled/regenerated;
-  couldn't be done on the disk-full host.
+- **Contract**: `ExecInteractive` bidirectional streaming RPC added to
+  `internal/plugin/proto/runtime.proto` (frames: `ExecStart`, then `stdin` / `WinSize`
+  resize up; `ExecChunk` down). Stubs regenerated with `protoc` + `protoc-gen-go`
+  v1.36.11 / `protoc-gen-go-grpc` v1.6.2.
+- **Bridge**: `plugin.WorkspaceRuntime.ExecInteractive` on the Go interface, with both
+  gRPC client and server halves in `internal/plugin/runtime.go`.
+- **Runtimes**: `cmd/mock-runtime` implements a deterministic echo PTY (unit-tested);
+  `cmd/docker-runtime` implements a real PTY via `docker exec -it` wired to a
+  `creack/pty` master (stdin write + `TIOCSWINSZ` resize).
+- **Transport**: `GET /api/v1/projects/{id}/workspace/pty` websocket
+  (`internal/server/pty_handlers.go`), authenticated via `access_token` and scoped to
+  project ownership; unsupported runtimes surface a clean "not supported" frame.
+- **Frontend**: `TerminalTab` is a real PTY over that websocket — raw stdin passthrough
+  (the PTY echoes), `onResize` → resize frames, honest fallback when no workspace exists.
+
+**Verified**: `go build/vet/test ./...` (incl. a new plugin test that drives the full
+bidi path — stdin, resize, exit — through the real out-of-process mock plugin), gofmt,
+tsc, vitest. **Not yet exercised here**: the `docker-runtime` PTY against a real
+container (no Docker on this host), and the websocket handler end-to-end (needs Postgres
++ a live workspace). Smoke-test both on the server: open the terminal in a project with a
+running docker workspace and confirm `vim`/a REPL and Ctrl-C behave.
 
 ## Environment notes
 - Local Go builds need ~1 GiB scratch. The dev Mac's APFS container was full

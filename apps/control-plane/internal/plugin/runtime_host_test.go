@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -149,5 +150,61 @@ func TestWorkspaceRuntimePluginRoundTrip(t *testing.T) {
 		t.Fatalf("StatusWorkspace: %v", err)
 	} else if st.Status != "unknown" {
 		t.Fatalf("StatusWorkspace after destroy = %q, want unknown", st.Status)
+	}
+}
+
+// TestWorkspaceRuntimeExecInteractive drives the bidirectional PTY path end-to-end through
+// the real out-of-process plugin: it sends stdin and a resize event up the stream and
+// asserts the echoed output, the resize acknowledgement, and a final Done chunk come back.
+// This exercises the whole interactive contract (proto bidi stream + both bridge halves)
+// with no container or real tty.
+func TestWorkspaceRuntimeExecInteractive(t *testing.T) {
+	bin := buildMockRuntime(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	host := NewHost()
+	defer host.Close()
+
+	if _, err := host.LoadWorkspaceRuntime(ctx, bin); err != nil {
+		t.Fatalf("LoadWorkspaceRuntime: %v", err)
+	}
+	rt, ok := host.WorkspaceRuntime("mock")
+	if !ok {
+		t.Fatal("WorkspaceRuntime(\"mock\") not found after load")
+	}
+
+	const wsID = "proj-pty"
+	if _, err := rt.CreateWorkspace(ctx, WorkspaceSpec{ID: wsID, Image: "node:20"}); err != nil {
+		t.Fatalf("CreateWorkspace: %v", err)
+	}
+
+	in := make(chan ExecInput)
+	go func() {
+		in <- ExecInput{Stdin: []byte("echo hi\n")}
+		in <- ExecInput{Resize: &WinSize{Rows: 40, Cols: 120}}
+		in <- ExecInput{Stdin: []byte("exit\n")}
+		close(in)
+	}()
+
+	var out strings.Builder
+	var last ExecChunk
+	err := rt.ExecInteractive(ctx, ExecSpec{WorkspaceID: wsID, Rows: 24, Cols: 80}, in, func(c ExecChunk) error {
+		out.WriteString(c.Stdout)
+		last = c
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("ExecInteractive: %v", err)
+	}
+	if !last.Done || last.ExitCode != 0 {
+		t.Fatalf("final chunk = %+v, want Done with exit 0", last)
+	}
+	got := out.String()
+	for _, want := range []string{"interactive shell", "echo hi", "[resize 120x40]", "logout"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("interactive output %q missing %q", got, want)
+		}
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/creack/pty"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
 
@@ -435,6 +436,78 @@ func (r runtime) Exec(ctx context.Context, spec plugin.ExecSpec, onChunk func(pl
 			exitCode = int32(ee.ExitCode())
 		} else {
 			return err
+		}
+	}
+	return onChunk(plugin.ExecChunk{ExitCode: exitCode, Done: true})
+}
+
+// ExecInteractive attaches the command to a real PTY so shells, REPLs, and editors work.
+// We run `docker exec -it` with its stdio wired to a local pseudo-terminal (creack/pty):
+// the local PTY makes docker's stdin a tty (satisfying -t), so the process inside the
+// container gets an actual controlling terminal. stdin frames are written to the PTY master
+// and resize events call TIOCSWINSZ; with -t docker merges stdout/stderr onto the tty, so
+// all output streams back as Stdout. (Container exec via the docker CLI is allowed here in
+// the plugin — the forbidden path is the control-plane internal packages.)
+func (r runtime) ExecInteractive(ctx context.Context, spec plugin.ExecSpec, in <-chan plugin.ExecInput, onChunk func(plugin.ExecChunk) error) error {
+	args := []string{"exec", "-i", "-t"}
+	if spec.WorkingDir != "" {
+		args = append(args, "-w", spec.WorkingDir)
+	}
+	args = append(args, containerName(spec.WorkspaceID))
+	if len(spec.Command) > 0 {
+		args = append(args, spec.Command...)
+	} else {
+		args = append(args, "sh") // default interactive shell
+	}
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	size := &pty.Winsize{Rows: spec.Rows, Cols: spec.Cols}
+	if size.Rows == 0 {
+		size.Rows = 24
+	}
+	if size.Cols == 0 {
+		size.Cols = 80
+	}
+	ptmx, err := pty.StartWithSize(cmd, size)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = ptmx.Close() }()
+
+	// Pump stdin/resize frames into the PTY until the caller closes `in`.
+	go func() {
+		for input := range in {
+			switch {
+			case input.Resize != nil:
+				_ = pty.Setsize(ptmx, &pty.Winsize{Rows: input.Resize.Rows, Cols: input.Resize.Cols})
+			case len(input.Stdin) > 0:
+				_, _ = ptmx.Write(input.Stdin)
+			}
+		}
+	}()
+
+	// Stream PTY output until it closes (process exit) or the client aborts via onChunk.
+	buf := make([]byte, 32*1024)
+	for {
+		n, readErr := ptmx.Read(buf)
+		if n > 0 {
+			if cbErr := onChunk(plugin.ExecChunk{Stdout: string(buf[:n])}); cbErr != nil {
+				_ = cmd.Process.Kill()
+				return cbErr
+			}
+		}
+		if readErr != nil {
+			break // EOF: the PTY closed because the process exited
+		}
+	}
+
+	exitCode := int32(0)
+	if werr := cmd.Wait(); werr != nil {
+		var ee *exec.ExitError
+		if errors.As(werr, &ee) {
+			exitCode = int32(ee.ExitCode())
+		} else {
+			exitCode = 1
 		}
 	}
 	return onChunk(plugin.ExecChunk{ExitCode: exitCode, Done: true})

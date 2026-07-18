@@ -2,22 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
-import { Plus, X, Terminal as TerminalIcon, Play, Square, RotateCcw } from 'lucide-react';
+import { Plus, X, Terminal as TerminalIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { apiExecStream, ApiError } from '../../lib/api';
+import { wsUrlFor } from '../../lib/api';
 import { useProjectStore } from '../../stores/projectStore';
 import { useThemeColors } from '../../lib/theme';
-
-const PROMPT = '\x1b[1;34mworkspace\x1b[0m$ ';
-
-/** xterm needs CRLF; container output is LF. */
-const toCRLF = (s: string) => s.replace(/\r?\n/g, '\r\n');
 
 interface TerminalInstance {
   id: string;
   name: string;
   xterm?: XTerm;
   fitAddon?: FitAddon;
+  ws?: WebSocket;
 }
 
 export default function TerminalTab() {
@@ -56,102 +52,73 @@ export default function TerminalTab() {
     term.open(container);
     fitAddon.fit();
 
-    term.writeln('\x1b[1;35mTorsor Terminal\x1b[0m — commands run inside this project\'s workspace container.');
-    term.writeln('Built-ins: \x1b[1;32mclear\x1b[0m. Press \x1b[1;32mCtrl+C\x1b[0m to cancel a running command.\r\n');
-    term.write(PROMPT);
+    term.writeln('\x1b[1;35mTorsor Terminal\x1b[0m — interactive shell inside this project\'s workspace container.\r\n');
 
-    let currentLine = '';
-    let running = false;
-    let abort: AbortController | null = null;
+    const projectId = useProjectStore.getState().activeProjectId;
+    if (!projectId) {
+      term.writeln('\x1b[1;33mNo active project — open a project to start a shell in its workspace.\x1b[0m');
+      return { term, fitAddon, ws: undefined };
+    }
 
-    // Runs the line inside the project's workspace via the exec SSE stream. The prompt
-    // is written when the stream finishes (commands are async, unlike the old mock).
-    const runCommand = async (cmd: string) => {
-      const trimmed = cmd.trim();
-      if (!trimmed) {
-        term.write(PROMPT);
-        return;
-      }
-      if (trimmed === 'clear') {
-        term.clear();
-        term.write(PROMPT);
-        return;
-      }
+    // Real PTY over a WebSocket: the server bridges this to the workspace runtime's
+    // ExecInteractive (a true pseudo-terminal in docker-runtime). We stream every keystroke
+    // as stdin — the PTY echoes and does its own line editing — and forward resize events.
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(wsUrlFor(`/api/v1/projects/${projectId}/workspace/pty`));
+    } catch {
+      term.writeln('\x1b[1;31mUnable to open a terminal connection.\x1b[0m');
+      return { term, fitAddon, ws: undefined };
+    }
 
-      const projectId = useProjectStore.getState().activeProjectId;
-      if (!projectId) {
-        term.writeln('\x1b[1;33mNo active project — open a project to run commands in its workspace.\x1b[0m');
-        term.write(PROMPT);
-        return;
-      }
-
-      running = true;
-      abort = new AbortController();
-      let sawExit: number | undefined;
-      try {
-        await apiExecStream(projectId, ['/bin/sh', '-c', trimmed], {
-          signal: abort.signal,
-          onChunk: (c) => {
-            if (c.stdout) term.write(toCRLF(c.stdout));
-            if (c.stderr) term.write(`\x1b[31m${toCRLF(c.stderr)}\x1b[0m`);
-            if (c.done) sawExit = c.exitCode;
-          },
-        });
-        if (sawExit !== undefined && sawExit !== 0) {
-          term.writeln(`\x1b[1;31mexit ${sawExit}\x1b[0m`);
-        }
-      } catch (err) {
-        if (abort.signal.aborted) {
-          term.writeln('\x1b[1;33m^C\x1b[0m');
-        } else if (err instanceof ApiError && (err.status === 404 || err.status === 503)) {
-          term.writeln('\x1b[1;33mNo workspace for this project yet — deploy an image or ask the agent to start one.\x1b[0m');
-        } else {
-          term.writeln(`\x1b[1;31m${err instanceof Error ? err.message : 'Command failed'}\x1b[0m`);
-        }
-      } finally {
-        running = false;
-        abort = null;
-        term.write(PROMPT);
-      }
+    let ended = false;
+    const endSession = (msg: string) => {
+      if (ended) return;
+      ended = true;
+      term.writeln(`\r\n\x1b[1;33m${msg}\x1b[0m`);
     };
 
-    term.onData(data => {
-      const code = data.charCodeAt(0);
-      if (running) {
-        // Only Ctrl+C is meaningful while a command streams.
-        if (code === 3) abort?.abort();
+    ws.onopen = () => {
+      // First frame starts the session: empty command => the runtime's default shell.
+      ws.send(JSON.stringify({ command: [], workingDir: '', rows: term.rows, cols: term.cols }));
+    };
+    ws.onmessage = (ev) => {
+      let frame: { stdout?: string; stderr?: string; error?: string; done?: boolean };
+      try {
+        frame = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+      } catch {
         return;
       }
-      if (code === 13) { // Enter
-        term.write('\r\n');
-        const line = currentLine;
-        currentLine = '';
-        void runCommand(line);
-      } else if (code === 127) { // Backspace
-        if (currentLine.length > 0) {
-          currentLine = currentLine.slice(0, -1);
-          term.write('\b \b');
-        }
-      } else if (code === 3) { // Ctrl+C at the prompt: discard the current line
-        currentLine = '';
-        term.write('^C\r\n' + PROMPT);
-      } else if (code < 32) {
-        // Ignore other control characters
-      } else {
-        currentLine += data;
-        term.write(data);
-      }
+      if (frame.stdout) term.write(frame.stdout);
+      if (frame.stderr) term.write(`\x1b[31m${frame.stderr}\x1b[0m`);
+      if (frame.error) term.writeln(`\r\n\x1b[1;31m${frame.error}\x1b[0m`);
+      if (frame.done) endSession('Session ended.');
+    };
+    ws.onerror = () => {
+      endSession('No workspace for this project yet, or the terminal is unavailable — ask the agent to start one.');
+    };
+    ws.onclose = () => {
+      endSession('Terminal disconnected.');
+    };
+
+    // Keystrokes -> stdin (raw passthrough; the PTY handles echo and line editing).
+    term.onData((data) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ stdin: data }));
+    });
+    // Terminal size -> PTY resize (fires on fitAddon.fit()).
+    term.onResize(({ cols, rows }) => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ resize: { rows, cols } }));
     });
 
-    return { term, fitAddon };
+    return { term, fitAddon, ws };
   };
 
   useEffect(() => {
     instances.forEach(inst => {
       const container = terminalRefs.current[inst.id];
       if (container && !instancesRef.current[inst.id]) {
-        const { term, fitAddon } = createTerminal(inst.id, container);
-        instancesRef.current[inst.id] = { ...inst, xterm: term, fitAddon };
+        const { term, fitAddon, ws } = createTerminal(inst.id, container);
+        instancesRef.current[inst.id] = { ...inst, xterm: term, fitAddon, ws };
       }
     });
 
@@ -164,6 +131,17 @@ export default function TerminalTab() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [instances]);
+
+  // On unmount, tear down every PTY WebSocket and dispose the terminals.
+  useEffect(() => {
+    const instancesSnapshot = instancesRef.current;
+    return () => {
+      Object.values(instancesSnapshot).forEach(inst => {
+        inst.ws?.close();
+        inst.xterm?.dispose();
+      });
+    };
+  }, []);
 
   useEffect(() => {
     Object.values(instancesRef.current).forEach(inst => {
@@ -205,6 +183,7 @@ export default function TerminalTab() {
     });
 
     const inst = instancesRef.current[id];
+    inst?.ws?.close();
     inst?.xterm?.dispose();
     delete instancesRef.current[id];
     delete terminalRefs.current[id];

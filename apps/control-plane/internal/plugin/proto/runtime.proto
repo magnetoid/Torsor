@@ -29,6 +29,14 @@ service WorkspaceRuntime {
   // has done=true and carries the exit code. This is the seam terminals are built on.
   rpc Exec(ExecRequest) returns (stream ExecChunk);
 
+  // ExecInteractive runs a command attached to a pseudo-terminal (PTY): a bidirectional
+  // stream where the client sends an ExecStart frame first, then stdin bytes and terminal
+  // resize events, while the server streams stdout/stderr back as ExecChunk (the final
+  // chunk has done=true + exit code). This is what makes REPLs, editors (vim), and shells
+  // with line-editing actually usable, which one-way Exec cannot do. Runtimes that don't
+  // support a PTY leave this Unimplemented (the bridge embeds the Unimplemented server).
+  rpc ExecInteractive(stream ExecInteractiveRequest) returns (stream ExecChunk);
+
   // File ops operate on the workspace's filesystem (the source of truth once a workspace
   // is live), distinct from the DB-backed project_files snapshot.
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
@@ -105,6 +113,29 @@ message ExecChunk {
   string stderr = 2;
   int32 exit_code = 3;                // meaningful when done=true
   bool done = 4;
+}
+
+// ExecInteractiveRequest is one client->server frame of an interactive session. The first
+// frame MUST carry `start`; subsequent frames carry `stdin` bytes or a `resize` event.
+message ExecInteractiveRequest {
+  oneof payload {
+    ExecStart start = 1;   // required first frame: the command + initial terminal size
+    bytes stdin = 2;       // raw bytes to write to the process's stdin
+    WinSize resize = 3;    // terminal was resized to these dimensions
+  }
+}
+
+message ExecStart {
+  string workspace_id = 1;
+  repeated string command = 2;        // argv; empty => the runtime's default shell
+  string working_dir = 3;
+  WinSize size = 4;                    // initial terminal size (0/0 => runtime default)
+}
+
+// WinSize is a terminal window size in character cells.
+message WinSize {
+  uint32 rows = 1;
+  uint32 cols = 2;
 }
 
 message ListFilesRequest {

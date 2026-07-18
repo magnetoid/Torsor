@@ -26,6 +26,7 @@ const (
 	WorkspaceRuntime_DestroyWorkspace_FullMethodName  = "/torsor.plugin.v1.WorkspaceRuntime/DestroyWorkspace"
 	WorkspaceRuntime_StatusWorkspace_FullMethodName   = "/torsor.plugin.v1.WorkspaceRuntime/StatusWorkspace"
 	WorkspaceRuntime_Exec_FullMethodName              = "/torsor.plugin.v1.WorkspaceRuntime/Exec"
+	WorkspaceRuntime_ExecInteractive_FullMethodName   = "/torsor.plugin.v1.WorkspaceRuntime/ExecInteractive"
 	WorkspaceRuntime_ListFiles_FullMethodName         = "/torsor.plugin.v1.WorkspaceRuntime/ListFiles"
 	WorkspaceRuntime_ReadFile_FullMethodName          = "/torsor.plugin.v1.WorkspaceRuntime/ReadFile"
 	WorkspaceRuntime_WriteFile_FullMethodName         = "/torsor.plugin.v1.WorkspaceRuntime/WriteFile"
@@ -60,6 +61,13 @@ type WorkspaceRuntimeClient interface {
 	// Exec runs a command inside the workspace, streaming stdout/stderr; the final chunk
 	// has done=true and carries the exit code. This is the seam terminals are built on.
 	Exec(ctx context.Context, in *ExecRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecChunk], error)
+	// ExecInteractive runs a command attached to a pseudo-terminal (PTY): a bidirectional
+	// stream where the client sends an ExecStart frame first, then stdin bytes and terminal
+	// resize events, while the server streams stdout/stderr back as ExecChunk (the final
+	// chunk has done=true + exit code). This is what makes REPLs, editors (vim), and shells
+	// with line-editing actually usable, which one-way Exec cannot do. Runtimes that don't
+	// support a PTY leave this Unimplemented (the bridge embeds the Unimplemented server).
+	ExecInteractive(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecInteractiveRequest, ExecChunk], error)
 	// File ops operate on the workspace's filesystem (the source of truth once a workspace
 	// is live), distinct from the DB-backed project_files snapshot.
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
@@ -162,6 +170,19 @@ func (c *workspaceRuntimeClient) Exec(ctx context.Context, in *ExecRequest, opts
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WorkspaceRuntime_ExecClient = grpc.ServerStreamingClient[ExecChunk]
 
+func (c *workspaceRuntimeClient) ExecInteractive(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[ExecInteractiveRequest, ExecChunk], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &WorkspaceRuntime_ServiceDesc.Streams[1], WorkspaceRuntime_ExecInteractive_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ExecInteractiveRequest, ExecChunk]{ClientStream: stream}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type WorkspaceRuntime_ExecInteractiveClient = grpc.BidiStreamingClient[ExecInteractiveRequest, ExecChunk]
+
 func (c *workspaceRuntimeClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListFilesResponse)
@@ -248,6 +269,13 @@ type WorkspaceRuntimeServer interface {
 	// Exec runs a command inside the workspace, streaming stdout/stderr; the final chunk
 	// has done=true and carries the exit code. This is the seam terminals are built on.
 	Exec(*ExecRequest, grpc.ServerStreamingServer[ExecChunk]) error
+	// ExecInteractive runs a command attached to a pseudo-terminal (PTY): a bidirectional
+	// stream where the client sends an ExecStart frame first, then stdin bytes and terminal
+	// resize events, while the server streams stdout/stderr back as ExecChunk (the final
+	// chunk has done=true + exit code). This is what makes REPLs, editors (vim), and shells
+	// with line-editing actually usable, which one-way Exec cannot do. Runtimes that don't
+	// support a PTY leave this Unimplemented (the bridge embeds the Unimplemented server).
+	ExecInteractive(grpc.BidiStreamingServer[ExecInteractiveRequest, ExecChunk]) error
 	// File ops operate on the workspace's filesystem (the source of truth once a workspace
 	// is live), distinct from the DB-backed project_files snapshot.
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
@@ -291,6 +319,9 @@ func (UnimplementedWorkspaceRuntimeServer) StatusWorkspace(context.Context, *Wor
 }
 func (UnimplementedWorkspaceRuntimeServer) Exec(*ExecRequest, grpc.ServerStreamingServer[ExecChunk]) error {
 	return status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedWorkspaceRuntimeServer) ExecInteractive(grpc.BidiStreamingServer[ExecInteractiveRequest, ExecChunk]) error {
+	return status.Error(codes.Unimplemented, "method ExecInteractive not implemented")
 }
 func (UnimplementedWorkspaceRuntimeServer) ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListFiles not implemented")
@@ -449,6 +480,13 @@ func _WorkspaceRuntime_Exec_Handler(srv interface{}, stream grpc.ServerStream) e
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type WorkspaceRuntime_ExecServer = grpc.ServerStreamingServer[ExecChunk]
+
+func _WorkspaceRuntime_ExecInteractive_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(WorkspaceRuntimeServer).ExecInteractive(&grpc.GenericServerStream[ExecInteractiveRequest, ExecChunk]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type WorkspaceRuntime_ExecInteractiveServer = grpc.BidiStreamingServer[ExecInteractiveRequest, ExecChunk]
 
 func _WorkspaceRuntime_ListFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListFilesRequest)
@@ -619,6 +657,12 @@ var WorkspaceRuntime_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "Exec",
 			Handler:       _WorkspaceRuntime_Exec_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "ExecInteractive",
+			Handler:       _WorkspaceRuntime_ExecInteractive_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "internal/plugin/proto/runtime.proto",
