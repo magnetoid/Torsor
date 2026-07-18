@@ -1,8 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, Star, Folder } from 'lucide-react';
-import { HomeSidebar } from '../components/shell/HomeSidebar';
-import { AccountBar } from '../components/shared/AccountBar';
+import { HomeLayout } from '../components/shell/HomeLayout';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useProjectStore, type Project } from '../stores/projectStore';
 import { Skeleton } from '../components/shared/Skeleton';
@@ -31,10 +30,7 @@ export function ProjectListPage({ mode }: { mode: 'recent' | 'starred' }) {
   const title = mode === 'recent' ? 'Recent' : 'Starred';
 
   return (
-    <div className="flex bg-page min-h-screen">
-      <HomeSidebar />
-      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto h-screen animate-in fade-in duration-slow">
-        <AccountBar title={title} />
+    <HomeLayout title={title} mainClassName="flex-1 min-w-0 flex flex-col overflow-y-auto animate-in fade-in duration-slow">
         <div className="max-w-3xl w-full mx-auto px-6 py-8">
           {isLoading && rows.length === 0 ? (
             // Shaped loading: the list has a knowable silhouette, so no spinner.
@@ -110,7 +106,6 @@ export function ProjectListPage({ mode }: { mode: 'recent' | 'starred' }) {
             </ul>
           )}
         </div>
-      </main>
-    </div>
+    </HomeLayout>
   );
 }

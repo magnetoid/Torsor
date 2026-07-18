@@ -18,8 +18,7 @@ import {
   Filter,
   Lock,
 } from 'lucide-react';
-import { HomeSidebar } from '../components/shell/HomeSidebar';
-import { AccountBar } from '../components/shared/AccountBar';
+import { HomeLayout } from '../components/shell/HomeLayout';
 import { useProjectStore } from '../stores/projectStore';
 import { cn } from '../lib/utils';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -98,11 +97,7 @@ export function ProjectsPage() {
   };
 
   return (
-    <div className="flex bg-page min-h-screen">
-      <HomeSidebar />
-
-      <main className="flex-1 min-w-0 overflow-y-auto h-screen">
-        <AccountBar title="Projects" />
+    <HomeLayout title="Projects">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-8">
             <div>
@@ -274,9 +269,8 @@ export function ProjectsPage() {
             </div>
           )}
         </div>
-      </main>
 
       <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
-    </div>
+    </HomeLayout>
   );
 }

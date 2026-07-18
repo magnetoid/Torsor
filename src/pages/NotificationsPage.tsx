@@ -18,8 +18,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useNotificationStore, NotificationType } from '../stores/notificationStore';
 import { cn, formatDistanceToNow } from '../lib/utils';
-import { HomeSidebar } from '../components/shell/HomeSidebar';
-import { AccountBar } from '../components/shared/AccountBar';
+import { HomeLayout } from '../components/shell/HomeLayout';
 import { EmptyState } from '../components/shared/EmptyState';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
@@ -51,32 +50,28 @@ export const NotificationsPage: React.FC = () => {
     );
 
   return (
-    <div className="flex h-screen bg-page overflow-hidden">
-      <HomeSidebar />
-      
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <AccountBar
-          title="Notifications"
-          actions={
-            <>
-              <button
-                onClick={markAllRead}
-                className="px-3 py-1.5 text-xs font-bold text-secondary hover:text-primary hover:bg-elevated rounded-lg transition-all flex items-center gap-2"
-              >
-                <Check size={14} />
-                Mark all read
-              </button>
-              <button
-                onClick={clearAll}
-                className="px-3 py-1.5 text-xs font-bold text-error hover:bg-error/10 rounded-lg transition-all flex items-center gap-2"
-              >
-                <Trash2 size={14} />
-                Clear all
-              </button>
-            </>
-          }
-        />
-
+    <HomeLayout
+      title="Notifications"
+      mainClassName="flex-1 flex flex-col min-w-0 overflow-hidden"
+      actions={
+        <>
+          <button
+            onClick={markAllRead}
+            className="px-3 py-1.5 text-xs font-bold text-secondary hover:text-primary hover:bg-elevated rounded-lg transition-all flex items-center gap-2"
+          >
+            <Check size={14} />
+            Mark all read
+          </button>
+          <button
+            onClick={clearAll}
+            className="px-3 py-1.5 text-xs font-bold text-error hover:bg-error/10 rounded-lg transition-all flex items-center gap-2"
+          >
+            <Trash2 size={14} />
+            Clear all
+          </button>
+        </>
+      }
+    >
         {/* Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
           <div className="max-w-4xl mx-auto space-y-6">
@@ -217,7 +212,6 @@ export const NotificationsPage: React.FC = () => {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </HomeLayout>
   );
 };

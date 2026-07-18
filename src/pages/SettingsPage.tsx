@@ -11,8 +11,7 @@ import {
   ChevronRight,
   LayoutGrid
 } from 'lucide-react';
-import { HomeSidebar } from '../components/shell/HomeSidebar';
-import { AccountBar } from '../components/shared/AccountBar';
+import { HomeLayout } from '../components/shell/HomeLayout';
 import { useActiveWorkspace } from '../stores/workspaceStore';
 import { cn } from '../lib/utils';
 
@@ -39,11 +38,7 @@ export function SettingsPage() {
   ];
 
   return (
-    <div className="flex bg-page min-h-screen">
-      <HomeSidebar />
-      
-      <main className="flex-1 min-w-0 overflow-y-auto h-screen">
-        <AccountBar title="Workspace Settings" />
+    <HomeLayout title="Workspace Settings">
         <div className="max-w-5xl mx-auto px-6 py-8">
           {/* Breadcrumbs (the page title lives in the AccountBar) */}
           <div className="flex items-center gap-2 text-xs font-bold text-tertiary uppercase tracking-wider mb-6">
@@ -102,7 +97,6 @@ export function SettingsPage() {
             </div>
           </Tabs.Root>
         </div>
-      </main>
-    </div>
+    </HomeLayout>
   );
 }

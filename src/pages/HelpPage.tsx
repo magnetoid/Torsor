@@ -1,7 +1,6 @@
 import React from 'react';
 import { BookOpen, Github, Keyboard, MessageSquareWarning, ExternalLink } from 'lucide-react';
-import { HomeSidebar } from '../components/shell/HomeSidebar';
-import { AccountBar } from '../components/shared/AccountBar';
+import { HomeLayout } from '../components/shell/HomeLayout';
 import { Kbd } from '../components/shared/Kbd';
 
 const LINKS = [
@@ -28,10 +27,7 @@ const LINKS = [
 /** Help — real links + the shortcut cheat sheet (replaces the old "coming soon" stub). */
 export function HelpPage() {
   return (
-    <div className="flex bg-page min-h-screen">
-      <HomeSidebar />
-      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto h-screen animate-in fade-in duration-slow">
-        <AccountBar title="Help & Support" />
+    <HomeLayout title="Help & Support" mainClassName="flex-1 min-w-0 flex flex-col overflow-y-auto animate-in fade-in duration-slow">
         <div className="max-w-3xl w-full mx-auto px-6 py-8 space-y-8">
           <section className="grid gap-3 sm:grid-cols-2">
             {LINKS.map(({ icon: Icon, title, description, href }) => (
@@ -78,7 +74,6 @@ export function HelpPage() {
             </div>
           </section>
         </div>
-      </main>
-    </div>
+    </HomeLayout>
   );
 }
