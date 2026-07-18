@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { contributions } from '../kernel/contributions';
 
-export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage' | 'mcp';
+export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'validation' | 'git' | 'workflow' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage' | 'mcp' | 'memory';
 
 export interface Tab {
   id: string;

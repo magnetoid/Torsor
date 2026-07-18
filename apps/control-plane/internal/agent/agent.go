@@ -89,6 +89,10 @@ type Config struct {
 	// The agent is told to bind its web/dev server to 0.0.0.0:PreviewPort so the app
 	// shows up in the preview and is deployable. Empty = no preview-port guidance.
 	PreviewPort string
+	// Memory, when set, enables the remember/recall tools so the agent can persist and
+	// retrieve durable project context across runs. Wired by the server from the project's
+	// memories; nil hides both tools.
+	Memory MemoryStore
 }
 
 // ExternalTool is a tool contributed from outside the built-in set (an MCP server today).
@@ -105,6 +109,17 @@ type ExternalTool struct {
 type ToolRouter interface {
 	ExternalTools() []ExternalTool
 	CallExternal(ctx context.Context, name string, args map[string]string) (string, error)
+}
+
+// MemoryStore gives the agent durable, cross-run project memory via the remember/recall
+// tools. It follows the same narrow-interface design as Model/Workspace, so the loop stays
+// ignorant of the DB (the server backs it with the memories table; tests use a fake). Nil
+// hides both tools.
+type MemoryStore interface {
+	// Remember persists a memory and returns a short confirmation observation.
+	Remember(ctx context.Context, content, kind string) (string, error)
+	// Recall returns memories matching query (or the most recent when empty) as text.
+	Recall(ctx context.Context, query string) (string, error)
 }
 
 func (c *Config) withDefaults() {
@@ -196,6 +211,16 @@ One more tool is available in this run:
 
 Self-verification rule: after your edits, run the build/tests if the project has them, then call check_app to confirm the app actually responds (status 2xx/3xx). If it fails or errors, fix the cause and re-verify. Only return "final" after check_app succeeds — and mention the verification result in your final message.`
 
+// memoryPrompt advertises the durable-memory tools when the server wires a MemoryStore.
+// Appended to the system prompt (models treat appendices as part of the tool list).
+const memoryPrompt = `
+
+This project has a durable memory you can use across runs:
+- recall     {"query": "<optional search terms>"}          -> returns saved memories (most recent if query is empty)
+- remember   {"content": "<fact to keep>", "kind": "<note|fact|decision|preference>"}  -> saves a memory for future runs
+
+Memory rules: near the START of a task, use recall to load prior decisions/context. When you learn something durable (a project convention, an intentional decision, the user's stated preference, a non-obvious fact), remember it concisely so future runs benefit. Keep memories short and factual; don't remember transient state or secrets.`
+
 // planSystemPrompt drives the spec-mode planning phase: the model proposes a short plan and
 // nothing else, so the user can approve/refine before any file is touched.
 const planSystemPrompt = `You are Torsor Agent in PLANNING mode. Do NOT take any action or edit any files yet.
@@ -261,6 +286,10 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		if r.cfg.Tools != nil {
 			// Advertise connected external (MCP) tools to the model alongside the built-ins.
 			system += externalToolsPrompt(r.cfg.Tools.ExternalTools())
+		}
+		if r.cfg.Memory != nil {
+			// Advertise the durable remember/recall tools.
+			system += memoryPrompt
 		}
 	}
 
@@ -415,6 +444,26 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 			return "error: check_app is not available in this run"
 		}
 		obs, err := r.cfg.CheckApp(ctx)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return obs
+
+	case "remember":
+		if r.cfg.Memory == nil {
+			return "error: remember is not available in this run"
+		}
+		obs, err := r.cfg.Memory.Remember(ctx, a.Args["content"], a.Args["kind"])
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return obs
+
+	case "recall":
+		if r.cfg.Memory == nil {
+			return "error: recall is not available in this run"
+		}
+		obs, err := r.cfg.Memory.Recall(ctx, a.Args["query"])
 		if err != nil {
 			return "error: " + err.Error()
 		}

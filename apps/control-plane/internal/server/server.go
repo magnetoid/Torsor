@@ -106,6 +106,12 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/projects/{projectID}/files/{fileID}", s.handleUpdateFile)
 			r.Delete("/projects/{projectID}/files/{fileID}", s.handleDeleteFile)
 
+			// Project memories (durable per-project notes the agent + user share)
+			r.Get("/projects/{projectID}/memories", s.handleListMemories)
+			r.Post("/projects/{projectID}/memories", s.handleCreateMemory)
+			r.Patch("/projects/{projectID}/memories/{memoryID}", s.handleUpdateMemory)
+			r.Delete("/projects/{projectID}/memories/{memoryID}", s.handleDeleteMemory)
+
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)
 			r.Post("/teams", s.handleCreateTeam)
