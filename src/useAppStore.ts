@@ -336,18 +336,33 @@ export const useAppStore = create<AppState>()(
         const patch = (id: string, changes: Partial<BootStep>) =>
           set((s) => ({ bootSteps: s.bootSteps.map((st) => (st.id === id ? { ...st, ...changes } : st)) }));
 
-        try {
-          // 1. Provision (idempotent: ON CONFLICT (project_id) DO UPDATE on the server).
-          await apiRequest(`/api/v1/projects/${projectId}/workspace`, {
-            method: 'POST',
-            auth: true,
-            body: JSON.stringify({}),
-          });
-          advance('provision', 'start');
+        // If the project was created from a template, one prepare call provisions with the
+        // template image, scaffolds starter files, and launches setup + dev — so the preview
+        // boots automatically. Otherwise fall back to the plain provision + start.
+        const template = useProjectStore.getState().projects.find((p) => p.id === projectId)?.template;
 
-          // 2. Start the workspace (starts the container/dev process).
-          await apiRequest(`/api/v1/projects/${projectId}/workspace/start`, { method: 'POST', auth: true });
-          advance('start', 'wait');
+        try {
+          if (template) {
+            await apiRequest(`/api/v1/projects/${projectId}/workspace/prepare`, {
+              method: 'POST',
+              auth: true,
+              body: JSON.stringify({}),
+            });
+            advance('provision', 'start');
+            advance('start', 'wait');
+          } else {
+            // 1. Provision (idempotent: ON CONFLICT (project_id) DO UPDATE on the server).
+            await apiRequest(`/api/v1/projects/${projectId}/workspace`, {
+              method: 'POST',
+              auth: true,
+              body: JSON.stringify({}),
+            });
+            advance('provision', 'start');
+
+            // 2. Start the workspace (starts the container/dev process).
+            await apiRequest(`/api/v1/projects/${projectId}/workspace/start`, { method: 'POST', auth: true });
+            advance('start', 'wait');
+          }
 
           // 3. Poll live status until the app actually exposes a preview port.
           let reachable = false;

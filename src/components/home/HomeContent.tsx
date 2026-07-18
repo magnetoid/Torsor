@@ -23,6 +23,9 @@ import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { useAuthStore } from '../../stores/authStore';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
 import { cn } from '../../lib/utils';
+import { apiRequest } from '../../lib/api';
+
+interface StarterTemplate { id: string; name: string; description: string; icon: string; }
 
 const PROJECT_TYPES = [
   { id: 'website', icon: Globe, label: 'Website', prompt: 'Build a modern landing page for a SaaS startup with a dark theme and glassmorphism effects.' },
@@ -60,6 +63,15 @@ export function HomeContent() {
   
   const [prompt, setPrompt] = useState('');
   const [isPlanning, setIsPlanning] = useState(false);
+  // Starter template (stack) for the new project — drives template-based provisioning +
+  // auto-preview. Undefined = blank workspace.
+  const [templates, setTemplates] = useState<StarterTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    apiRequest<{ items: StarterTemplate[] }>('/api/v1/templates', { auth: true })
+      .then((r) => setTemplates(r.items || []))
+      .catch(() => { /* picker just stays empty on error */ });
+  }, []);
   const [shuffledPrompts, setShuffledPrompts] = useState<string[]>([]);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -98,6 +110,7 @@ export function HomeContent() {
       description: prompt,
       type: 'website',
       vibe: isPlanning ? 'planner' : 'builder',
+      template: selectedTemplate,
     }, activeWorkspace.id);
 
     navigate(`/project/${newId}`);
@@ -178,7 +191,42 @@ export function HomeContent() {
                 </div>
               </div>
             </form>
-            
+
+            {/* Starter template picker — pick a stack and the workspace boots preinstalled
+                with a live preview (blank = empty workspace). */}
+            {templates.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTemplate(undefined)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                    selectedTemplate === undefined
+                      ? 'bg-accent/10 border-accent/40 text-accent'
+                      : 'bg-surface border-default text-secondary hover:text-primary hover:border-subtle'
+                  )}
+                >
+                  Blank
+                </button>
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    title={t.description}
+                    onClick={() => setSelectedTemplate(t.id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
+                      selectedTemplate === t.id
+                        ? 'bg-accent/10 border-accent/40 text-accent'
+                        : 'bg-surface border-default text-secondary hover:text-primary hover:border-subtle'
+                    )}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {activeWorkspace?.plan === 'free' && workspaceProjects.length >= 3 && (
               <div className="mt-3 flex items-center gap-2 justify-center text-xs text-warning">
                 <AlertCircle size={14} />
