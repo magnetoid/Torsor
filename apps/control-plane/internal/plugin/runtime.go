@@ -477,23 +477,40 @@ func (s *runtimeGRPCServer) ExecInteractive(stream grpc.BidiStreamingServer[prot
 		spec.Rows, spec.Cols = uint16(sz.GetRows()), uint16(sz.GetCols())
 	}
 	// Pump subsequent frames (stdin/resize) into a channel the impl consumes. The goroutine
-	// exits on stream EOF/error (client half-close or teardown), closing the channel.
+	// exits on stream EOF/error (client half-close or teardown) or context cancellation,
+	// closing the channel. Sends select on the context so a full buffer can't wedge this
+	// goroutine after the impl stops reading (e.g. the process exited).
+	ctx := stream.Context()
 	in := make(chan ExecInput, 32)
 	go func() {
 		defer close(in)
+		send := func(v ExecInput) bool {
+			select {
+			case in <- v:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
 		for {
 			msg, err := stream.Recv()
 			if err != nil {
 				return
 			}
+			var ok bool
 			if r := msg.GetResize(); r != nil {
-				in <- ExecInput{Resize: &WinSize{Rows: uint16(r.GetRows()), Cols: uint16(r.GetCols())}}
+				ok = send(ExecInput{Resize: &WinSize{Rows: uint16(r.GetRows()), Cols: uint16(r.GetCols())}})
 			} else if b := msg.GetStdin(); len(b) > 0 {
-				in <- ExecInput{Stdin: b}
+				ok = send(ExecInput{Stdin: b})
+			} else {
+				ok = true
+			}
+			if !ok {
+				return
 			}
 		}
 	}()
-	return s.impl.ExecInteractive(stream.Context(), spec, in, func(c ExecChunk) error {
+	return s.impl.ExecInteractive(ctx, spec, in, func(c ExecChunk) error {
 		return stream.Send(&proto.ExecChunk{
 			Stdout:   c.Stdout,
 			Stderr:   c.Stderr,

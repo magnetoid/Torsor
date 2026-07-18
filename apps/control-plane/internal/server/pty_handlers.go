@@ -89,6 +89,16 @@ func (s *Server) handleWorkspacePTY(w http.ResponseWriter, r *http.Request) {
 	in := make(chan plugin.ExecInput, 32)
 	go func() {
 		defer close(in)
+		// Sends select on ctx so a full buffer can't wedge this goroutine after the exec
+		// ends (conn.Close can't interrupt a blocked channel send; ctx cancellation can).
+		send := func(v plugin.ExecInput) bool {
+			select {
+			case in <- v:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -105,11 +115,17 @@ func (s *Server) handleWorkspacePTY(w http.ResponseWriter, r *http.Request) {
 			if json.Unmarshal(data, &frame) != nil {
 				continue
 			}
+			var ok bool
 			switch {
 			case frame.Resize != nil:
-				in <- plugin.ExecInput{Resize: &plugin.WinSize{Rows: frame.Resize.Rows, Cols: frame.Resize.Cols}}
+				ok = send(plugin.ExecInput{Resize: &plugin.WinSize{Rows: frame.Resize.Rows, Cols: frame.Resize.Cols}})
 			case frame.Stdin != "":
-				in <- plugin.ExecInput{Stdin: []byte(frame.Stdin)}
+				ok = send(plugin.ExecInput{Stdin: []byte(frame.Stdin)})
+			default:
+				ok = true
+			}
+			if !ok {
+				return
 			}
 		}
 	}()
