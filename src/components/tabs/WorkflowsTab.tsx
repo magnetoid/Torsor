@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useWorkflowStore, RunConfig, PortMapping } from '../../stores/workflowStore';
+import { useLayoutStore } from '../../stores/layoutStore';
 import * as Select from '@radix-ui/react-select';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -157,6 +158,7 @@ export default function WorkflowsTab() {
     addPort, 
     removePort 
   } = useWorkflowStore();
+  const openTab = useLayoutStore((s) => s.openTab);
 
   const [newPort, setNewPort] = useState('');
 
@@ -316,7 +318,7 @@ export default function WorkflowsTab() {
                     </div>
 
                     <div className="pt-2">
-                      <button className="w-full flex items-center justify-between px-3 py-2 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-[11px] font-bold text-accent transition-all group">
+                      <button onClick={() => openTab('secrets')} className="w-full flex items-center justify-between px-3 py-2 bg-accent/5 hover:bg-accent/10 border border-accent/20 rounded-xl text-xs font-bold text-accent transition-all group focus-ring">
                         <div className="flex items-center gap-2">
                           <ShieldAlert size={14} />
                           Secrets & Env Vars

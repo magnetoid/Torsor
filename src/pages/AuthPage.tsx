@@ -16,16 +16,27 @@ export function AuthPage() {
   const [name, setName] = useState('');
   const [password, setPassword] = useState(isDev ? 'demo12345' : '');
   const [formError, setFormError] = useState<string | null>(null);
+  const hostLabel = typeof window !== 'undefined' ? window.location.host : 'app.torsor.dev';
 
   // OAuth (GitHub/Google) is not wired yet — the buttons are intentionally not rendered
   // rather than shown as dead controls that throw. Email/password is the real path.
-  const { loginWithEmail, signup, isLoading, error } = useAuthStore();
+  const { loginWithEmail, signup, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/';
 
   React.useEffect(() => {
     setIsLogin(routeMode === 'login');
+    setFormError(null);
+    clearError();
+    if (routeMode === 'signup') {
+      setPassword('');
+    }
   }, [routeMode]);
+
+  React.useEffect(() => {
+    clearError();
+    setFormError(null);
+  }, [clearError]);
 
   const activeError = useMemo(() => formError || error, [formError, error]);
 
@@ -47,7 +58,12 @@ export function AuthPage() {
         navigate('/onboarding', { replace: true });
       }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Authentication failed');
+      const message = err instanceof Error ? err.message : 'Authentication failed';
+      const friendlyMessage =
+        isDev && /404/.test(message)
+          ? 'The local API is unavailable. Start the backend or open the full stack before signing in.'
+          : message;
+      setFormError(friendlyMessage);
     }
   };
 
@@ -74,46 +90,52 @@ export function AuthPage() {
                 {isLogin ? 'Welcome back' : 'Create your account'}
               </h2>
               <p className="text-sm text-secondary">
-                {isLogin ? 'Sign in to Torsor on app.torsor.dev' : 'Start building with Torsor'}
+                {isLogin ? `Sign in to Torsor on ${hostLabel}` : 'Start building with Torsor'}
               </p>
             </div>
 
             <form onSubmit={handleEmailAuth} className="space-y-4">
               {!isLogin && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Name</label>
+                  <label htmlFor="auth-name" className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Name</label>
                   <Input
+                    id="auth-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Your name"
                     required={!isLogin}
+                    autoComplete="name"
                     className="h-11 bg-page border-default rounded-xl px-4 text-sm"
                   />
                 </div>
               )}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Email</label>
+                <label htmlFor="auth-email" className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Email</label>
                 <Input
+                  id="auth-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@email.com"
                   required
+                  autoComplete={isLogin ? 'username' : 'email'}
                   className="h-11 bg-page border-default rounded-xl px-4 text-sm"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Password</label>
+                <label htmlFor="auth-password" className="text-xs font-bold text-tertiary uppercase tracking-wider ml-1">Password</label>
                 <Input
+                  id="auth-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
+                  autoComplete={isLogin ? 'current-password' : 'new-password'}
                   className="h-11 bg-page border-default rounded-xl px-4 text-sm"
                 />
               </div>
-              {activeError && <p className="text-sm text-error">{activeError}</p>}
+              {activeError && <p role="alert" className="text-sm text-error">{activeError}</p>}
               {isLogin && isDev && (
                 <p className="text-xs text-secondary">Dev seed: demo@torsor.local / demo12345</p>
               )}
@@ -140,7 +162,7 @@ export function AuthPage() {
         {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
         <button
           onClick={() => navigate(isLogin ? '/signup' : '/login')}
-          className="font-bold text-accent hover:text-accent-hover transition-colors"
+          className="font-bold text-accent hover:text-accent-hover transition-colors focus-ring rounded-sm"
         >
           {isLogin ? 'Sign up' : 'Sign in'}
         </button>

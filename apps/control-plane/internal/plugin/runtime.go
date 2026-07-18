@@ -6,6 +6,8 @@ import (
 
 	goplugin "github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	proto "github.com/magnetoid/torsor/control-plane/internal/plugin/proto"
 )
@@ -57,11 +59,27 @@ type SnapshotResult struct {
 	Message     string
 }
 
-// ExecSpec is a command to run inside a workspace.
+// ExecSpec is a command to run inside a workspace. Rows/Cols are only consulted by
+// ExecInteractive (the initial PTY size) and ignored by the one-way Exec.
 type ExecSpec struct {
 	WorkspaceID string
 	Command     []string
 	WorkingDir  string
+	Rows        uint16
+	Cols        uint16
+}
+
+// WinSize is a terminal window size in character cells.
+type WinSize struct {
+	Rows uint16
+	Cols uint16
+}
+
+// ExecInput is one client->process frame of an interactive session: either raw stdin
+// bytes or a terminal resize (exactly one is set).
+type ExecInput struct {
+	Stdin  []byte
+	Resize *WinSize
 }
 
 // ExecChunk is one streamed piece of command output. The final chunk has Done=true and
@@ -96,6 +114,12 @@ type WorkspaceRuntime interface {
 	// Exec runs a command in the workspace, invoking onChunk for each output delta.
 	// Returning a non-nil error from onChunk (e.g. client disconnected) aborts the exec.
 	Exec(ctx context.Context, spec ExecSpec, onChunk func(ExecChunk) error) error
+
+	// ExecInteractive runs a command attached to a PTY. It consumes stdin/resize frames
+	// from `in` (the caller closes it when input ends) and streams output via onChunk,
+	// exactly like Exec. Runtimes without PTY support return a gRPC Unimplemented error;
+	// callers detect that (codes.Unimplemented) and fall back / hide the affordance.
+	ExecInteractive(ctx context.Context, spec ExecSpec, in <-chan ExecInput, onChunk func(ExecChunk) error) error
 
 	ListFiles(ctx context.Context, workspaceID, path string) ([]FileEntry, error)
 	ReadFile(ctx context.Context, workspaceID, path string) ([]byte, error)
@@ -213,6 +237,61 @@ func (c *runtimeGRPCClient) Exec(ctx context.Context, spec ExecSpec, onChunk fun
 	if err != nil {
 		return err
 	}
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if cbErr := onChunk(ExecChunk{
+			Stdout:   chunk.GetStdout(),
+			Stderr:   chunk.GetStderr(),
+			ExitCode: chunk.GetExitCode(),
+			Done:     chunk.GetDone(),
+		}); cbErr != nil {
+			return cbErr
+		}
+	}
+}
+
+func (c *runtimeGRPCClient) ExecInteractive(ctx context.Context, spec ExecSpec, in <-chan ExecInput, onChunk func(ExecChunk) error) error {
+	stream, err := c.client.ExecInteractive(ctx)
+	if err != nil {
+		return err
+	}
+	// The first frame must carry the start (command + initial size).
+	if err := stream.Send(&proto.ExecInteractiveRequest{
+		Payload: &proto.ExecInteractiveRequest_Start{Start: &proto.ExecStart{
+			WorkspaceId: spec.WorkspaceID,
+			Command:     spec.Command,
+			WorkingDir:  spec.WorkingDir,
+			Size:        &proto.WinSize{Rows: uint32(spec.Rows), Cols: uint32(spec.Cols)},
+		}},
+	}); err != nil {
+		return err
+	}
+	// Forward stdin/resize frames until the caller closes `in`, then half-close the stream.
+	go func() {
+		for msg := range in {
+			var frame *proto.ExecInteractiveRequest
+			switch {
+			case msg.Resize != nil:
+				frame = &proto.ExecInteractiveRequest{Payload: &proto.ExecInteractiveRequest_Resize{
+					Resize: &proto.WinSize{Rows: uint32(msg.Resize.Rows), Cols: uint32(msg.Resize.Cols)},
+				}}
+			case len(msg.Stdin) > 0:
+				frame = &proto.ExecInteractiveRequest{Payload: &proto.ExecInteractiveRequest_Stdin{Stdin: msg.Stdin}}
+			default:
+				continue
+			}
+			if err := stream.Send(frame); err != nil {
+				return
+			}
+		}
+		_ = stream.CloseSend()
+	}()
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
@@ -371,6 +450,67 @@ func (s *runtimeGRPCServer) Exec(req *proto.ExecRequest, stream grpc.ServerStrea
 		Command:     req.GetCommand(),
 		WorkingDir:  req.GetWorkingDir(),
 	}, func(c ExecChunk) error {
+		return stream.Send(&proto.ExecChunk{
+			Stdout:   c.Stdout,
+			Stderr:   c.Stderr,
+			ExitCode: c.ExitCode,
+			Done:     c.Done,
+		})
+	})
+}
+
+func (s *runtimeGRPCServer) ExecInteractive(stream grpc.BidiStreamingServer[proto.ExecInteractiveRequest, proto.ExecChunk]) error {
+	first, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	start := first.GetStart()
+	if start == nil {
+		return status.Error(codes.InvalidArgument, "first ExecInteractive frame must carry start")
+	}
+	spec := ExecSpec{
+		WorkspaceID: start.GetWorkspaceId(),
+		Command:     start.GetCommand(),
+		WorkingDir:  start.GetWorkingDir(),
+	}
+	if sz := start.GetSize(); sz != nil {
+		spec.Rows, spec.Cols = uint16(sz.GetRows()), uint16(sz.GetCols())
+	}
+	// Pump subsequent frames (stdin/resize) into a channel the impl consumes. The goroutine
+	// exits on stream EOF/error (client half-close or teardown) or context cancellation,
+	// closing the channel. Sends select on the context so a full buffer can't wedge this
+	// goroutine after the impl stops reading (e.g. the process exited).
+	ctx := stream.Context()
+	in := make(chan ExecInput, 32)
+	go func() {
+		defer close(in)
+		send := func(v ExecInput) bool {
+			select {
+			case in <- v:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				return
+			}
+			var ok bool
+			if r := msg.GetResize(); r != nil {
+				ok = send(ExecInput{Resize: &WinSize{Rows: uint16(r.GetRows()), Cols: uint16(r.GetCols())}})
+			} else if b := msg.GetStdin(); len(b) > 0 {
+				ok = send(ExecInput{Stdin: b})
+			} else {
+				ok = true
+			}
+			if !ok {
+				return
+			}
+		}
+	}()
+	return s.impl.ExecInteractive(ctx, spec, in, func(c ExecChunk) error {
 		return stream.Send(&proto.ExecChunk{
 			Stdout:   c.Stdout,
 			Stderr:   c.Stderr,

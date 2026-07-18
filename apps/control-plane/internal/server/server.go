@@ -66,6 +66,11 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/projects/{projectID}/presence/ws", s.handlePresenceWS)
 		r.Get("/projects/{projectID}/collab/ws", s.handleCollabWS)
 
+		// Interactive terminal (PTY): a WebSocket bridged to the runtime's ExecInteractive,
+		// carrying stdin/resize up and stdout/stderr down. Authenticated via access_token and
+		// scoped to project ownership, same as the other WebSocket routes.
+		r.Get("/projects/{projectID}/workspace/pty", s.handleWorkspacePTY)
+
 		// Live-preview proxy: an iframe can't send an Authorization header, so this also
 		// authenticates via the access_token query param. Ownership is still enforced.
 		r.HandleFunc("/projects/{projectID}/preview", s.handlePreviewProxy)
@@ -113,6 +118,16 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/teams/invites/{inviteID}/accept", s.handleAcceptTeamInvite)
 			r.Delete("/teams/invites/{inviteID}", s.handleRevokeTeamInvite)
 
+			// Audit log (per-user, server-written events).
+			r.Get("/audit", s.handleListAudit)
+
+			// Notifications feed (per-user, real DB-backed).
+			r.Get("/notifications", s.handleListNotifications)
+			r.Post("/notifications/{notificationID}/read", s.handleMarkNotificationRead)
+			r.Post("/notifications/read-all", s.handleMarkAllNotificationsRead)
+			r.Delete("/notifications/{notificationID}", s.handleDeleteNotification)
+			r.Delete("/notifications", s.handleClearNotifications)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
@@ -137,6 +152,27 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
 
+			// Git over the workspace (real `git` via WorkspaceRuntime.Exec), ownership-scoped.
+			r.Get("/projects/{projectID}/git/status", s.handleGitStatus)
+			r.Get("/projects/{projectID}/git/log", s.handleGitLog)
+			r.Get("/projects/{projectID}/git/branches", s.handleGitBranches)
+			r.Get("/projects/{projectID}/git/diff", s.handleGitDiff)
+			r.Post("/projects/{projectID}/git/init", s.handleGitInit)
+			r.Post("/projects/{projectID}/git/stage", s.handleGitStage)
+			r.Post("/projects/{projectID}/git/unstage", s.handleGitUnstage)
+			r.Post("/projects/{projectID}/git/commit", s.handleGitCommit)
+			r.Post("/projects/{projectID}/git/branch", s.handleGitCreateBranch)
+			r.Post("/projects/{projectID}/git/checkout", s.handleGitCheckout)
+			r.Post("/projects/{projectID}/git/revert", s.handleGitRevert)
+			r.Post("/projects/{projectID}/git/push", s.handleGitPush)
+			r.Post("/projects/{projectID}/git/pull", s.handleGitPull)
+
+			// App Storage over the workspace filesystem (ownership-scoped, auth-gated).
+			r.Get("/projects/{projectID}/storage/files", s.handleStorageList)
+			r.Post("/projects/{projectID}/storage/upload", s.handleStorageUpload)
+			r.Delete("/projects/{projectID}/storage/file", s.handleStorageDelete)
+			r.Get("/projects/{projectID}/storage/file", s.handleStorageDownload)
+
 			// Snapshot / restore / fork (microVM sandbox pattern) over the WorkspaceRuntime
 			// capability. Runtimes without support return 501; the snapshot handle is a
 			// runtime-native id persisted per project (ownership-scoped).
@@ -154,6 +190,7 @@ func (s *Server) Handler() http.Handler {
 			// (/d/{projectID}/, served by handleDeployProxy below). Owner-only controls.
 			r.Post("/projects/{projectID}/deploy", s.handleDeploy)
 			r.Get("/projects/{projectID}/deployment", s.handleGetDeployment)
+			r.Get("/projects/{projectID}/deployments", s.handleListDeployments)
 			r.Post("/projects/{projectID}/deployment/stop", s.handleStopDeployment)
 
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while

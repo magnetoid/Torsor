@@ -148,15 +148,17 @@ export default function PreviewTab() {
         <Separator.Root orientation="vertical" className="w-[1px] h-4 bg-default mx-1" />
         
         <div className="flex items-center gap-0.5">
-          <button disabled className="p-1 text-tertiary/50 cursor-not-allowed">
+          <button disabled aria-label="Back" className="p-1 text-tertiary/50 cursor-not-allowed">
             <ArrowLeft size={14} />
           </button>
-          <button disabled className="p-1 text-tertiary/50 cursor-not-allowed">
+          <button disabled aria-label="Forward" className="p-1 text-tertiary/50 cursor-not-allowed">
             <ArrowRight size={14} />
           </button>
           <button
             onClick={handleRefresh}
-            className="p-1 text-secondary hover:text-primary transition-colors"
+            aria-label="Refresh preview"
+            title="Refresh preview"
+            className="p-1 text-secondary hover:text-primary transition-colors focus-ring rounded-md"
           >
             <RotateCw size={14} />
           </button>
@@ -166,21 +168,22 @@ export default function PreviewTab() {
               onClick={() => { void stopWorkspace(); toast('Workspace stopped'); }}
               aria-label="Stop the workspace"
               title="Stop the workspace"
-              className="p-1 text-secondary hover:text-error transition-colors"
+              className="p-1 text-secondary hover:text-error transition-colors focus-ring rounded-md"
             >
               <Square size={13} />
             </button>
           )}
         </div>
 
-        <div className="flex-1 flex items-center bg-inset rounded-lg px-3 py-1 gap-2 border border-default/50">
-          <input
-            type="text"
-            readOnly
-            value={previewUrl ? previewUrl.split('?')[0] : ''}
-            placeholder="Run your app to see the live preview"
-            className="bg-transparent text-xs text-secondary font-mono outline-none w-full"
-          />
+        <div className="flex-1 min-w-0 flex items-center bg-inset rounded-lg px-3 py-1 gap-2 border border-default/50">
+          <span className="sr-only">Preview URL</span>
+          <div
+            aria-label="Preview URL"
+            className="bg-transparent text-xs text-secondary font-mono truncate w-full"
+            title={previewUrl ? previewUrl.split('?')[0] : 'Run your app to see the live preview'}
+          >
+            {previewUrl ? previewUrl.split('?')[0] : 'Run your app to see the live preview'}
+          </div>
         </div>
 
         <Separator.Root orientation="vertical" className="w-[1px] h-4 bg-default mx-1" />
@@ -219,7 +222,9 @@ export default function PreviewTab() {
               <Tooltip.Trigger asChild>
                 <button
                   onClick={() => openTab('code')}
-                  className="p-1.5 text-secondary hover:text-primary transition-colors"
+                  aria-label="Open code editor"
+                  title="Open code editor"
+                  className="p-1.5 text-secondary hover:text-primary transition-colors focus-ring rounded-md"
                 >
                   <Pencil size={14} />
                 </button>
@@ -235,7 +240,9 @@ export default function PreviewTab() {
               <Tooltip.Trigger asChild>
                 <button 
                   onClick={handleCopyUrl}
-                  className="p-1.5 text-secondary hover:text-primary transition-colors"
+                  aria-label="Copy preview URL"
+                  title="Copy preview URL"
+                  className="p-1.5 text-secondary hover:text-primary transition-colors focus-ring rounded-md"
                 >
                   <Copy size={14} />
                 </button>
@@ -253,7 +260,9 @@ export default function PreviewTab() {
                   href={previewUrl} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="p-1.5 text-secondary hover:text-primary transition-colors"
+                  aria-label="Open preview in a new tab"
+                  title="Open preview in a new tab"
+                  className="p-1.5 text-secondary hover:text-primary transition-colors focus-ring rounded-md"
                 >
                   <ExternalLink size={14} />
                 </a>
@@ -272,18 +281,24 @@ export default function PreviewTab() {
         <div className="flex items-center bg-inset rounded-md p-0.5 border border-default">
           <button 
             onClick={() => setViewport('desktop')}
+            aria-label="Desktop viewport"
+            title="Desktop viewport"
             className={cn("p-1 rounded transition-all", viewport === 'desktop' ? "bg-accent text-white" : "text-secondary hover:text-primary")}
           >
             <Monitor size={12} />
           </button>
           <button 
             onClick={() => setViewport('tablet')}
+            aria-label="Tablet viewport"
+            title="Tablet viewport"
             className={cn("p-1 rounded transition-all", viewport === 'tablet' ? "bg-accent text-white" : "text-secondary hover:text-primary")}
           >
             <Tablet size={12} />
           </button>
           <button 
             onClick={() => setViewport('mobile')}
+            aria-label="Mobile viewport"
+            title="Mobile viewport"
             className={cn("p-1 rounded transition-all", viewport === 'mobile' ? "bg-accent text-white" : "text-secondary hover:text-primary")}
           >
             <Smartphone size={12} />
@@ -315,7 +330,9 @@ export default function PreviewTab() {
       )}>
         <button 
           onClick={() => setIsConsoleOpen(!isConsoleOpen)}
-          className="h-6 px-3 flex items-center justify-between hover:bg-surface transition-colors group"
+          aria-expanded={isConsoleOpen}
+          aria-controls="preview-console"
+          className="h-6 px-3 flex items-center justify-between hover:bg-surface transition-colors group focus-ring"
         >
           <div className="flex items-center gap-2">
             <Terminal size={10} className={cn("transition-colors", isConsoleOpen ? "text-accent" : "text-tertiary")} />
@@ -328,7 +345,8 @@ export default function PreviewTab() {
             {isConsoleOpen && (
               <button 
                 onClick={(e) => { e.stopPropagation(); setConsoleLogs([]); }}
-                className="p-1 text-tertiary hover:text-error transition-colors"
+                aria-label="Clear console logs"
+                className="p-1 text-tertiary hover:text-error transition-colors focus-ring rounded-md"
               >
                 <Trash2 size={10} />
               </button>
@@ -338,7 +356,7 @@ export default function PreviewTab() {
         </button>
         
         {isConsoleOpen && (
-          <div className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-1 bg-inset">
+          <div id="preview-console" className="flex-1 overflow-y-auto p-2 font-mono text-xs space-y-1 bg-inset custom-scrollbar">
             {consoleLogs.length === 0 ? (
               <div className="h-full flex items-center justify-center text-tertiary italic">
                 No logs to display

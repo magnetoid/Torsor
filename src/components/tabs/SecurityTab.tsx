@@ -11,8 +11,7 @@ import {
   Globe, 
   UserCheck, 
   FileCode, 
-  Network, 
-  ExternalLink,
+  Network,
   ShieldAlert,
   Save,
   Key
@@ -20,12 +19,10 @@ import {
 import { usePlanGate } from '../../hooks/usePlanGate';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
-import { UpgradeDialog } from '../shared/UpgradeDialog';
 
 export function SecurityTab() {
   const { checkFeature } = usePlanGate();
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
-  
+
   const [twoFA, setTwoFA] = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState('4h');
   const [ipAllowlist, setIpAllowlist] = useState('');
@@ -224,48 +221,51 @@ export function SecurityTab() {
         </div>
       </div>
 
-      {/* SSO Section */}
-      <div className={cn(
-        "p-6 bg-surface border border-default rounded-xl space-y-6 relative overflow-hidden",
-        !teamGate.allowed && "opacity-60"
-      )}>
+      {/* SSO Section — not yet available. SSO requires connecting an external identity
+          provider, so these fields are an honest preview of the setup, not a working form.
+          (No fake "Enable/Test" success, and no "upgrade to unlock" upsell — upgrading a plan
+          would not enable it.) */}
+      <div className="p-6 bg-surface border border-default rounded-xl space-y-6 opacity-60">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Key className="text-accent" size={18} />
             <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">SSO / SAML</h3>
           </div>
-          {!teamGate.allowed && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent/10 text-accent text-xs font-bold uppercase tracking-wider">
-              <Lock size={10} />
-              Available on Team plan
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-elevated text-tertiary text-xs font-bold uppercase tracking-wider border border-default">
+            <Lock size={10} />
+            Coming soon
+          </div>
         </div>
+
+        <p className="text-xs text-secondary">
+          Single sign-on requires connecting an external identity provider (Okta, Microsoft Entra,
+          Auth0, …). It isn't available yet — the fields below preview the setup.
+        </p>
 
         <div className="grid gap-4">
           <div className="space-y-2">
             <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Identity Provider URL</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="https://sso.company.com/saml2"
-              disabled={!teamGate.allowed}
+              disabled
               className="w-full bg-page border border-default rounded-xl px-4 py-2.5 text-sm text-primary outline-none focus:border-accent transition-colors disabled:cursor-not-allowed"
             />
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Entity ID</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="torsor-app-saml"
-              disabled={!teamGate.allowed}
+              disabled
               className="w-full bg-page border border-default rounded-xl px-4 py-2.5 text-sm text-primary outline-none focus:border-accent transition-colors disabled:cursor-not-allowed"
             />
           </div>
           <div className="space-y-2">
             <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Certificate</label>
-            <textarea 
+            <textarea
               placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"
-              disabled={!teamGate.allowed}
+              disabled
               rows={4}
               className="w-full bg-page border border-default rounded-xl px-4 py-3 text-sm text-primary outline-none focus:border-accent transition-colors font-mono resize-none disabled:cursor-not-allowed"
             />
@@ -273,34 +273,22 @@ export function SecurityTab() {
         </div>
 
         <div className="flex gap-3">
-          <button 
-            disabled={!teamGate.allowed}
-            className="flex-1 py-2.5 bg-elevated border border-default rounded-xl text-sm font-bold text-primary hover:bg-surface transition-all disabled:cursor-not-allowed"
+          <button
+            disabled
+            title="SSO isn't available yet — it needs an external identity provider"
+            className="flex-1 py-2.5 bg-elevated border border-default rounded-xl text-sm font-bold text-primary transition-all disabled:cursor-not-allowed"
           >
             Test SSO
           </button>
-          <button 
-            disabled={!teamGate.allowed}
-            className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-accent/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          <button
+            disabled
+            title="SSO isn't available yet — it needs an external identity provider"
+            className="flex-1 py-2.5 bg-accent text-white rounded-xl font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Enable SSO
           </button>
         </div>
-
-        {!teamGate.allowed && (
-          <div className="absolute inset-0 bg-page/20 backdrop-blur-[1px] flex items-center justify-center">
-            <button 
-              onClick={() => setUpgradeOpen(true)}
-              className="bg-elevated border border-default px-4 py-2 rounded-xl text-sm font-bold text-primary hover:bg-surface transition-all shadow-xl flex items-center gap-2"
-            >
-              <ExternalLink size={14} className="text-accent" />
-              Upgrade to Team to enable SSO
-            </button>
-          </div>
-        )}
       </div>
-
-      <UpgradeDialog open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </div>
   );
 }

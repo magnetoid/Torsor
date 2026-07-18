@@ -114,6 +114,8 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.auditFromRequest(r, "project_create", "project", p.ID, p.Name, "Created project "+p.Name)
+
 	writeJSON(w, http.StatusCreated, p)
 }
 
@@ -185,12 +187,14 @@ func (s *Server) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
+	projectID := chi.URLParam(r, "projectID")
 	if _, err := s.pool.Exec(r.Context(),
 		`DELETE FROM projects WHERE id = $1 AND user_id = $2`,
-		chi.URLParam(r, "projectID"), userID(r)); err != nil {
+		projectID, userID(r)); err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	s.auditFromRequest(r, "project_delete", "project", projectID, "", "Deleted project")
 	w.WriteHeader(http.StatusNoContent)
 }
 

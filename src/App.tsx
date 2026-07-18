@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { MarketplacePage } from './pages/MarketplacePage';
@@ -21,6 +21,7 @@ import { Toaster } from 'sonner';
 import { useEffect } from 'react';
 import { useAuthStore } from './stores/authStore';
 import { useWorkspaceStore } from './stores/workspaceStore';
+import { useNotificationStore } from './stores/notificationStore';
 
 export default function App() {
   const { toggleTheme, theme } = useThemeStore();
@@ -30,15 +31,17 @@ export default function App() {
     void initialize();
   }, [initialize]);
 
-  // Load workspaces when auth is ready
+  // Load workspaces + notifications when auth is ready
   const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  
+
   useEffect(() => {
     if (isAuthenticated) {
       void fetchWorkspaces();
+      void fetchNotifications();
     }
-  }, [isAuthenticated, fetchWorkspaces]);
+  }, [isAuthenticated, fetchWorkspaces, fetchNotifications]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -55,6 +58,7 @@ export default function App() {
   return (
     <ErrorBoundary name="App">
       <BrowserRouter>
+        <RouteTitleManager />
         <Routes>
           {/* Public Routes */}
           <Route 
@@ -234,4 +238,34 @@ export default function App() {
       <Toaster position="bottom-right" theme={theme} richColors closeButton />
     </ErrorBoundary>
   );
+}
+
+function RouteTitleManager() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    let title = 'Torsor';
+
+    if (path === '/login') title = 'Sign In | Torsor';
+    else if (path === '/signup') title = 'Create Account | Torsor';
+    else if (path === '/') title = 'Home | Torsor';
+    else if (path === '/projects') title = 'Projects | Torsor';
+    else if (path.startsWith('/project/')) title = 'Workspace | Torsor';
+    else if (path === '/billing') title = 'Billing | Torsor';
+    else if (path === '/settings') title = 'Settings | Torsor';
+    else if (path === '/notifications') title = 'Notifications | Torsor';
+    else if (path === '/marketplace') title = 'Marketplace | Torsor';
+    else if (path === '/help') title = 'Help | Torsor';
+    else if (path.startsWith('/admin')) title = 'Admin | Torsor';
+    else if (path === '/onboarding') title = 'Onboarding | Torsor';
+    else if (path === '/recent') title = 'Recent Projects | Torsor';
+    else if (path === '/starred') title = 'Starred Projects | Torsor';
+    else if (path === '/shared') title = 'Shared With Me | Torsor';
+    else if (path !== '*') title = 'Torsor';
+
+    document.title = title;
+  }, [location.pathname]);
+
+  return null;
 }

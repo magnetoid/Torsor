@@ -16,26 +16,41 @@ export function GeneralTab() {
   const [description, setDescription] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
 
-  const handleSave = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!activeWorkspace) return;
-    updateWorkspace(activeWorkspace.id, { name, slug });
-    toast.success('Workspace settings updated');
+    setIsSaving(true);
+    try {
+      // Persists to PATCH /api/v1/teams/{id}.
+      await updateWorkspace(activeWorkspace.id, { name, slug });
+      toast.success('Workspace settings updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update workspace');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!activeWorkspace) return;
     if (deleteConfirm !== activeWorkspace.name) {
       toast.error('Workspace name does not match');
       return;
     }
-    deleteWorkspace(activeWorkspace.id);
-    toast.success('Workspace deleted');
-    window.location.href = '/';
+    try {
+      // Persists to DELETE /api/v1/teams/{id}.
+      await deleteWorkspace(activeWorkspace.id);
+      toast.success('Workspace deleted');
+      window.location.href = '/';
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete workspace');
+    }
   };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <SectionPreviewNotice>Workspace settings aren&apos;t saved to a backend yet — changes here are local only.</SectionPreviewNotice>
+      <SectionPreviewNotice>Name and slug are saved to your workspace. Logo and description aren&apos;t wired to the backend yet.</SectionPreviewNotice>
       {/* Basic Info */}
       <div className="space-y-6">
         <div className="flex items-center gap-6">
@@ -92,11 +107,12 @@ export function GeneralTab() {
             />
           </div>
 
-          <button 
-            onClick={handleSave}
-            className="w-fit px-6 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-accent/20 transition-all"
+          <button
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+            className="w-fit px-6 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-accent/20 transition-all disabled:opacity-60"
           >
-            Save Changes
+            {isSaving ? 'Saving…' : 'Save Changes'}
           </button>
         </div>
       </div>

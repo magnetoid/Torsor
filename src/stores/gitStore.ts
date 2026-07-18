@@ -1,5 +1,20 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
+import { useProjectStore } from './projectStore';
+import {
+  apiGitStatus,
+  apiGitLog,
+  apiGitBranches,
+  apiGitInit,
+  apiGitStage,
+  apiGitUnstage,
+  apiGitCommit,
+  apiGitCreateBranch,
+  apiGitCheckout,
+  apiGitRevert,
+  apiGitPush,
+  apiGitPull,
+} from '../lib/api';
 
 export interface GitFile {
   path: string;
@@ -17,124 +32,140 @@ export interface Commit {
 }
 
 interface GitState {
+  initialized: boolean;
   currentBranch: string;
   branches: string[];
   ahead: number;
   behind: number;
   changes: GitFile[];
   history: Commit[];
-  isGitHubConnected: boolean;
   remoteUrl: string | null;
+  isGitHubConnected: boolean;
   autoCommitEnabled: boolean;
-  
-  // Actions
-  switchBranch: (branch: string) => void;
-  createBranch: (branch: string) => void;
-  toggleStage: (path: string) => void;
-  stageAll: () => void;
-  unstageAll: () => void;
-  commit: (message: string, push?: boolean) => void;
-  push: () => void;
-  pull: () => void;
+  isLoading: boolean;
+  isBusy: boolean;
+  error: string | null;
+
+  // All actions run real `git` in the active project's workspace via the control
+  // plane. The project id comes from the active project; no id is client-trusted.
+  refresh: () => Promise<void>;
+  init: () => Promise<void>;
+  toggleStage: (path: string) => Promise<void>;
+  stageAll: () => Promise<void>;
+  unstageAll: () => Promise<void>;
+  commit: (message: string, push?: boolean, amend?: boolean) => Promise<void>;
+  push: () => Promise<void>;
+  pull: () => Promise<void>;
+  switchBranch: (branch: string) => Promise<void>;
+  createBranch: (branch: string) => Promise<void>;
+  revert: (hash: string) => Promise<void>;
   connectGitHub: () => void;
   toggleAutoCommit: () => void;
-  revert: (hash: string) => void;
 }
 
-const MOCK_CHANGES: GitFile[] = [
-  { path: 'src/components/tabs/AuthTab.tsx', status: 'modified', staged: false, additions: 12, deletions: 4 },
-  { path: 'src/stores/authStore.ts', status: 'modified', staged: true, additions: 5, deletions: 0 },
-  { path: 'src/assets/logo-new.svg', status: 'added', staged: false, additions: 1, deletions: 0 },
-  { path: 'src/old-utils.ts', status: 'deleted', staged: true, additions: 0, deletions: 45 },
-];
+const activeProjectId = () => useProjectStore.getState().activeProjectId;
 
-const MOCK_HISTORY: Commit[] = [
-  { hash: '7f3a2b1', message: 'feat: implement publishing tab', author: 'Marko Tiosavljevic', timestamp: Date.now() - 3600000 },
-  { hash: 'a1b2c3d', message: 'fix: layout responsiveness on mobile', author: 'Marko Tiosavljevic', timestamp: Date.now() - 86400000 },
-  { hash: 'e5f6g7h', message: 'chore: update dependencies', author: 'Agent Tesseract', timestamp: Date.now() - 172800000 },
-  { hash: 'i9j0k1l', message: 'docs: update readme with setup instructions', author: 'Marko Tiosavljevic', timestamp: Date.now() - 259200000 },
-];
-
-export const useGitStore = create<GitState>()(
-  persist(
-    (set, get) => ({
-      currentBranch: 'main',
-      branches: ['main', 'feature/auth-tab', 'fix/layout-bug'],
-      ahead: 2,
-      behind: 0,
-      changes: MOCK_CHANGES,
-      history: MOCK_HISTORY,
-      isGitHubConnected: true,
-      remoteUrl: 'https://github.com/marko/torsor-app.git',
-      autoCommitEnabled: true,
-
-      switchBranch: (branch) => set({ currentBranch: branch }),
-      
-      createBranch: (branch) => set((state) => ({ 
-        branches: [...state.branches, branch],
-        currentBranch: branch 
-      })),
-
-      toggleStage: (path) => set((state) => ({
-        changes: state.changes.map(f => f.path === path ? { ...f, staged: !f.staged } : f)
-      })),
-
-      stageAll: () => set((state) => ({
-        changes: state.changes.map(f => ({ ...f, staged: true }))
-      })),
-
-      unstageAll: () => set((state) => ({
-        changes: state.changes.map(f => ({ ...f, staged: false }))
-      })),
-
-      commit: (message, push = false) => {
-        const stagedFiles = get().changes.filter(f => f.staged);
-        if (stagedFiles.length === 0) return;
-
-        const newCommit: Commit = {
-          hash: Math.random().toString(16).substring(2, 9),
-          message,
-          author: 'Marko Tiosavljevic',
-          timestamp: Date.now(),
-        };
-
-        set((state) => ({
-          history: [newCommit, ...state.history],
-          changes: state.changes.filter(f => !f.staged),
-          ahead: state.ahead + 1
-        }));
-
-        if (push) {
-          get().push();
-        }
-      },
-
-      push: () => {
-        // Simulate push
-        setTimeout(() => {
-          set({ ahead: 0 });
-        }, 1000);
-      },
-
-      pull: () => {
-        // Simulate pull
-        setTimeout(() => {
-          set({ behind: 0 });
-        }, 1000);
-      },
-
-      connectGitHub: () => set({ isGitHubConnected: true, remoteUrl: 'https://github.com/marko/torsor-app.git' }),
-
-      toggleAutoCommit: () => set((state) => ({ autoCommitEnabled: !state.autoCommitEnabled })),
-
-      revert: (hash) => {
-        set((state) => ({
-          history: state.history.filter(c => c.hash !== hash)
-        }));
-      }
-    }),
-    {
-      name: 'torsor-git-storage',
+export const useGitStore = create<GitState>()((set, get) => {
+  // Run a git mutation then refresh; surfaces backend errors honestly as toasts.
+  const mutate = async (label: string, fn: (projectId: string) => Promise<unknown>) => {
+    const projectId = activeProjectId();
+    if (!projectId) {
+      toast.error('Open a project first');
+      return;
     }
-  )
-);
+    set({ isBusy: true });
+    try {
+      await fn(projectId);
+      await get().refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : `${label} failed`;
+      set({ error: message });
+      toast.error(message);
+    } finally {
+      set({ isBusy: false });
+    }
+  };
+
+  return {
+    initialized: false,
+    currentBranch: 'main',
+    branches: [],
+    ahead: 0,
+    behind: 0,
+    changes: [],
+    history: [],
+    remoteUrl: null,
+    isGitHubConnected: false,
+    autoCommitEnabled: false,
+    isLoading: false,
+    isBusy: false,
+    error: null,
+
+    refresh: async () => {
+      const projectId = activeProjectId();
+      if (!projectId) {
+        set({ error: 'No active project', isLoading: false });
+        return;
+      }
+      set({ isLoading: true, error: null });
+      try {
+        const [status, history, branches] = await Promise.all([
+          apiGitStatus(projectId),
+          apiGitLog(projectId).catch(() => [] as Commit[]),
+          apiGitBranches(projectId).catch(() => [] as string[]),
+        ]);
+        set({
+          initialized: status.initialized,
+          currentBranch: status.branch || 'main',
+          ahead: status.ahead,
+          behind: status.behind,
+          changes: status.changes,
+          remoteUrl: status.remoteUrl || null,
+          isGitHubConnected: !!status.remoteUrl,
+          history,
+          branches,
+          isLoading: false,
+        });
+      } catch (err) {
+        set({
+          isLoading: false,
+          error: err instanceof Error ? err.message : 'Failed to load git status',
+        });
+      }
+    },
+
+    init: () => mutate('git init', (pid) => apiGitInit(pid)),
+
+    toggleStage: async (path) => {
+      const file = get().changes.find((f) => f.path === path);
+      const staged = file?.staged ?? false;
+      await mutate(
+        staged ? 'unstage' : 'stage',
+        (pid) => (staged ? apiGitUnstage(pid, [path]) : apiGitStage(pid, [path])),
+      );
+    },
+
+    stageAll: () => mutate('stage all', (pid) => apiGitStage(pid)),
+    unstageAll: () => mutate('unstage all', (pid) => apiGitUnstage(pid)),
+
+    commit: async (message, push = false, amend = false) => {
+      await mutate('commit', async (pid) => {
+        await apiGitCommit(pid, message, { amend });
+        if (push) await apiGitPush(pid);
+      });
+    },
+
+    push: () => mutate('push', (pid) => apiGitPush(pid)),
+    pull: () => mutate('pull', (pid) => apiGitPull(pid)),
+    switchBranch: (branch) => mutate('checkout', (pid) => apiGitCheckout(pid, branch)),
+    createBranch: (branch) => mutate('create branch', (pid) => apiGitCreateBranch(pid, branch)),
+    revert: (hash) => mutate('revert', (pid) => apiGitRevert(pid, hash)),
+
+    // No GitHub OAuth is wired; a remote is configured with plain git. Be honest
+    // rather than pretend a connection was made.
+    connectGitHub: () =>
+      toast('Add a remote in the terminal (git remote add origin <url>), then push.'),
+
+    toggleAutoCommit: () => set((state) => ({ autoCommitEnabled: !state.autoCommitEnabled })),
+  };
+});

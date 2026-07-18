@@ -55,18 +55,21 @@ export function RightPanel({ className }: { className?: string }) {
               <div className="flex items-center gap-1">
                 <button 
                   onClick={() => setRightPanelView('files')}
+                  aria-label="Show file tree"
                   className={cn("p-1 rounded transition-colors", rightPanelView === 'files' ? "text-accent bg-accent/10" : "text-secondary hover:text-primary")}
                 >
                   <FolderTree size={14} />
                 </button>
                 <button 
                   onClick={() => setRightPanelView('library')}
+                  aria-label="Show library"
                   className={cn("p-1 rounded transition-colors", rightPanelView === 'library' ? "text-accent bg-accent/10" : "text-secondary hover:text-primary")}
                 >
                   <Library size={14} />
                 </button>
                 <button 
                   onClick={() => setRightPanelView('search')}
+                  aria-label="Show search"
                   className={cn("p-1 rounded transition-colors", rightPanelView === 'search' ? "text-accent bg-accent/10" : "text-secondary hover:text-primary")}
                 >
                   <Search size={14} />
@@ -74,7 +77,8 @@ export function RightPanel({ className }: { className?: string }) {
                 <div className="w-[1px] h-3 bg-default mx-1" />
                 <button 
                   onClick={toggleRightPanel}
-                  className="p-1 text-secondary hover:text-primary transition-colors"
+                  aria-label="Close side panel"
+                  className="p-1 text-secondary hover:text-primary transition-colors focus-ring rounded-md"
                 >
                   <ChevronRight size={14} />
                 </button>

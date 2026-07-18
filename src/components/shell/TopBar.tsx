@@ -57,7 +57,7 @@ export function TopBar() {
         <Separator.Root className="w-[1px] h-4 bg-default mx-1" />
 
         {activeProject && (
-          <div className="flex items-center gap-1 min-w-0 max-w-[220px]">
+          <div className="flex items-center gap-1 min-w-0 max-w-[min(40vw,220px)] sm:max-w-[220px]">
             {isEditing ? (
               <input
                 autoFocus
@@ -86,7 +86,7 @@ export function TopBar() {
                 onClick={handleRun}
                 disabled={building}
                 aria-label={building ? 'Starting the dev server' : 'Run project'}
-                className="w-6 h-6 rounded-md bg-success/10 text-success flex items-center justify-center hover:bg-success/20 transition-all disabled:opacity-60"
+                className="w-6 h-6 rounded-md bg-success/10 text-success flex items-center justify-center hover:bg-success/20 transition-all disabled:opacity-60 focus-ring"
               >
                 {building ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} fill="currentColor" />}
               </button>
@@ -140,7 +140,7 @@ export function TopBar() {
           <>
             <button
               onClick={() => openTab('publishing')}
-              className="hidden md:block bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20"
+              className="hidden md:block bg-accent-gradient hover:opacity-90 text-white px-3 py-1 rounded-md text-xs font-bold transition-all shadow-lg shadow-accent/20 focus-ring"
             >
               Publish
             </button>
@@ -148,7 +148,7 @@ export function TopBar() {
             <button
               onClick={() => setCommandPalette(true)}
               aria-label="Search (⌘K)"
-              className="hidden md:block p-1.5 text-secondary hover:text-primary transition-colors"
+              className="hidden md:block p-1.5 text-secondary hover:text-primary transition-colors focus-ring rounded-md"
             >
               <Search size={16} />
             </button>
@@ -177,7 +177,7 @@ export function TopBar() {
           aria-label={fileManagerOpen ? 'Close project files' : 'Open project files'}
           title="Project files"
           className={cn(
-            'p-1.5 rounded-md transition-colors',
+            'p-1.5 rounded-md transition-colors focus-ring',
             fileManagerOpen ? 'text-accent bg-accent-muted' : 'text-secondary hover:text-primary'
           )}
         >

@@ -25,17 +25,22 @@ import { Button } from '../shared/Button';
 import { History as HistoryIcon } from 'lucide-react';
 
 export function AuditLogTab() {
-  const { auditLog } = useWorkspaceStore();
+  const { auditLog, fetchAuditLog } = useWorkspaceStore();
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [filterAction, setFilterAction] = useState('all');
   const [filterUser, setFilterUser] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate loading
+  // Load the real audit log (server-written events) for the current user.
   React.useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
+    let active = true;
+    void fetchAuditLog().finally(() => {
+      if (active) setIsLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchAuditLog]);
 
   const getActionColor = (action: AuditLogEntry['action']) => {
     switch (action) {

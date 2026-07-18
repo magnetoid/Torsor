@@ -112,6 +112,8 @@ func (s *Server) handleCreateTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.auditFromRequest(r, "workspace_create", "team", t.ID, t.Name, "Created workspace "+t.Name)
+
 	writeJSON(w, http.StatusCreated, t)
 }
 
@@ -321,6 +323,23 @@ func (s *Server) handleCreateTeamInvite(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// If the invitee already has an account, drop a real notification into their
+	// feed carrying the invite id so the Accept/Decline actions can act on it.
+	var teamName string
+	_ = s.pool.QueryRow(r.Context(), `SELECT name FROM teams WHERE id = $1`, teamID).Scan(&teamName)
+	var inviteeID string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT id FROM users WHERE lower(email) = lower($1)`, body.Email).Scan(&inviteeID); err == nil && inviteeID != "" {
+		title := "Workspace invitation"
+		msg := "You've been invited to join " + teamName
+		s.emitNotification(r.Context(), inviteeID, "invite_received", title, msg, "", map[string]any{
+			"inviteId":    inviteID,
+			"workspaceId": teamID,
+		})
+	}
+
+	s.auditFromRequest(r, "member_invite", "team", teamID, teamName, "Invited "+body.Email+" as "+body.Role)
+
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id":        inviteID,
 		"email":     body.Email,
@@ -434,7 +453,7 @@ func (s *Server) handleAcceptTeamInvite(w http.ResponseWriter, r *http.Request) 
 	err = tx.QueryRow(r.Context(),
 		`SELECT team_id, email, role, status, expires_at FROM team_invites WHERE id = $1 FOR UPDATE`,
 		inviteID).Scan(&teamID, &email, &role, &status, &expiresAt)
-	
+
 	if err == pgx.ErrNoRows {
 		writeError(w, http.StatusNotFound, "Invite not found")
 		return

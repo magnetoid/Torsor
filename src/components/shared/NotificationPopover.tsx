@@ -14,9 +14,11 @@ import {
   Trash2,
   ExternalLink
 } from 'lucide-react';
-import { useNotificationStore, NotificationType } from '../../stores/notificationStore';
+import { useNotificationStore, NotificationType, Notification } from '../../stores/notificationStore';
+import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { cn, formatDistanceToNow } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const getNotificationIcon = (type: NotificationType) => {
   switch (type) {
@@ -33,14 +35,35 @@ const getNotificationIcon = (type: NotificationType) => {
 };
 
 export const NotificationPopover: React.FC = () => {
-  const { notifications, markAsRead, markAllRead, clearAll } = useNotificationStore();
+  const { notifications, markAsRead, markAllRead, clearAll, removeNotification } = useNotificationStore();
+  const acceptInvite = useWorkspaceStore((s) => s.acceptInvite);
   const navigate = useNavigate();
 
-  const handleNotificationClick = (notification: any) => {
+  const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
     if (notification.link) {
       navigate(notification.link);
     }
+  };
+
+  const handleAcceptInvite = async (n: Notification) => {
+    const inviteId = n.metadata?.inviteId;
+    if (!inviteId) return;
+    try {
+      await acceptInvite(inviteId);
+      removeNotification(n.id);
+      toast.success('Invitation accepted');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not accept invitation');
+    }
+  };
+
+  // No server-side decline endpoint exists for a received invite yet, so
+  // declining just dismisses the notification locally (honest — we don't
+  // claim the server was told).
+  const handleDeclineInvite = (n: Notification) => {
+    removeNotification(n.id);
+    toast('Invitation dismissed');
   };
 
   return (
@@ -54,13 +77,14 @@ export const NotificationPopover: React.FC = () => {
         <div className="flex items-center gap-3">
           <button 
             onClick={markAllRead}
-            className="text-[11px] font-bold text-accent hover:text-accent-hover transition-colors"
+            className="text-xs font-bold text-accent hover:text-accent-hover transition-colors focus-ring rounded-sm"
           >
             Mark all read
           </button>
           <button 
             onClick={clearAll}
-            className="text-secondary hover:text-error transition-colors"
+            aria-label="Clear all notifications"
+            className="text-secondary hover:text-error transition-colors focus-ring rounded-sm"
             title="Clear all"
           >
             <Trash2 size={14} />
@@ -81,11 +105,19 @@ export const NotificationPopover: React.FC = () => {
           ) : (
             <div className="divide-y divide-subtle">
               {notifications.map((n) => (
-                <div 
+                <div
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleNotificationClick(n);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
                   className={cn(
-                    "relative px-4 py-3 flex gap-3 hover:bg-elevated transition-colors cursor-pointer group",
+                    "relative w-full px-4 py-3 flex gap-3 hover:bg-elevated transition-colors group text-left focus-ring",
                     !n.isRead && "bg-accent/5"
                   )}
                 >
@@ -123,12 +155,20 @@ export const NotificationPopover: React.FC = () => {
                         {formatDistanceToNow(n.timestamp)}
                       </span>
                       
-                      {n.type === 'invite_received' && !n.isRead && (
+                      {n.type === 'invite_received' && !n.isRead && n.metadata?.inviteId && (
                         <div className="flex gap-2 mt-1">
-                          <button className="px-2 py-0.5 bg-accent text-white text-xs font-bold rounded hover:bg-accent-hover transition-colors">
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); void handleAcceptInvite(n); }}
+                            className="px-2 py-0.5 bg-accent text-white text-xs font-bold rounded hover:bg-accent-hover transition-colors focus-ring"
+                          >
                             Accept
                           </button>
-                          <button className="px-2 py-0.5 bg-elevated text-secondary text-xs font-bold rounded border border-default hover:bg-inset transition-colors">
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); handleDeclineInvite(n); }}
+                            className="px-2 py-0.5 bg-elevated text-secondary text-xs font-bold rounded border border-default hover:bg-inset transition-colors focus-ring"
+                          >
                             Decline
                           </button>
                         </div>
@@ -148,7 +188,7 @@ export const NotificationPopover: React.FC = () => {
       <div className="px-4 py-2 border-t border-subtle bg-elevated/30">
         <button 
           onClick={() => navigate('/notifications')}
-          className="w-full flex items-center justify-center gap-2 text-xs font-bold text-secondary hover:text-primary transition-colors"
+          className="w-full flex items-center justify-center gap-2 text-xs font-bold text-secondary hover:text-primary transition-colors focus-ring rounded-md"
         >
           View all notifications
           <ExternalLink size={12} />

@@ -57,22 +57,31 @@ export function MembersTab() {
     setInviteRows(newRows);
   };
 
-  const handleSendInvites = () => {
+  const handleSendInvites = async () => {
     const validInvites = inviteRows.filter(row => row.email.trim() !== '');
     if (validInvites.length === 0) return;
 
-    validInvites.forEach(row => {
-      inviteMember(row.email, row.role);
-    });
+    // Each hits POST /api/v1/teams/{id}/invites; count what actually succeeded.
+    const results = await Promise.allSettled(
+      validInvites.map(row => inviteMember(row.email, row.role))
+    );
+    const sent = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.length - sent;
 
-    toast.success(`${validInvites.length} invite${validInvites.length > 1 ? 's' : ''} sent`);
+    if (sent > 0) {
+      toast.success(`${sent} invite${sent > 1 ? 's' : ''} sent`);
+    }
+    if (failed > 0) {
+      toast.error(`${failed} invite${failed > 1 ? 's' : ''} failed to send`);
+    }
+
     setInviteDialogOpen(false);
     setInviteRows([{ email: '', role: 'developer' }]);
   };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <SectionPreviewNotice>Team members &amp; invites are a preview — there&apos;s no org backend yet, so nothing is emailed or saved.</SectionPreviewNotice>
+      <SectionPreviewNotice>Members and invites are saved to your workspace. Email delivery isn&apos;t wired yet, so invitees won&apos;t be notified automatically.</SectionPreviewNotice>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

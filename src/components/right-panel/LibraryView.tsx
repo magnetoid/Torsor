@@ -47,7 +47,7 @@ export default function LibraryView() {
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* HEADER */}
       <div className="h-9 flex items-center px-3 shrink-0 border-b border-subtle">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-secondary">Library</span>
+        <span className="text-xs font-bold uppercase tracking-wider text-secondary">Library</span>
       </div>
 
       {/* INPUT */}
@@ -56,6 +56,7 @@ export default function LibraryView() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
           <input 
             type="text" 
+            aria-label="Search library"
             placeholder="Search library..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -65,7 +66,7 @@ export default function LibraryView() {
       </div>
 
       {/* SECTIONS */}
-      <div className="flex-1 overflow-y-auto py-2 no-scrollbar">
+      <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         {sections.map((section) => {
           const items = filteredItems.filter(i => i.type === section.type);
           const isExpanded = expandedSections.includes(section.name);
@@ -76,7 +77,7 @@ export default function LibraryView() {
             <div key={section.name} className="mb-2">
               <button 
                 onClick={() => toggleSection(section.name)}
-                className="w-full h-7 flex items-center gap-2 px-3 hover:bg-elevated transition-colors group"
+                className="w-full h-7 flex items-center gap-2 px-3 hover:bg-elevated transition-colors group focus-ring"
               >
                 <div className="text-tertiary">
                   {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -88,15 +89,16 @@ export default function LibraryView() {
               {isExpanded && (
                 <div className="space-y-1 px-1 mt-1">
                   {items.map((item) => (
-                    <div 
+                    <button
                       key={item.id}
-                      className="p-2 hover:bg-elevated cursor-pointer rounded-md transition-colors group"
+                      type="button"
+                      className="w-full p-2 text-left hover:bg-elevated rounded-md transition-colors group focus-ring"
                     >
                       <div className="flex items-center gap-2 mb-1">
                         {item.icon}
-                        <span className="text-[11px] text-primary font-medium truncate">{item.name}</span>
+                        <span className="text-xs text-primary font-medium truncate">{item.name}</span>
                         {item.badge && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-inset text-secondary font-bold uppercase tracking-tighter ml-auto">
+                          <span className="text-xs px-1.5 py-0.5 rounded-full bg-inset text-secondary font-bold uppercase tracking-wider ml-auto">
                             {item.badge}
                           </span>
                         )}
@@ -104,7 +106,7 @@ export default function LibraryView() {
                       <div className="text-xs text-tertiary truncate pl-5 group-hover:text-secondary transition-colors">
                         {item.description}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

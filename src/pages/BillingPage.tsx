@@ -30,6 +30,9 @@ import { Card } from '../components/shared/Card';
 import { Badge } from '../components/shared/Badge';
 import { AccountBar } from '../components/shared/AccountBar';
 import { apiUsageSummary, type UsageSummary } from '../lib/api';
+import { useActiveWorkspace, useWorkspaceStore } from '../stores/workspaceStore';
+import type { WorkspacePlan } from '../types/workspace';
+import { toast } from 'sonner';
 
 /** Compact token formatting for the usage widgets (1.2M / 34.5k / 812). */
 function formatTokens(n: number): string {
@@ -39,23 +42,27 @@ function formatTokens(n: number): string {
 }
 
 const PlanCard = ({
-  title, 
-  price, 
-  features, 
-  isCurrent, 
-  isPopular, 
-  buttonText, 
+  title,
+  price,
+  features,
+  isCurrent,
+  isPopular,
+  buttonText,
   gradient,
-  borderClass = "border-default"
-}: { 
-  title: string, 
-  price: string, 
-  features: string[], 
-  isCurrent?: boolean, 
-  isPopular?: boolean, 
+  borderClass = "border-default",
+  onSelect,
+  isBusy,
+}: {
+  title: string,
+  price: string,
+  features: string[],
+  isCurrent?: boolean,
+  isPopular?: boolean,
   buttonText: string,
   gradient?: boolean,
-  borderClass?: string
+  borderClass?: string,
+  onSelect?: () => void,
+  isBusy?: boolean,
 }) => (
   <Card className={cn(
     "flex-1 flex flex-col relative overflow-hidden",
@@ -82,18 +89,19 @@ const PlanCard = ({
       ))}
     </ul>
 
-    <button 
-      disabled={isCurrent}
+    <button
+      disabled={isCurrent || isBusy}
+      onClick={onSelect}
       className={cn(
-        "w-full py-2 rounded-md text-sm font-bold transition-all focus-ring",
-        isCurrent 
-          ? "bg-surface text-secondary cursor-not-allowed border border-default" 
+        "w-full py-2 rounded-md text-sm font-bold transition-all focus-ring disabled:opacity-60",
+        isCurrent
+          ? "bg-surface text-secondary cursor-not-allowed border border-default"
           : isPopular
             ? "bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20"
             : "bg-surface hover:bg-elevated text-primary border border-default"
       )}
     >
-      {isCurrent ? 'Current Plan' : buttonText}
+      {isCurrent ? 'Current Plan' : isBusy ? 'Working…' : buttonText}
     </button>
   </Card>
 );
@@ -134,6 +142,36 @@ export const BillingPage: React.FC = () => {
     [usage],
   );
   const totalTokens = (usage?.totals.tokensIn ?? 0) + (usage?.totals.tokensOut ?? 0);
+
+  // Plan changes persist via PATCH /api/v1/teams/{id} (same path BillingModal and
+  // UpgradeDialog use). Payment (Stripe) isn't wired yet — the plan field is the
+  // source of truth and limits are derived from it.
+  const activeWorkspace = useActiveWorkspace();
+  const updateWorkspace = useWorkspaceStore((s) => s.updateWorkspace);
+  const currentPlan = activeWorkspace?.plan;
+  const [changingPlan, setChangingPlan] = useState<WorkspacePlan | null>(null);
+
+  const handleChangePlan = async (plan: WorkspacePlan) => {
+    if (!activeWorkspace) {
+      toast.error('No active workspace to change the plan for');
+      return;
+    }
+    if (activeWorkspace.plan === plan) return;
+    if (plan === 'enterprise') {
+      window.location.href = 'mailto:sales@torsor.dev?subject=Enterprise%20plan%20enquiry';
+      return;
+    }
+    setChangingPlan(plan);
+    try {
+      await updateWorkspace(activeWorkspace.id, { plan });
+      toast.success(`Switched to the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not change plan');
+    } finally {
+      setChangingPlan(null);
+    }
+  };
+
   const modelBreakdown = useMemo(() => {
     const rows = (usage?.byModel ?? []).map((m) => ({
       model: m.model || m.provider,
@@ -159,9 +197,12 @@ export const BillingPage: React.FC = () => {
             <section>
               <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-6">Subscription Plans</h3>
               <div className="flex flex-row gap-6">
-                <PlanCard 
+                <PlanCard
                   title="Free"
                   price="$0"
+                  isCurrent={currentPlan === 'free'}
+                  isBusy={changingPlan === 'free'}
+                  onSelect={() => handleChangePlan('free')}
                   features={[
                     "1 workspace",
                     "3 projects",
@@ -170,13 +211,15 @@ export const BillingPage: React.FC = () => {
                     "10 sandbox hrs",
                     "Public projects only"
                   ]}
-                  buttonText="Downgrade"
+                  buttonText="Switch to Free"
                 />
-                <PlanCard 
+                <PlanCard
                   title="Pro"
                   price="$25"
                   isPopular
-                  isCurrent
+                  isCurrent={currentPlan === 'pro'}
+                  isBusy={changingPlan === 'pro'}
+                  onSelect={() => handleChangePlan('pro')}
                   borderClass="border-accent"
                   features={[
                     "Unlimited workspaces",
@@ -187,11 +230,14 @@ export const BillingPage: React.FC = () => {
                     "Private projects",
                     "Custom domains"
                   ]}
-                  buttonText="Current Plan"
+                  buttonText="Upgrade to Pro"
                 />
-                <PlanCard 
+                <PlanCard
                   title="Team"
                   price="$49"
+                  isCurrent={currentPlan === 'team'}
+                  isBusy={changingPlan === 'team'}
+                  onSelect={() => handleChangePlan('team')}
                   features={[
                     "Everything in Pro",
                     "Unlimited projects",
@@ -203,10 +249,12 @@ export const BillingPage: React.FC = () => {
                   ]}
                   buttonText="Upgrade to Team"
                 />
-                <PlanCard 
+                <PlanCard
                   title="Enterprise"
                   price="Custom"
                   gradient
+                  isCurrent={currentPlan === 'enterprise'}
+                  onSelect={() => handleChangePlan('enterprise')}
                   features={[
                     "Self-hosted option",
                     "Dedicated infrastructure",

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   GitBranch, 
   Plus, 
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useGitStore, GitFile, Commit } from '../../stores/gitStore';
+import { useProjectStore } from '../../stores/projectStore';
 import * as Select from '@radix-ui/react-select';
 import * as Checkbox from '@radix-ui/react-checkbox';
 import * as ScrollArea from '@radix-ui/react-scroll-area';
@@ -70,10 +71,15 @@ export default function GitTab() {
     unstageAll, 
     commit, 
     push, 
-    pull, 
+    pull,
     revert,
-    connectGitHub
+    connectGitHub,
+    refresh,
+    init,
+    initialized,
+    isLoading,
   } = useGitStore();
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
 
   const [commitMessage, setCommitMessage] = useState('');
   const [amend, setAmend] = useState(false);
@@ -81,12 +87,18 @@ export default function GitTab() {
   const [newBranchName, setNewBranchName] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
+  // Load real git state for the active project (and whenever it changes).
+  useEffect(() => {
+    void refresh();
+  }, [refresh, activeProjectId]);
+
   const staged = useMemo(() => changes.filter(f => f.staged), [changes]);
   const unstaged = useMemo(() => changes.filter(f => !f.staged), [changes]);
 
   const handleCommit = (doPush = false) => {
-    if (!commitMessage.trim() || staged.length === 0) return;
-    commit(commitMessage, doPush);
+    // Amend only needs a message; a normal commit needs something staged.
+    if (!commitMessage.trim() || (staged.length === 0 && !amend)) return;
+    void commit(commitMessage, doPush, amend);
     setCommitMessage('');
     setAmend(false);
   };
@@ -99,6 +111,32 @@ export default function GitTab() {
       setNewBranchMode(false);
     }
   };
+
+  if (!activeProjectId) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-secondary text-sm">
+        Open a project to use source control.
+      </div>
+    );
+  }
+
+  if (!initialized && !isLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center px-6">
+        <GitBranch size={28} className="text-tertiary" />
+        <div>
+          <p className="text-sm font-medium text-primary">No git repository in this workspace</p>
+          <p className="text-xs text-secondary mt-1">Initialize one to start tracking changes and commits.</p>
+        </div>
+        <button
+          onClick={() => void init()}
+          className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-xl text-sm font-bold shadow-lg shadow-accent/20 transition-all focus-ring"
+        >
+          Initialize repository
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-page">

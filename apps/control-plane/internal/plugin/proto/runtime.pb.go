@@ -506,6 +506,227 @@ func (x *ExecChunk) GetDone() bool {
 	return false
 }
 
+// ExecInteractiveRequest is one client->server frame of an interactive session. The first
+// frame MUST carry `start`; subsequent frames carry `stdin` bytes or a `resize` event.
+type ExecInteractiveRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Payload:
+	//
+	//	*ExecInteractiveRequest_Start
+	//	*ExecInteractiveRequest_Stdin
+	//	*ExecInteractiveRequest_Resize
+	Payload       isExecInteractiveRequest_Payload `protobuf_oneof:"payload"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecInteractiveRequest) Reset() {
+	*x = ExecInteractiveRequest{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecInteractiveRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecInteractiveRequest) ProtoMessage() {}
+
+func (x *ExecInteractiveRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecInteractiveRequest.ProtoReflect.Descriptor instead.
+func (*ExecInteractiveRequest) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ExecInteractiveRequest) GetPayload() isExecInteractiveRequest_Payload {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *ExecInteractiveRequest) GetStart() *ExecStart {
+	if x != nil {
+		if x, ok := x.Payload.(*ExecInteractiveRequest_Start); ok {
+			return x.Start
+		}
+	}
+	return nil
+}
+
+func (x *ExecInteractiveRequest) GetStdin() []byte {
+	if x != nil {
+		if x, ok := x.Payload.(*ExecInteractiveRequest_Stdin); ok {
+			return x.Stdin
+		}
+	}
+	return nil
+}
+
+func (x *ExecInteractiveRequest) GetResize() *WinSize {
+	if x != nil {
+		if x, ok := x.Payload.(*ExecInteractiveRequest_Resize); ok {
+			return x.Resize
+		}
+	}
+	return nil
+}
+
+type isExecInteractiveRequest_Payload interface {
+	isExecInteractiveRequest_Payload()
+}
+
+type ExecInteractiveRequest_Start struct {
+	Start *ExecStart `protobuf:"bytes,1,opt,name=start,proto3,oneof"` // required first frame: the command + initial terminal size
+}
+
+type ExecInteractiveRequest_Stdin struct {
+	Stdin []byte `protobuf:"bytes,2,opt,name=stdin,proto3,oneof"` // raw bytes to write to the process's stdin
+}
+
+type ExecInteractiveRequest_Resize struct {
+	Resize *WinSize `protobuf:"bytes,3,opt,name=resize,proto3,oneof"` // terminal was resized to these dimensions
+}
+
+func (*ExecInteractiveRequest_Start) isExecInteractiveRequest_Payload() {}
+
+func (*ExecInteractiveRequest_Stdin) isExecInteractiveRequest_Payload() {}
+
+func (*ExecInteractiveRequest_Resize) isExecInteractiveRequest_Payload() {}
+
+type ExecStart struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
+	Command       []string               `protobuf:"bytes,2,rep,name=command,proto3" json:"command,omitempty"` // argv; empty => the runtime's default shell
+	WorkingDir    string                 `protobuf:"bytes,3,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
+	Size          *WinSize               `protobuf:"bytes,4,opt,name=size,proto3" json:"size,omitempty"` // initial terminal size (0/0 => runtime default)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExecStart) Reset() {
+	*x = ExecStart{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExecStart) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExecStart) ProtoMessage() {}
+
+func (x *ExecStart) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExecStart.ProtoReflect.Descriptor instead.
+func (*ExecStart) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ExecStart) GetWorkspaceId() string {
+	if x != nil {
+		return x.WorkspaceId
+	}
+	return ""
+}
+
+func (x *ExecStart) GetCommand() []string {
+	if x != nil {
+		return x.Command
+	}
+	return nil
+}
+
+func (x *ExecStart) GetWorkingDir() string {
+	if x != nil {
+		return x.WorkingDir
+	}
+	return ""
+}
+
+func (x *ExecStart) GetSize() *WinSize {
+	if x != nil {
+		return x.Size
+	}
+	return nil
+}
+
+// WinSize is a terminal window size in character cells.
+type WinSize struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rows          uint32                 `protobuf:"varint,1,opt,name=rows,proto3" json:"rows,omitempty"`
+	Cols          uint32                 `protobuf:"varint,2,opt,name=cols,proto3" json:"cols,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WinSize) Reset() {
+	*x = WinSize{}
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WinSize) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WinSize) ProtoMessage() {}
+
+func (x *WinSize) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WinSize.ProtoReflect.Descriptor instead.
+func (*WinSize) Descriptor() ([]byte, []int) {
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WinSize) GetRows() uint32 {
+	if x != nil {
+		return x.Rows
+	}
+	return 0
+}
+
+func (x *WinSize) GetCols() uint32 {
+	if x != nil {
+		return x.Cols
+	}
+	return 0
+}
+
 type ListFilesRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	WorkspaceId   string                 `protobuf:"bytes,1,opt,name=workspace_id,json=workspaceId,proto3" json:"workspace_id,omitempty"`
@@ -516,7 +737,7 @@ type ListFilesRequest struct {
 
 func (x *ListFilesRequest) Reset() {
 	*x = ListFilesRequest{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[8]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -528,7 +749,7 @@ func (x *ListFilesRequest) String() string {
 func (*ListFilesRequest) ProtoMessage() {}
 
 func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[8]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -541,7 +762,7 @@ func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListFilesRequest) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{8}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListFilesRequest) GetWorkspaceId() string {
@@ -570,7 +791,7 @@ type FileEntry struct {
 
 func (x *FileEntry) Reset() {
 	*x = FileEntry{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[9]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -582,7 +803,7 @@ func (x *FileEntry) String() string {
 func (*FileEntry) ProtoMessage() {}
 
 func (x *FileEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[9]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,7 +816,7 @@ func (x *FileEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileEntry.ProtoReflect.Descriptor instead.
 func (*FileEntry) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{9}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *FileEntry) GetName() string {
@@ -635,7 +856,7 @@ type ListFilesResponse struct {
 
 func (x *ListFilesResponse) Reset() {
 	*x = ListFilesResponse{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[10]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -647,7 +868,7 @@ func (x *ListFilesResponse) String() string {
 func (*ListFilesResponse) ProtoMessage() {}
 
 func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[10]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -660,7 +881,7 @@ func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListFilesResponse) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{10}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListFilesResponse) GetEntries() []*FileEntry {
@@ -680,7 +901,7 @@ type FileRef struct {
 
 func (x *FileRef) Reset() {
 	*x = FileRef{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[11]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -692,7 +913,7 @@ func (x *FileRef) String() string {
 func (*FileRef) ProtoMessage() {}
 
 func (x *FileRef) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[11]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -705,7 +926,7 @@ func (x *FileRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileRef.ProtoReflect.Descriptor instead.
 func (*FileRef) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{11}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FileRef) GetWorkspaceId() string {
@@ -731,7 +952,7 @@ type ReadFileResponse struct {
 
 func (x *ReadFileResponse) Reset() {
 	*x = ReadFileResponse{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[12]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -743,7 +964,7 @@ func (x *ReadFileResponse) String() string {
 func (*ReadFileResponse) ProtoMessage() {}
 
 func (x *ReadFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[12]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -756,7 +977,7 @@ func (x *ReadFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadFileResponse.ProtoReflect.Descriptor instead.
 func (*ReadFileResponse) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{12}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ReadFileResponse) GetContent() []byte {
@@ -778,7 +999,7 @@ type WriteFileRequest struct {
 
 func (x *WriteFileRequest) Reset() {
 	*x = WriteFileRequest{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[13]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -790,7 +1011,7 @@ func (x *WriteFileRequest) String() string {
 func (*WriteFileRequest) ProtoMessage() {}
 
 func (x *WriteFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[13]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -803,7 +1024,7 @@ func (x *WriteFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteFileRequest.ProtoReflect.Descriptor instead.
 func (*WriteFileRequest) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{13}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *WriteFileRequest) GetWorkspaceId() string {
@@ -843,7 +1064,7 @@ type WriteFileResponse struct {
 
 func (x *WriteFileResponse) Reset() {
 	*x = WriteFileResponse{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[14]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -855,7 +1076,7 @@ func (x *WriteFileResponse) String() string {
 func (*WriteFileResponse) ProtoMessage() {}
 
 func (x *WriteFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[14]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -868,7 +1089,7 @@ func (x *WriteFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteFileResponse.ProtoReflect.Descriptor instead.
 func (*WriteFileResponse) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{14}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *WriteFileResponse) GetOk() bool {
@@ -888,7 +1109,7 @@ type SnapshotRequest struct {
 
 func (x *SnapshotRequest) Reset() {
 	*x = SnapshotRequest{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[15]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -900,7 +1121,7 @@ func (x *SnapshotRequest) String() string {
 func (*SnapshotRequest) ProtoMessage() {}
 
 func (x *SnapshotRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[15]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -913,7 +1134,7 @@ func (x *SnapshotRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotRequest.ProtoReflect.Descriptor instead.
 func (*SnapshotRequest) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{15}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SnapshotRequest) GetWorkspaceId() string {
@@ -941,7 +1162,7 @@ type SnapshotResponse struct {
 
 func (x *SnapshotResponse) Reset() {
 	*x = SnapshotResponse{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[16]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -953,7 +1174,7 @@ func (x *SnapshotResponse) String() string {
 func (*SnapshotResponse) ProtoMessage() {}
 
 func (x *SnapshotResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[16]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -966,7 +1187,7 @@ func (x *SnapshotResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SnapshotResponse.ProtoReflect.Descriptor instead.
 func (*SnapshotResponse) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{16}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SnapshotResponse) GetWorkspaceId() string {
@@ -1000,7 +1221,7 @@ type RestoreRequest struct {
 
 func (x *RestoreRequest) Reset() {
 	*x = RestoreRequest{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[17]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1012,7 +1233,7 @@ func (x *RestoreRequest) String() string {
 func (*RestoreRequest) ProtoMessage() {}
 
 func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[17]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1025,7 +1246,7 @@ func (x *RestoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestoreRequest.ProtoReflect.Descriptor instead.
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{17}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *RestoreRequest) GetWorkspaceId() string {
@@ -1053,7 +1274,7 @@ type ForkRequest struct {
 
 func (x *ForkRequest) Reset() {
 	*x = ForkRequest{}
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[18]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1065,7 +1286,7 @@ func (x *ForkRequest) String() string {
 func (*ForkRequest) ProtoMessage() {}
 
 func (x *ForkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[18]
+	mi := &file_internal_plugin_proto_runtime_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1078,7 +1299,7 @@ func (x *ForkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForkRequest.ProtoReflect.Descriptor instead.
 func (*ForkRequest) Descriptor() ([]byte, []int) {
-	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{18}
+	return file_internal_plugin_proto_runtime_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ForkRequest) GetSourceWorkspaceId() string {
@@ -1143,7 +1364,21 @@ const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
 	"\x06stdout\x18\x01 \x01(\tR\x06stdout\x12\x16\n" +
 	"\x06stderr\x18\x02 \x01(\tR\x06stderr\x12\x1b\n" +
 	"\texit_code\x18\x03 \x01(\x05R\bexitCode\x12\x12\n" +
-	"\x04done\x18\x04 \x01(\bR\x04done\"I\n" +
+	"\x04done\x18\x04 \x01(\bR\x04done\"\xa5\x01\n" +
+	"\x16ExecInteractiveRequest\x123\n" +
+	"\x05start\x18\x01 \x01(\v2\x1b.torsor.plugin.v1.ExecStartH\x00R\x05start\x12\x16\n" +
+	"\x05stdin\x18\x02 \x01(\fH\x00R\x05stdin\x123\n" +
+	"\x06resize\x18\x03 \x01(\v2\x19.torsor.plugin.v1.WinSizeH\x00R\x06resizeB\t\n" +
+	"\apayload\"\x98\x01\n" +
+	"\tExecStart\x12!\n" +
+	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x18\n" +
+	"\acommand\x18\x02 \x03(\tR\acommand\x12\x1f\n" +
+	"\vworking_dir\x18\x03 \x01(\tR\n" +
+	"workingDir\x12-\n" +
+	"\x04size\x18\x04 \x01(\v2\x19.torsor.plugin.v1.WinSizeR\x04size\"1\n" +
+	"\aWinSize\x12\x12\n" +
+	"\x04rows\x18\x01 \x01(\rR\x04rows\x12\x12\n" +
+	"\x04cols\x18\x02 \x01(\rR\x04cols\"I\n" +
 	"\x10ListFilesRequest\x12!\n" +
 	"\fworkspace_id\x18\x01 \x01(\tR\vworkspaceId\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\"^\n" +
@@ -1183,7 +1418,8 @@ const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
 	"\x13source_workspace_id\x18\x01 \x01(\tR\x11sourceWorkspaceId\x12\x1f\n" +
 	"\vsnapshot_id\x18\x02 \x01(\tR\n" +
 	"snapshotId\x12(\n" +
-	"\x10new_workspace_id\x18\x03 \x01(\tR\x0enewWorkspaceId2\xa2\t\n" +
+	"\x10new_workspace_id\x18\x03 \x01(\tR\x0enewWorkspaceId2\x80\n" +
+	"\n" +
 	"\x10WorkspaceRuntime\x12S\n" +
 	"\x04Info\x12$.torsor.plugin.v1.RuntimeInfoRequest\x1a%.torsor.plugin.v1.RuntimeInfoResponse\x12f\n" +
 	"\x0fCreateWorkspace\x12(.torsor.plugin.v1.CreateWorkspaceRequest\x1a).torsor.plugin.v1.WorkspaceStatusResponse\x12[\n" +
@@ -1191,7 +1427,8 @@ const file_internal_plugin_proto_runtime_proto_rawDesc = "" +
 	"\rStopWorkspace\x12&.torsor.plugin.v1.StopWorkspaceRequest\x1a).torsor.plugin.v1.WorkspaceStatusResponse\x12]\n" +
 	"\x10DestroyWorkspace\x12\x1e.torsor.plugin.v1.WorkspaceRef\x1a).torsor.plugin.v1.WorkspaceStatusResponse\x12\\\n" +
 	"\x0fStatusWorkspace\x12\x1e.torsor.plugin.v1.WorkspaceRef\x1a).torsor.plugin.v1.WorkspaceStatusResponse\x12D\n" +
-	"\x04Exec\x12\x1d.torsor.plugin.v1.ExecRequest\x1a\x1b.torsor.plugin.v1.ExecChunk0\x01\x12T\n" +
+	"\x04Exec\x12\x1d.torsor.plugin.v1.ExecRequest\x1a\x1b.torsor.plugin.v1.ExecChunk0\x01\x12\\\n" +
+	"\x0fExecInteractive\x12(.torsor.plugin.v1.ExecInteractiveRequest\x1a\x1b.torsor.plugin.v1.ExecChunk(\x010\x01\x12T\n" +
 	"\tListFiles\x12\".torsor.plugin.v1.ListFilesRequest\x1a#.torsor.plugin.v1.ListFilesResponse\x12I\n" +
 	"\bReadFile\x12\x19.torsor.plugin.v1.FileRef\x1a\".torsor.plugin.v1.ReadFileResponse\x12T\n" +
 	"\tWriteFile\x12\".torsor.plugin.v1.WriteFileRequest\x1a#.torsor.plugin.v1.WriteFileResponse\x12Z\n" +
@@ -1211,7 +1448,7 @@ func file_internal_plugin_proto_runtime_proto_rawDescGZIP() []byte {
 	return file_internal_plugin_proto_runtime_proto_rawDescData
 }
 
-var file_internal_plugin_proto_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_internal_plugin_proto_runtime_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_internal_plugin_proto_runtime_proto_goTypes = []any{
 	(*RuntimeInfoRequest)(nil),      // 0: torsor.plugin.v1.RuntimeInfoRequest
 	(*RuntimeInfoResponse)(nil),     // 1: torsor.plugin.v1.RuntimeInfoResponse
@@ -1221,53 +1458,61 @@ var file_internal_plugin_proto_runtime_proto_goTypes = []any{
 	(*WorkspaceStatusResponse)(nil), // 5: torsor.plugin.v1.WorkspaceStatusResponse
 	(*ExecRequest)(nil),             // 6: torsor.plugin.v1.ExecRequest
 	(*ExecChunk)(nil),               // 7: torsor.plugin.v1.ExecChunk
-	(*ListFilesRequest)(nil),        // 8: torsor.plugin.v1.ListFilesRequest
-	(*FileEntry)(nil),               // 9: torsor.plugin.v1.FileEntry
-	(*ListFilesResponse)(nil),       // 10: torsor.plugin.v1.ListFilesResponse
-	(*FileRef)(nil),                 // 11: torsor.plugin.v1.FileRef
-	(*ReadFileResponse)(nil),        // 12: torsor.plugin.v1.ReadFileResponse
-	(*WriteFileRequest)(nil),        // 13: torsor.plugin.v1.WriteFileRequest
-	(*WriteFileResponse)(nil),       // 14: torsor.plugin.v1.WriteFileResponse
-	(*SnapshotRequest)(nil),         // 15: torsor.plugin.v1.SnapshotRequest
-	(*SnapshotResponse)(nil),        // 16: torsor.plugin.v1.SnapshotResponse
-	(*RestoreRequest)(nil),          // 17: torsor.plugin.v1.RestoreRequest
-	(*ForkRequest)(nil),             // 18: torsor.plugin.v1.ForkRequest
-	nil,                             // 19: torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
+	(*ExecInteractiveRequest)(nil),  // 8: torsor.plugin.v1.ExecInteractiveRequest
+	(*ExecStart)(nil),               // 9: torsor.plugin.v1.ExecStart
+	(*WinSize)(nil),                 // 10: torsor.plugin.v1.WinSize
+	(*ListFilesRequest)(nil),        // 11: torsor.plugin.v1.ListFilesRequest
+	(*FileEntry)(nil),               // 12: torsor.plugin.v1.FileEntry
+	(*ListFilesResponse)(nil),       // 13: torsor.plugin.v1.ListFilesResponse
+	(*FileRef)(nil),                 // 14: torsor.plugin.v1.FileRef
+	(*ReadFileResponse)(nil),        // 15: torsor.plugin.v1.ReadFileResponse
+	(*WriteFileRequest)(nil),        // 16: torsor.plugin.v1.WriteFileRequest
+	(*WriteFileResponse)(nil),       // 17: torsor.plugin.v1.WriteFileResponse
+	(*SnapshotRequest)(nil),         // 18: torsor.plugin.v1.SnapshotRequest
+	(*SnapshotResponse)(nil),        // 19: torsor.plugin.v1.SnapshotResponse
+	(*RestoreRequest)(nil),          // 20: torsor.plugin.v1.RestoreRequest
+	(*ForkRequest)(nil),             // 21: torsor.plugin.v1.ForkRequest
+	nil,                             // 22: torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
 }
 var file_internal_plugin_proto_runtime_proto_depIdxs = []int32{
-	19, // 0: torsor.plugin.v1.CreateWorkspaceRequest.env:type_name -> torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
-	9,  // 1: torsor.plugin.v1.ListFilesResponse.entries:type_name -> torsor.plugin.v1.FileEntry
-	0,  // 2: torsor.plugin.v1.WorkspaceRuntime.Info:input_type -> torsor.plugin.v1.RuntimeInfoRequest
-	3,  // 3: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:input_type -> torsor.plugin.v1.CreateWorkspaceRequest
-	2,  // 4: torsor.plugin.v1.WorkspaceRuntime.StartWorkspace:input_type -> torsor.plugin.v1.WorkspaceRef
-	4,  // 5: torsor.plugin.v1.WorkspaceRuntime.StopWorkspace:input_type -> torsor.plugin.v1.StopWorkspaceRequest
-	2,  // 6: torsor.plugin.v1.WorkspaceRuntime.DestroyWorkspace:input_type -> torsor.plugin.v1.WorkspaceRef
-	2,  // 7: torsor.plugin.v1.WorkspaceRuntime.StatusWorkspace:input_type -> torsor.plugin.v1.WorkspaceRef
-	6,  // 8: torsor.plugin.v1.WorkspaceRuntime.Exec:input_type -> torsor.plugin.v1.ExecRequest
-	8,  // 9: torsor.plugin.v1.WorkspaceRuntime.ListFiles:input_type -> torsor.plugin.v1.ListFilesRequest
-	11, // 10: torsor.plugin.v1.WorkspaceRuntime.ReadFile:input_type -> torsor.plugin.v1.FileRef
-	13, // 11: torsor.plugin.v1.WorkspaceRuntime.WriteFile:input_type -> torsor.plugin.v1.WriteFileRequest
-	15, // 12: torsor.plugin.v1.WorkspaceRuntime.SnapshotWorkspace:input_type -> torsor.plugin.v1.SnapshotRequest
-	17, // 13: torsor.plugin.v1.WorkspaceRuntime.RestoreWorkspace:input_type -> torsor.plugin.v1.RestoreRequest
-	18, // 14: torsor.plugin.v1.WorkspaceRuntime.ForkWorkspace:input_type -> torsor.plugin.v1.ForkRequest
-	1,  // 15: torsor.plugin.v1.WorkspaceRuntime.Info:output_type -> torsor.plugin.v1.RuntimeInfoResponse
-	5,  // 16: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 17: torsor.plugin.v1.WorkspaceRuntime.StartWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 18: torsor.plugin.v1.WorkspaceRuntime.StopWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 19: torsor.plugin.v1.WorkspaceRuntime.DestroyWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 20: torsor.plugin.v1.WorkspaceRuntime.StatusWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	7,  // 21: torsor.plugin.v1.WorkspaceRuntime.Exec:output_type -> torsor.plugin.v1.ExecChunk
-	10, // 22: torsor.plugin.v1.WorkspaceRuntime.ListFiles:output_type -> torsor.plugin.v1.ListFilesResponse
-	12, // 23: torsor.plugin.v1.WorkspaceRuntime.ReadFile:output_type -> torsor.plugin.v1.ReadFileResponse
-	14, // 24: torsor.plugin.v1.WorkspaceRuntime.WriteFile:output_type -> torsor.plugin.v1.WriteFileResponse
-	16, // 25: torsor.plugin.v1.WorkspaceRuntime.SnapshotWorkspace:output_type -> torsor.plugin.v1.SnapshotResponse
-	5,  // 26: torsor.plugin.v1.WorkspaceRuntime.RestoreWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	5,  // 27: torsor.plugin.v1.WorkspaceRuntime.ForkWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
-	15, // [15:28] is the sub-list for method output_type
-	2,  // [2:15] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	22, // 0: torsor.plugin.v1.CreateWorkspaceRequest.env:type_name -> torsor.plugin.v1.CreateWorkspaceRequest.EnvEntry
+	9,  // 1: torsor.plugin.v1.ExecInteractiveRequest.start:type_name -> torsor.plugin.v1.ExecStart
+	10, // 2: torsor.plugin.v1.ExecInteractiveRequest.resize:type_name -> torsor.plugin.v1.WinSize
+	10, // 3: torsor.plugin.v1.ExecStart.size:type_name -> torsor.plugin.v1.WinSize
+	12, // 4: torsor.plugin.v1.ListFilesResponse.entries:type_name -> torsor.plugin.v1.FileEntry
+	0,  // 5: torsor.plugin.v1.WorkspaceRuntime.Info:input_type -> torsor.plugin.v1.RuntimeInfoRequest
+	3,  // 6: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:input_type -> torsor.plugin.v1.CreateWorkspaceRequest
+	2,  // 7: torsor.plugin.v1.WorkspaceRuntime.StartWorkspace:input_type -> torsor.plugin.v1.WorkspaceRef
+	4,  // 8: torsor.plugin.v1.WorkspaceRuntime.StopWorkspace:input_type -> torsor.plugin.v1.StopWorkspaceRequest
+	2,  // 9: torsor.plugin.v1.WorkspaceRuntime.DestroyWorkspace:input_type -> torsor.plugin.v1.WorkspaceRef
+	2,  // 10: torsor.plugin.v1.WorkspaceRuntime.StatusWorkspace:input_type -> torsor.plugin.v1.WorkspaceRef
+	6,  // 11: torsor.plugin.v1.WorkspaceRuntime.Exec:input_type -> torsor.plugin.v1.ExecRequest
+	8,  // 12: torsor.plugin.v1.WorkspaceRuntime.ExecInteractive:input_type -> torsor.plugin.v1.ExecInteractiveRequest
+	11, // 13: torsor.plugin.v1.WorkspaceRuntime.ListFiles:input_type -> torsor.plugin.v1.ListFilesRequest
+	14, // 14: torsor.plugin.v1.WorkspaceRuntime.ReadFile:input_type -> torsor.plugin.v1.FileRef
+	16, // 15: torsor.plugin.v1.WorkspaceRuntime.WriteFile:input_type -> torsor.plugin.v1.WriteFileRequest
+	18, // 16: torsor.plugin.v1.WorkspaceRuntime.SnapshotWorkspace:input_type -> torsor.plugin.v1.SnapshotRequest
+	20, // 17: torsor.plugin.v1.WorkspaceRuntime.RestoreWorkspace:input_type -> torsor.plugin.v1.RestoreRequest
+	21, // 18: torsor.plugin.v1.WorkspaceRuntime.ForkWorkspace:input_type -> torsor.plugin.v1.ForkRequest
+	1,  // 19: torsor.plugin.v1.WorkspaceRuntime.Info:output_type -> torsor.plugin.v1.RuntimeInfoResponse
+	5,  // 20: torsor.plugin.v1.WorkspaceRuntime.CreateWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 21: torsor.plugin.v1.WorkspaceRuntime.StartWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 22: torsor.plugin.v1.WorkspaceRuntime.StopWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 23: torsor.plugin.v1.WorkspaceRuntime.DestroyWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 24: torsor.plugin.v1.WorkspaceRuntime.StatusWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	7,  // 25: torsor.plugin.v1.WorkspaceRuntime.Exec:output_type -> torsor.plugin.v1.ExecChunk
+	7,  // 26: torsor.plugin.v1.WorkspaceRuntime.ExecInteractive:output_type -> torsor.plugin.v1.ExecChunk
+	13, // 27: torsor.plugin.v1.WorkspaceRuntime.ListFiles:output_type -> torsor.plugin.v1.ListFilesResponse
+	15, // 28: torsor.plugin.v1.WorkspaceRuntime.ReadFile:output_type -> torsor.plugin.v1.ReadFileResponse
+	17, // 29: torsor.plugin.v1.WorkspaceRuntime.WriteFile:output_type -> torsor.plugin.v1.WriteFileResponse
+	19, // 30: torsor.plugin.v1.WorkspaceRuntime.SnapshotWorkspace:output_type -> torsor.plugin.v1.SnapshotResponse
+	5,  // 31: torsor.plugin.v1.WorkspaceRuntime.RestoreWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	5,  // 32: torsor.plugin.v1.WorkspaceRuntime.ForkWorkspace:output_type -> torsor.plugin.v1.WorkspaceStatusResponse
+	19, // [19:33] is the sub-list for method output_type
+	5,  // [5:19] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_internal_plugin_proto_runtime_proto_init() }
@@ -1275,13 +1520,18 @@ func file_internal_plugin_proto_runtime_proto_init() {
 	if File_internal_plugin_proto_runtime_proto != nil {
 		return
 	}
+	file_internal_plugin_proto_runtime_proto_msgTypes[8].OneofWrappers = []any{
+		(*ExecInteractiveRequest_Start)(nil),
+		(*ExecInteractiveRequest_Stdin)(nil),
+		(*ExecInteractiveRequest_Resize)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_plugin_proto_runtime_proto_rawDesc), len(file_internal_plugin_proto_runtime_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
