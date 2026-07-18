@@ -85,18 +85,6 @@ export function AppShell() {
           {/* No transition-all here: animating layout on this wrapper made every panel
               drag/toggle reflow the whole row through an easing curve (jank). */}
           <div className="flex flex-1 min-w-0 overflow-hidden">
-            {/* Left file manager (TopBar toggle, next to the account menu) + drag handle. */}
-            {!compactShell && fileManagerOpen && (
-              <>
-                <FileManagerPanel />
-                <PanelResizer
-                  width={panelWidths.fileManager}
-                  onWidth={(w) => setPanelWidth('fileManager', w)}
-                  ariaLabel="Resize files panel"
-                />
-              </>
-            )}
-
             <LeftPanel className={cn(
               // Focus: chat gets a bit more room and a centered, roomier feel.
               focus && !compactShell && "flex-1 max-w-[520px] mx-auto",
@@ -131,6 +119,20 @@ export function AppShell() {
                 isTablet && "fixed top-10 bottom-0 right-0 w-[260px] z-40 shadow-2xl transition-transform duration-300",
                 isTablet && !rightPanelOpen && "translate-x-full"
               )} />
+            )}
+
+            {/* File manager (TopBar file-icon toggle) — docked on the RIGHT, with its drag
+                handle on the panel's left edge (sign -1: dragging left widens it). */}
+            {!compactShell && fileManagerOpen && (
+              <>
+                <PanelResizer
+                  width={panelWidths.fileManager}
+                  onWidth={(w) => setPanelWidth('fileManager', w)}
+                  sign={-1}
+                  ariaLabel="Resize files panel"
+                />
+                <FileManagerPanel />
+              </>
             )}
           </div>
 

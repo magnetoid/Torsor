@@ -4,7 +4,7 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import FileTree from '../right-panel/FileTree';
 
 /**
- * The left "Files" panel — a file manager for the open project, toggled from the TopBar
+ * The right-docked "Files" panel — a file manager for the open project, toggled from the TopBar
  * button next to the account menu. Reuses the real workspace FileTree (create/rename/
  * delete/duplicate, click-to-open in the editor); width is dragged via the adjacent
  * PanelResizer and persisted in the layout store.
@@ -15,7 +15,7 @@ export function FileManagerPanel() {
   return (
     <aside
       style={{ width: panelWidths.fileManager }}
-      className="bg-surface border-r border-default flex flex-col overflow-hidden shrink-0"
+      className="bg-surface border-l border-default flex flex-col overflow-hidden shrink-0"
     >
       <header className="h-9 px-3 flex items-center justify-between border-b border-default shrink-0">
         <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
