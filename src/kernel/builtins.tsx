@@ -12,9 +12,7 @@ import SecretsTab from '../components/tabs/SecretsTab';
 import AppStorageTab from '../components/tabs/AppStorageTab';
 import AuthTab from '../components/tabs/AuthTab';
 import PublishingTab from '../components/tabs/PublishingTab';
-import ValidationTab from '../components/tabs/ValidationTab';
 import GitTab from '../components/tabs/GitTab';
-import WorkflowsTab from '../components/tabs/WorkflowsTab';
 import CanvasTab from '../components/tabs/CanvasTab';
 import AppTestingTab from '../components/tabs/AppTestingTab';
 import SettingsTab from '../components/tabs/SettingsTab';
@@ -27,7 +25,7 @@ import React from 'react';
 import { PreviewBanner } from '../components/shared/PreviewBanner';
 import {
   Play, Code2, Terminal, Database, Shield, Puzzle, Sparkles, Lock, HardDrive, UserCheck,
-  Rocket, CheckCircle, GitBranch, History, Workflow, Frame, MonitorPlay, Settings,
+  Rocket, CheckCircle, GitBranch, History, Workflow, Frame, FlaskConical, Settings,
   PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save, Activity, BarChart3, Plug,
   SunMoon, Brain,
 } from 'lucide-react';
@@ -86,11 +84,9 @@ const BUILTIN_TABS: BuiltinTab[] = [
   { type: 'auth', label: 'Authentication', component: AuthTab, icon: UserCheck, group: 'labs', order: 2, maturity: 'preview', previewFeature: 'the Authentication manager' },
   { type: 'git', label: 'Git', component: GitTab, icon: GitBranch, group: 'build', order: 3 },
   { type: 'security', label: 'Security Scan', component: SecurityScanTab, icon: Shield, group: 'labs', order: 4, maturity: 'preview', previewFeature: 'the Security Scan' },
-  { type: 'validation', label: 'Validation', component: ValidationTab, icon: CheckCircle, group: 'labs', order: 5, maturity: 'preview', previewFeature: 'Validation' },
-  { type: 'testing', label: 'App Testing', component: AppTestingTab, icon: MonitorPlay, group: 'labs', order: 6, maturity: 'preview', previewFeature: 'App Testing' },
+  { type: 'testing', label: 'App Testing', component: AppTestingTab, icon: FlaskConical, group: 'project', order: 5 },
   { type: 'integrations', label: 'Integrations', component: IntegrationsTab, icon: Puzzle, group: 'labs', order: 7, maturity: 'preview', previewFeature: 'Integrations' },
   { type: 'skills', label: 'Agent Skills', component: AgentSkillsTab, icon: Sparkles, group: 'agent', order: 3 },
-  { type: 'workflow', label: 'Workflows', component: WorkflowsTab, icon: Workflow, group: 'labs', order: 9, maturity: 'preview', previewFeature: 'Workflows' },
   { type: 'canvas', label: 'Canvas', component: CanvasTab, icon: Frame, group: 'labs', order: 10, maturity: 'preview', previewFeature: 'the Canvas' },
 ];
 
