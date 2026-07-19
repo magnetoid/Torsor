@@ -7,6 +7,7 @@ import {
   Users,
   CreditCard,
   Activity,
+  Bot,
   Settings,
   ArrowLeft,
   LogOut
@@ -36,6 +37,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { id: 'users', label: 'Users', icon: Users, href: '/admin/users' },
     { id: 'revenue', label: 'Revenue', icon: CreditCard, href: '/admin/revenue' },
     { id: 'platform', label: 'Platform', icon: Activity, href: '/admin/platform' },
+    { id: 'agent-engine', label: 'Agent Engine', icon: Bot, href: '/admin/agent-engine' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 

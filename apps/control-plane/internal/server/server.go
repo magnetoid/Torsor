@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +29,14 @@ type Server struct {
 	auth   *auth.Manager
 	host   *plugin.Host
 	logger *slog.Logger
+
+	// missionCancels maps a running mission's id to its background context.CancelFunc so a
+	// stop request can cancel in-flight execution (in-process; single backend today).
+	missionCancels sync.Map
+
+	// activeMissions counts missions currently executing in the background, enforcing the
+	// engine's max-concurrent-missions cap (in-process; single backend today).
+	activeMissions atomic.Int64
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
@@ -123,6 +133,13 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/projects/{projectID}/learning/proposals/{proposalID}/accept", s.handleAcceptProposal)
 			r.Post("/projects/{projectID}/learning/proposals/{proposalID}/dismiss", s.handleDismissProposal)
 
+			// Coding agent engine — missions
+			r.Get("/projects/{projectID}/agent/missions", s.handleListMissions)
+			r.Post("/projects/{projectID}/agent/missions", s.handleCreateMission)
+			r.Get("/projects/{projectID}/agent/missions/{missionID}", s.handleGetMission)
+			r.Post("/projects/{projectID}/agent/missions/{missionID}/approve", s.handleApproveMission)
+			r.Post("/projects/{projectID}/agent/missions/{missionID}/stop", s.handleStopMission)
+
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)
 			r.Post("/teams", s.handleCreateTeam)
@@ -146,6 +163,10 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/notifications/{notificationID}", s.handleDeleteNotification)
 			r.Delete("/notifications", s.handleClearNotifications)
 
+			// Per-user coding-agent preferences.
+			r.Get("/me/agent-prefs", s.handleGetAgentPrefs)
+			r.Patch("/me/agent-prefs", s.handleUpdateAgentPrefs)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
@@ -156,6 +177,10 @@ func (s *Server) Handler() http.Handler {
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireRole(auth.RoleSuperAdmin))
 				r.Patch("/admin/users/{userID}/role", s.handleAdminUpdateUserRole)
+				// Coding agent engine — global config + cross-user observability.
+				r.Get("/admin/agent/config", s.handleGetEngineConfig)
+				r.Patch("/admin/agent/config", s.handleUpdateEngineConfig)
+				r.Get("/admin/agent/missions", s.handleAdminListMissions)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
@@ -214,6 +239,11 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/deployments", s.handleListDeployments)
 			r.Post("/projects/{projectID}/deployment/stop", s.handleStopDeployment)
 
+			// Custom domains attached to the project's deployment (host-based routing).
+			r.Get("/projects/{projectID}/domains", s.handleListDomains)
+			r.Post("/projects/{projectID}/domains", s.handleAddDomain)
+			r.Delete("/projects/{projectID}/domains/{domainID}", s.handleDeleteDomain)
+
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
 			// the model edits files and runs commands in the owned project's workspace.
 			r.Post("/projects/{projectID}/agent/stream", s.handleAgentRunSSE)
@@ -254,9 +284,10 @@ func (s *Server) Handler() http.Handler {
 		})
 	})
 
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not Found", "path": r.URL.Path})
-	})
+	// Custom-domain routing: a request whose Host is an attached custom domain (forwarded here
+	// by the reverse proxy) matches no route above, so the NotFound handler resolves it to the
+	// mapped project's deployment. Non-custom-domain misses still return the ordinary 404.
+	r.NotFound(s.handleCustomDomainProxy)
 	return r
 }
 

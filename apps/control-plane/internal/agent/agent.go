@@ -249,6 +249,7 @@ Rules:
 type RunResult struct {
 	Final     string   // the final user-facing message
 	Steps     int      // model turns taken
+	Mutations int      // count of workspace-mutating tool calls (write_file / run) this run
 	Model     string   // model id reported by the provider
 	TokensIn  int32    // summed across all model calls
 	TokensOut int32    // summed across all model calls
@@ -373,6 +374,9 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 
 		emit(Event{Kind: EventToolCall, Step: i, Tool: st.Action.Tool, Args: st.Action.Args})
 		obs := r.runTool(ctx, *st.Action)
+		if st.Action.Tool == "write_file" || st.Action.Tool == "run" {
+			result.Mutations++
+		}
 		trimmed := truncate(obs, r.cfg.MaxObservLen)
 		emit(Event{Kind: EventToolResult, Step: i, Tool: st.Action.Tool, Result: trimmed})
 		fmt.Fprintf(&transcript, "\nAction: %s %v\nObservation: %s\n", st.Action.Tool, st.Action.Args, trimmed)

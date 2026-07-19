@@ -3,7 +3,6 @@ import {
   CreditCard,
   Check,
   Users,
-  Download,
   Sparkles,
   CreditCard as CardIcon,
   Calendar,
@@ -23,7 +22,6 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { usageMock } from '../lib/mockData';
 import { cn } from '../lib/utils';
 import { HomeLayout } from '../components/shell/HomeLayout';
 import { Card } from '../components/shared/Card';
@@ -397,40 +395,14 @@ export const BillingPage: React.FC = () => {
               <div className="col-span-2">
                 <div className="flex items-center gap-2 mb-4">
                   <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
-                  {/* Honest label: invoices have no billing backend yet. */}
-                  <Badge variant="muted" className="uppercase tracking-wider">Sample data</Badge>
                 </div>
-                <Card className="overflow-hidden p-0">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-default bg-surface/50">
-                        <th className="px-6 py-3 font-medium text-secondary text-xs uppercase tracking-wider">Invoice ID</th>
-                        <th className="px-6 py-3 font-medium text-secondary text-xs uppercase tracking-wider">Date</th>
-                        <th className="px-6 py-3 font-medium text-secondary text-xs uppercase tracking-wider">Amount</th>
-                        <th className="px-6 py-3 font-medium text-secondary text-xs uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 font-medium text-secondary text-xs uppercase tracking-wider text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-default">
-                      {usageMock.invoices.map((invoice) => (
-                        <tr key={invoice.id} className="hover:bg-surface transition-colors">
-                          <td className="px-6 py-4 font-mono text-xs">{invoice.id}</td>
-                          <td className="px-6 py-4 text-secondary">{invoice.date}</td>
-                          <td className="px-6 py-4 font-medium">{invoice.amount}</td>
-                          <td className="px-6 py-4">
-                            <Badge variant={invoice.status === 'paid' ? 'success' : 'warning'} className="uppercase tracking-wider">
-                              {invoice.status}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <button className="p-1.5 text-secondary hover:text-primary transition-colors focus-ring">
-                              <Download size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* No billing backend is connected — show an honest empty state rather than
+                    fabricated invoices. Torsor is free and self-hostable by default. */}
+                <Card className="p-8 text-center">
+                  <p className="text-sm text-secondary">No invoices yet</p>
+                  <p className="text-xs text-tertiary mt-1">
+                    Billing isn&apos;t connected on this instance — Torsor is free and self-hostable by default.
+                  </p>
                 </Card>
               </div>
             </section>
