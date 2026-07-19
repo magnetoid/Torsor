@@ -181,6 +181,15 @@ func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("X-Frame-Options")
 	target := &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", st.PreviewHost, st.PreviewPort)}
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	// The container's port is published before the app inside actually listens, so a freshly
+	// (re)started deployment can be reachable here before it serves. Without an ErrorHandler the
+	// default proxy would surface a bare 502 on the PUBLIC deployed URL; instead serve the same
+	// friendly, self-refreshing "starting" page the live preview uses so it recovers on its own.
+	proxy.ErrorHandler = func(rw http.ResponseWriter, _ *http.Request, _ error) {
+		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = rw.Write([]byte(previewStartingHTML))
+	}
 	rest := chi.URLParam(r, "*")
 	r.URL.Path = "/" + rest
 	r.Host = target.Host
