@@ -118,6 +118,10 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/projects/{projectID}/skills/{skillID}", s.handleUpdateSkill)
 			r.Delete("/projects/{projectID}/skills/{skillID}", s.handleDeleteSkill)
 
+			// Coding agent engine — missions
+			r.Get("/projects/{projectID}/agent/missions", s.handleListMissions)
+			r.Get("/projects/{projectID}/agent/missions/{missionID}", s.handleGetMission)
+
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)
 			r.Post("/teams", s.handleCreateTeam)
