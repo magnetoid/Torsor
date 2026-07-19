@@ -61,17 +61,19 @@ interface DeployState {
     outputDir: string;
     nodeVersion: string;
   };
-  customDomains: { domain: string; status: 'pending' | 'active'; ssl: boolean }[];
+  customDomains: { id: string; domain: string }[];
   isDeploying: boolean;
-  
+
   // Actions
   deploy: (target: DeployTarget) => Promise<void>;
   fetchDeployment: () => Promise<void>;
   fetchHistory: () => Promise<void>;
+  fetchDomains: () => Promise<void>;
   unpublish: () => Promise<void>;
   connectTarget: (target: DeployTarget, config: Record<string, string>) => void;
   updateSettings: (settings: Partial<DeployState['settings']>) => void;
-  addDomain: (domain: string) => void;
+  addDomain: (domain: string) => Promise<void>;
+  removeDomain: (id: string) => Promise<void>;
   rollback: (id: string) => void;
 }
 
@@ -255,9 +257,38 @@ export const useDeployStore = create<DeployState>()(
         settings: { ...state.settings, ...newSettings }
       })),
 
-      addDomain: (domain) => set((state) => ({
-        customDomains: [...state.customDomains, { domain, status: 'pending', ssl: false }]
-      })),
+      // Custom domains are server-backed per active project (control-plane custom_domains).
+      fetchDomains: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) {
+          set({ customDomains: [] });
+          return;
+        }
+        try {
+          const res = await apiRequest<{ items: { id: string; domain: string }[] }>(
+            `/api/v1/projects/${projectId}/domains`,
+            { auth: true },
+          );
+          set({ customDomains: res.items.map((d) => ({ id: d.id, domain: d.domain })) });
+        } catch {
+          // No project / not reachable — leave the list as-is.
+        }
+      },
+      addDomain: async (domain) => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) throw new Error('No active project selected');
+        const created = await apiRequest<{ id: string; domain: string }>(
+          `/api/v1/projects/${projectId}/domains`,
+          { method: 'POST', auth: true, body: JSON.stringify({ domain }) },
+        );
+        set((state) => ({ customDomains: [{ id: created.id, domain: created.domain }, ...state.customDomains] }));
+      },
+      removeDomain: async (id) => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) return;
+        await apiRequest(`/api/v1/projects/${projectId}/domains/${id}`, { method: 'DELETE', auth: true });
+        set((state) => ({ customDomains: state.customDomains.filter((d) => d.id !== id) }));
+      },
 
       rollback: (id) => {
         const deploy = get().history.find(d => d.id === id);
@@ -268,12 +299,12 @@ export const useDeployStore = create<DeployState>()(
     }),
     {
       name: 'torsor-deploy-storage',
-      version: 1,
-      // v0 shipped fabricated deployment history (dep-1/dep-2) and a fake active
-      // torsor.dev custom domain. Strip those seeds from any already-persisted state
-      // so upgrading users don't keep seeing fiction presented as real history.
+      version: 2,
+      // v0 shipped fabricated deployment history (dep-1/dep-2) and a fake active torsor.dev
+      // custom domain. v2 makes custom domains server-backed, so any locally-persisted
+      // customDomains are dropped on upgrade (fetchDomains repopulates them per project).
       migrate: (persisted: any, version) => {
-        if (!persisted || version >= 1) return persisted;
+        if (!persisted) return persisted;
         const FAKE_IDS = new Set(['dep-1', 'dep-2']);
         const history = Array.isArray(persisted.history)
           ? persisted.history.filter((d: Deployment) => !FAKE_IDS.has(d?.id))
@@ -283,18 +314,15 @@ export const useDeployStore = create<DeployState>()(
           ...persisted,
           history,
           currentDeployment: current && FAKE_IDS.has(current.id) ? null : current ?? null,
-          customDomains: Array.isArray(persisted.customDomains)
-            ? persisted.customDomains.filter((d: { domain?: string }) => d?.domain !== 'torsor.dev')
-            : [],
+          customDomains: [], // server-backed now; never restore from local storage
         };
       },
-      // Persist only client-owned config. currentDeployment and history are server-derived
-      // (fetched per active project), so persisting them would show stale/cross-project data
-      // on load — fetchDeployment/fetchHistory repopulate them.
+      // Persist only client-owned config. currentDeployment, history and customDomains are
+      // server-derived (fetched per active project), so persisting them would show stale/
+      // cross-project data on load — fetchDeployment/fetchHistory/fetchDomains repopulate them.
       partialize: (state) => ({
         settings: state.settings,
         targets: state.targets,
-        customDomains: state.customDomains,
       }),
     }
   )

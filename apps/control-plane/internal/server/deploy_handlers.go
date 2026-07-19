@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -42,16 +43,44 @@ func (s *Server) resolveWorkspaceRuntime(ctx context.Context, projectID string) 
 	return ws, rt, true
 }
 
-// handleDeploy marks a project deployed (public) and best-effort ensures its workspace app
-// is running. Owner-only. Exposes the app at deployPath(projectID).
+// handleDeploy marks a project deployed (public) and brings its app online. For a templated
+// project it runs a REAL production build + serve (see launchTemplateDeploy); otherwise it
+// best-effort ensures whatever is already running stays up. Owner-only. Exposes the app at
+// deployPath(projectID).
 func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	ws, rt, ok := s.loadWorkspace(w, r)
 	if !ok {
 		return
 	}
-	if st, err := rt.StartWorkspace(r.Context(), ws.ProjectID); err == nil {
+
+	// A templated project deploys its production build; anything else just keeps the running
+	// app up (there is no build/serve contract to run).
+	var templateID *string
+	_ = s.pool.QueryRow(r.Context(), `SELECT template FROM projects WHERE id = $1`, ws.ProjectID).Scan(&templateID)
+	tmpl, templated := Template{}, false
+	if templateID != nil {
+		if t, found := templateByID(*templateID); found && t.Serve != "" {
+			tmpl, templated = t, true
+		}
+	}
+
+	if templated {
+		// Real production deploy in the background: restart the container to free the shared
+		// app port from the dev server, then build && serve the production output. The public
+		// /d/ URL shows a self-refreshing "starting" page until the build finishes and serve
+		// binds. Detached context so it outlives this request.
+		pid := ws.ProjectID
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer cancel()
+			if err := s.launchTemplateDeploy(ctx, rt, pid, tmpl); err != nil {
+				s.logger.Warn("deploy launch failed", "err", err, "project", pid)
+			}
+		}()
+	} else if st, err := rt.StartWorkspace(r.Context(), ws.ProjectID); err == nil {
 		s.persistStatus(r, ws, st)
 	}
+
 	var updatedAt time.Time
 	if err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO deployments (project_id, user_id, status) VALUES ($1, $2, 'running')
@@ -62,6 +91,35 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 	s.logDeploymentEvent(r.Context(), ws.ProjectID, userID(r), "deploy", "running", deployPath(ws.ProjectID))
 	writeJSON(w, http.StatusOK, deploymentDTO{Status: "running", URL: deployPath(ws.ProjectID), UpdatedAt: updatedAt})
+}
+
+// launchTemplateDeploy brings a templated project's PRODUCTION build online. It restarts the
+// workspace container — docker stop/start kills the dev server holding the shared app port
+// while the container filesystem (built output, node_modules) persists — then writes and runs
+// `build && serve` detached, so the deployed app serves its production output on the preview
+// port. Returns quickly (the build runs in the background inside the container); the public
+// /d/ URL shows a "starting" page until serve binds.
+func (s *Server) launchTemplateDeploy(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string, tmpl Template) error {
+	if _, err := rt.StopWorkspace(ctx, projectID, 5); err != nil {
+		return err
+	}
+	if _, err := rt.StartWorkspace(ctx, projectID); err != nil {
+		return err
+	}
+	inner := tmpl.Serve
+	if tmpl.Build != "" {
+		inner = tmpl.Build + " && " + tmpl.Serve
+	}
+	script := "cd " + workspaceDir + " && " + inner + "\n"
+	if err := rt.WriteFile(ctx, projectID, workspaceDir+"/.torsor-deploy.sh", []byte(script), true); err != nil {
+		return err
+	}
+	launch := "nohup sh " + workspaceDir + "/.torsor-deploy.sh >/tmp/torsor-deploy.log 2>&1 & echo launched"
+	return rt.Exec(ctx, plugin.ExecSpec{
+		WorkspaceID: projectID,
+		WorkingDir:  workspaceDir,
+		Command:     []string{"sh", "-c", launch},
+	}, func(plugin.ExecChunk) error { return nil })
 }
 
 // logDeploymentEvent appends to the deployment history log. Best-effort: a failed insert
@@ -157,11 +215,32 @@ func (s *Server) handleStopDeployment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "stopped"})
 }
 
-// handleDeployProxy publicly reverse-proxies a deployed project's workspace app. No auth:
-// access is gated on an active ('running') deployment row (created by the owner). The proxy
-// target comes from the runtime's live status, never from the client (no SSRF).
+// handleDeployProxy publicly reverse-proxies a deployed project's workspace app at the stable
+// /d/{projectID}/ path. No auth: access is gated on an active ('running') deployment row.
 func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
-	projectID := chi.URLParam(r, "projectID")
+	s.serveDeployment(w, r, chi.URLParam(r, "projectID"), "/"+chi.URLParam(r, "*"))
+}
+
+// handleCustomDomainProxy resolves the request's Host to a project via custom_domains and
+// serves that project's deployment. Registered as the router's NotFound handler, so a request
+// arriving on a custom domain (forwarded here by the reverse proxy) that matches no other route
+// is served the mapped project's app; unmatched requests on other hosts still 404.
+func (s *Server) handleCustomDomainProxy(w http.ResponseWriter, r *http.Request) {
+	host := stripPort(r.Host)
+	var projectID string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT project_id FROM custom_domains WHERE domain = $1`, host).Scan(&projectID); err != nil {
+		// Not a custom domain → the ordinary "no route matched" 404 (same shape as before).
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not Found", "path": r.URL.Path})
+		return
+	}
+	s.serveDeployment(w, r, projectID, r.URL.Path)
+}
+
+// serveDeployment reverse-proxies to projectID's running deployment, forwarding upstreamPath to
+// the app. The proxy target comes from the runtime's live status, never from the client (no
+// SSRF). A booting app shows the self-refreshing "starting" page instead of a raw 502.
+func (s *Server) serveDeployment(w http.ResponseWriter, r *http.Request, projectID, upstreamPath string) {
 	var status string
 	if err := s.pool.QueryRow(r.Context(),
 		`SELECT status FROM deployments WHERE project_id = $1`, projectID).Scan(&status); err != nil || status != "running" {
@@ -181,8 +260,20 @@ func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("X-Frame-Options")
 	target := &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", st.PreviewHost, st.PreviewPort)}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	rest := chi.URLParam(r, "*")
-	r.URL.Path = "/" + rest
+	proxy.ErrorHandler = func(rw http.ResponseWriter, _ *http.Request, _ error) {
+		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+		rw.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = rw.Write([]byte(previewStartingHTML))
+	}
+	r.URL.Path = upstreamPath
 	r.Host = target.Host
 	proxy.ServeHTTP(w, r)
+}
+
+// stripPort returns the host without any ":port" suffix.
+func stripPort(host string) string {
+	if i := strings.LastIndexByte(host, ':'); i >= 0 && !strings.Contains(host[i:], "]") {
+		return host[:i]
+	}
+	return host
 }

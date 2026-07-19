@@ -34,6 +34,26 @@ func TestTemplateCatalog(t *testing.T) {
 	if !strings.Contains(vite.Dev, port) {
 		t.Fatalf("vite dev command %q does not bind preview port %q", vite.Dev, port)
 	}
+	// The production deploy path: vite builds to dist/ and serves that on the preview port.
+	if !strings.Contains(vite.Build, "build") {
+		t.Fatalf("vite build command %q does not run a build", vite.Build)
+	}
+	if !strings.Contains(vite.Serve, "dist") || !strings.Contains(vite.Serve, port) {
+		t.Fatalf("vite serve command %q must serve dist on preview port %q", vite.Serve, port)
+	}
+
+	// Every deployable template must have a production Serve command, and a non-empty Build
+	// must be followed by a Serve to run its output. (The port binding lives in the serve
+	// command for CLI servers like `serve -l <port>` and in the served file for node-express's
+	// server.js, so it is asserted per-template rather than by scanning the command string.)
+	for _, tmpl := range templateCatalog {
+		if tmpl.Serve == "" {
+			t.Errorf("template %q has no serve command (cannot be deployed)", tmpl.ID)
+		}
+		if tmpl.Build != "" && tmpl.Serve == "" {
+			t.Errorf("template %q has a build but no serve command", tmpl.ID)
+		}
+	}
 
 	if _, ok := templateByID("does-not-exist"); ok {
 		t.Fatal("templateByID returned ok for an unknown id")

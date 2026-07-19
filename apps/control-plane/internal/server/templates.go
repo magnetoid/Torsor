@@ -23,6 +23,8 @@ type Template struct {
 	Image       string            `json:"-"`    // base container image
 	Setup       string            `json:"-"`    // one-time pre-install (sh -c), empty = none
 	Dev         string            `json:"-"`    // long-running dev server (sh -c), binds the preview port
+	Build       string            `json:"-"`    // one-shot production build (sh -c), empty = none
+	Serve       string            `json:"-"`    // long-running production server (sh -c), binds the preview port
 	Files       map[string]string `json:"-"`    // starter files (path relative to workspaceDir -> content)
 }
 
@@ -41,6 +43,8 @@ func buildTemplateCatalog() []Template {
 			Image:       "node:20-alpine",
 			Setup:       "",
 			Dev:         "npx --yes serve -s . -l " + port,
+			Build:       "", // static: no build step
+			Serve:       "npx --yes serve -s . -l " + port,
 			Files: map[string]string{
 				"index.html": staticIndexHTML,
 				"style.css":  staticStyleCSS,
@@ -54,6 +58,8 @@ func buildTemplateCatalog() []Template {
 			Image:       "node:20-alpine",
 			Setup:       "npm install",
 			Dev:         "node server.js",
+			Build:       "npm install --omit=dev", // production deps only
+			Serve:       "node server.js",
 			Files: map[string]string{
 				"package.json": nodeExpressPackageJSON,
 				"server.js":    fmt.Sprintf(nodeExpressServerJS, port),
@@ -67,6 +73,8 @@ func buildTemplateCatalog() []Template {
 			Image:       "node:20-alpine",
 			Setup:       "npm install",
 			Dev:         "npm run dev -- --host 0.0.0.0 --port " + port,
+			Build:       "npm install && npm run build",             // produces dist/
+			Serve:       "npx --yes serve -s dist -l " + port,        // serve the production build
 			Files: map[string]string{
 				"package.json":   viteReactPackageJSON,
 				"vite.config.js": fmt.Sprintf(viteReactConfig, port),

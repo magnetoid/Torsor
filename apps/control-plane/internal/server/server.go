@@ -234,6 +234,11 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/deployments", s.handleListDeployments)
 			r.Post("/projects/{projectID}/deployment/stop", s.handleStopDeployment)
 
+			// Custom domains attached to the project's deployment (host-based routing).
+			r.Get("/projects/{projectID}/domains", s.handleListDomains)
+			r.Post("/projects/{projectID}/domains", s.handleAddDomain)
+			r.Delete("/projects/{projectID}/domains/{domainID}", s.handleDeleteDomain)
+
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
 			// the model edits files and runs commands in the owned project's workspace.
 			r.Post("/projects/{projectID}/agent/stream", s.handleAgentRunSSE)
@@ -274,9 +279,10 @@ func (s *Server) Handler() http.Handler {
 		})
 	})
 
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not Found", "path": r.URL.Path})
-	})
+	// Custom-domain routing: a request whose Host is an attached custom domain (forwarded here
+	// by the reverse proxy) matches no route above, so the NotFound handler resolves it to the
+	// mapped project's deployment. Non-custom-domain misses still return the ordinary 404.
+	r.NotFound(s.handleCustomDomainProxy)
 	return r
 }
 
