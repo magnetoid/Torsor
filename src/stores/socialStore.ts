@@ -85,9 +85,8 @@ export const useSocialStore = create<SocialState>()(
           ...state.templates
         ]
       })),
-      forkProject: (projectId) => {
-        // Mock fork logic
-        console.log(`Forking project ${projectId}`);
+      forkProject: (_projectId) => {
+        // Not wired yet — forking a public project needs a backend clone endpoint.
       },
     }),
     {

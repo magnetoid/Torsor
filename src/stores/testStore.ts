@@ -186,9 +186,9 @@ jobs:
         set({ ciConfig: config });
       },
 
-      fixTestWithAgent: (testId) => {
-        // Mock action
-        console.log(`Fixing test ${testId} with agent...`);
+      fixTestWithAgent: (_testId) => {
+        // Not wired yet — this will hand the failing test to the agent loop when the
+        // test runner is connected.
       }
     }),
     {
