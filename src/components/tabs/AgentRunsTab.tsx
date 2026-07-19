@@ -10,10 +10,12 @@ import {
   CheckCircle2,
   AlertCircle,
   ClipboardList,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useRunsStore } from '../../stores/runsStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useMissionStore } from '../../stores/missionStore';
 import { Badge } from '../shared/Badge';
 import { IconButton } from '../shared/IconButton';
 import { Button } from '../shared/Button';
@@ -140,6 +142,64 @@ function RunComposer() {
   );
 }
 
+function MissionPanel() {
+  const activeProjectId = useProjectStore((s) => s.activeProjectId);
+  const { current, createMission, approveMission, fetchMission, stopMission } = useMissionStore();
+  const [goal, setGoal] = useState('');
+
+  useEffect(() => {
+    if (current?.mission.status === 'running' && activeProjectId) {
+      const t = setInterval(() => void fetchMission(activeProjectId, current.mission.id), 3000);
+      return () => clearInterval(t);
+    }
+  }, [current?.mission.status, current?.mission.id, activeProjectId, fetchMission]);
+
+  return (
+    <div className="border border-default rounded-xl bg-surface p-4 m-3 mb-0">
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles size={14} className="text-accent" />
+        <span className="text-xs font-bold text-primary">Agent Mission</span>
+      </div>
+      {!current && (
+        <div className="flex gap-2">
+          <input value={goal} onChange={(e) => setGoal(e.target.value)}
+            placeholder="Describe a multi-step goal…"
+            className="flex-1 bg-page border border-default rounded-lg px-3 py-2 text-sm text-primary outline-none focus:border-accent/50" />
+          <button onClick={() => activeProjectId && goal.trim() && void createMission(activeProjectId, goal.trim())}
+            className="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-bold rounded-lg">Plan</button>
+        </div>
+      )}
+      {current && (
+        <div className="space-y-2">
+          <p className="text-sm text-primary font-medium">{current.mission.goal}</p>
+          <ul className="space-y-1">
+            {current.tasks.map((t) => (
+              <li key={t.id} className="flex items-center gap-2 text-xs text-secondary">
+                <span className={
+                  t.status === 'done' ? 'text-success' :
+                  t.status === 'failed' ? 'text-error' :
+                  t.status === 'running' ? 'text-accent' : 'text-tertiary'
+                }>●</span>
+                <span className="flex-1">{t.ordinal + 1}. {t.objective}</span>
+                <span className="uppercase tracking-wider text-tertiary">{t.status}</span>
+              </li>
+            ))}
+          </ul>
+          {current.mission.status === 'awaiting_approval' && (
+            <button onClick={() => activeProjectId && void approveMission(activeProjectId, current.mission.id)}
+              className="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-bold rounded-lg">Approve &amp; run</button>
+          )}
+          {current.mission.status === 'running' && (
+            <button onClick={() => activeProjectId && void stopMission(activeProjectId, current.mission.id)}
+              className="px-4 py-2 border border-default text-primary text-sm font-bold rounded-lg hover:bg-elevated">Stop</button>
+          )}
+          {current.mission.summary && <p className="text-xs text-secondary whitespace-pre-wrap">{current.mission.summary}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AgentRunsTab() {
   const { runs, loading, loadRuns, select, selectedId, detail, detailEvents, attaching, cancel } =
     useRunsStore();
@@ -164,6 +224,7 @@ export default function AgentRunsTab() {
             <RefreshCw size={13} className={cn(loading && 'animate-spin')} />
           </IconButton>
         </div>
+        <MissionPanel />
         <div className="flex-1 min-h-0 overflow-y-auto">
           {runs.length === 0 && !loading ? (
             <div className="p-4 text-center text-[11px] text-tertiary">
