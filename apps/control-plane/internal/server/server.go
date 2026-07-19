@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,10 @@ type Server struct {
 	auth   *auth.Manager
 	host   *plugin.Host
 	logger *slog.Logger
+
+	// missionCancels maps a running mission's id to its background context.CancelFunc so a
+	// stop request can cancel in-flight execution (in-process; single backend today).
+	missionCancels sync.Map
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
@@ -122,6 +127,8 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/agent/missions", s.handleListMissions)
 			r.Post("/projects/{projectID}/agent/missions", s.handleCreateMission)
 			r.Get("/projects/{projectID}/agent/missions/{missionID}", s.handleGetMission)
+			r.Post("/projects/{projectID}/agent/missions/{missionID}/approve", s.handleApproveMission)
+			r.Post("/projects/{projectID}/agent/missions/{missionID}/stop", s.handleStopMission)
 
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)

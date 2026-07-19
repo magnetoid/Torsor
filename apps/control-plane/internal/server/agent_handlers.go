@@ -151,11 +151,20 @@ func (s *Server) loadOrCreateWorkspaceCtx(ctx context.Context, projectID, uid st
 // ownership — callers MUST have verified that userID(r) owns projectID first (e.g. via
 // requireOwnedProject). A missing provider/runtime surfaces as runtimeUnavailableError (503).
 func (s *Server) resolveAgentRun(ctx context.Context, r *http.Request, projectID, providerName string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
+	return s.resolveAgentRunCtx(ctx, projectID, userID(r), providerName)
+}
+
+// resolveAgentRunCtx is the request-independent core of resolveAgentRun: given a project the
+// caller has already verified ownership of and the owner's user id, it resolves the model
+// provider, the workspace runtime, the workspace row, the per-user API key, and the resolved
+// provider name. The background mission runner uses this variant because it has no
+// *http.Request; resolveAgentRun wraps it for the request path. Like resolveAgentRun it does
+// NOT check ownership — callers must have verified that uid owns projectID first.
+func (s *Server) resolveAgentRunCtx(ctx context.Context, projectID, uid, providerName string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
 	provider, resolvedName, ok := s.pickModelProvider(providerName)
 	if !ok {
 		return nil, nil, workspace{}, "", "", runtimeUnavailableError{"No model provider available (specify 'provider')"}
 	}
-	uid := userID(r)
 	ws, rt, err := s.loadOrCreateWorkspaceCtx(ctx, projectID, uid)
 	if err != nil {
 		return nil, nil, workspace{}, "", "", err
