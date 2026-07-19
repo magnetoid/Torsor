@@ -206,7 +206,23 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no") // disable nginx proxy buffering
 	w.WriteHeader(http.StatusOK)
 
+	// Accumulate a compact action log + a "did real work" flag from the streamed events, so a
+	// substantive run (one that wrote files or ran commands) can trigger a reflection pass.
+	var actionLog strings.Builder
+	mutated := false
 	send := func(e agent.Event) {
+		if e.Kind == agent.EventToolCall {
+			if e.Tool == "write_file" || e.Tool == "run" {
+				mutated = true
+			}
+			if actionLog.Len() < 3000 {
+				args := fmt.Sprintf("%v", e.Args)
+				if len(args) > 120 {
+					args = args[:120]
+				}
+				fmt.Fprintf(&actionLog, "- %s %s\n", e.Tool, args)
+			}
+		}
 		payload, _ := json.Marshal(e)
 		if _, err := w.Write([]byte("data: " + string(payload) + "\n\n")); err != nil {
 			return
@@ -250,6 +266,14 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.finishAgentTask(taskID, "completed", result.Final, "")
+
+	// Reflection (auto-learning): after a substantive run (one that wrote files or ran
+	// commands), stage durable memories/skills as proposals for the user to review. Skipped
+	// for plan-mode and read-only runs. Best-effort and fully detached from this request.
+	if mutated && body.Mode != "plan" {
+		s.reflectAsync(ws.ProjectID, userID(r), provider, s.providerAPIKey(r.Context(), userID(r), providerName),
+			body.Task, actionLog.String(), result.Final)
+	}
 }
 
 // createAgentTask inserts a 'processing' ai_task row for an agent run and returns its id

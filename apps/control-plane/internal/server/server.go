@@ -118,6 +118,11 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/projects/{projectID}/skills/{skillID}", s.handleUpdateSkill)
 			r.Delete("/projects/{projectID}/skills/{skillID}", s.handleDeleteSkill)
 
+			// Learning proposals (reflection stages these; user approves/dismisses)
+			r.Get("/projects/{projectID}/learning/proposals", s.handleListProposals)
+			r.Post("/projects/{projectID}/learning/proposals/{proposalID}/accept", s.handleAcceptProposal)
+			r.Post("/projects/{projectID}/learning/proposals/{proposalID}/dismiss", s.handleDismissProposal)
+
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)
 			r.Post("/teams", s.handleCreateTeam)

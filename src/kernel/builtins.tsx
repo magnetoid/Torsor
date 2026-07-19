@@ -23,13 +23,14 @@ import AgentRunsTab from '../components/tabs/AgentRunsTab';
 import UsageTab from '../components/tabs/UsageTab';
 import MCPServersTab from '../components/tabs/MCPServersTab';
 import MemoryTab from '../components/tabs/MemoryTab';
+import LearningTab from '../components/tabs/LearningTab';
 import React from 'react';
 import { PreviewBanner } from '../components/shared/PreviewBanner';
 import {
   Play, Code2, Terminal, Database, Shield, Puzzle, Sparkles, Lock, HardDrive, UserCheck,
   Rocket, CheckCircle, GitBranch, History, Workflow, Frame, MonitorPlay, Settings,
   PanelLeft, PanelRight, Search, Rocket as DeployIcon, Save, Activity, BarChart3, Plug,
-  SunMoon, Brain,
+  SunMoon, Brain, GraduationCap,
 } from 'lucide-react';
 
 import { contributions, TAB_GROUPS, type TabContribution } from './contributions';
@@ -74,6 +75,7 @@ const BUILTIN_TABS: BuiltinTab[] = [
   { type: 'runs', label: 'Agent Runs', component: AgentRunsTab, icon: Activity, group: 'agent', order: 0, pinned: true },
   { type: 'checkpoints', label: 'Checkpoints', component: CheckpointsTab, icon: History, group: 'agent', order: 1, pinned: true },
   { type: 'memory', label: 'Memory', component: MemoryTab, icon: Brain, group: 'agent', order: 2 },
+  { type: 'learning', label: 'Learning', component: LearningTab, icon: GraduationCap, group: 'agent', order: 4 },
   // Project — configuration and shipping.
   { type: 'publishing', label: 'Publishing', component: PublishingTab, icon: Rocket, group: 'project', order: 0, pinned: true },
   { type: 'secrets', label: 'Secrets', component: SecretsTab, icon: Lock, group: 'project', order: 1 },
