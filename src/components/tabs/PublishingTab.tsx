@@ -16,11 +16,12 @@ import {
   ChevronUp, 
   MoreVertical, 
   ShieldCheck, 
-  Cpu, 
+  Cpu,
   Settings,
   ArrowRight,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useDeployStore, DeployTarget, Environment, Deployment } from '../../stores/deployStore';
@@ -53,27 +54,35 @@ export default function PublishingTab() {
     fetchDeployment,
     isDeploying,
     customDomains,
+    fetchDomains,
     addDomain,
+    removeDomain,
     rollback
   } = useDeployStore();
 
   const [logsOpen, setLogsOpen] = useState(true);
   const [newDomain, setNewDomain] = useState('');
+  const [domainError, setDomainError] = useState<string | null>(null);
 
-  // Sync the real deployment state for the active project on mount.
+  // Sync the real deployment state + custom domains for the active project on mount.
   useEffect(() => {
     void fetchDeployment();
-  }, [fetchDeployment]);
+    void fetchDomains();
+  }, [fetchDeployment, fetchDomains]);
 
   const handleDeploy = (target: DeployTarget) => {
     deploy(target);
   };
 
-  const handleAddDomain = (e: React.FormEvent) => {
+  const handleAddDomain = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newDomain) {
-      addDomain(newDomain);
+    if (!newDomain.trim()) return;
+    setDomainError(null);
+    try {
+      await addDomain(newDomain.trim());
       setNewDomain('');
+    } catch (err) {
+      setDomainError(err instanceof Error ? err.message : 'Could not add domain');
     }
   };
 
@@ -302,43 +311,38 @@ export default function PublishingTab() {
                 </button>
               </form>
 
+              {domainError && <p className="text-xs text-error">{domainError}</p>}
+
               <div className="space-y-2">
-                {customDomains.map((domain, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-page border border-default rounded-lg">
+                {customDomains.map((domain) => (
+                  <div key={domain.id} className="flex items-center justify-between p-3 bg-page border border-default rounded-lg">
                     <div className="flex items-center gap-3">
                       <Globe size={14} className="text-secondary" />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-medium text-primary">{domain.domain}</span>
-                        <div className="flex items-center gap-2">
-                          <span className={cn(
-                            "text-[9px] font-bold uppercase tracking-wider",
-                            domain.status === 'active' ? "text-success" : "text-warning"
-                          )}>
-                            {domain.status}
-                          </span>
-                          {domain.ssl && (
-                            <div className="flex items-center gap-1 text-[9px] text-success">
-                              <ShieldCheck size={10} />
-                              SSL Active
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <span className="text-xs font-medium text-primary">{domain.domain}</span>
                     </div>
-                    <button className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all">
-                      <MoreVertical size={14} />
+                    <button
+                      onClick={() => void removeDomain(domain.id)}
+                      title="Remove domain"
+                      className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all"
+                    >
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
+                {customDomains.length === 0 && (
+                  <p className="text-xs text-tertiary">No custom domains attached yet.</p>
+                )}
               </div>
-              
+
               <div className="p-3 bg-accent/5 border border-accent/10 rounded-lg">
                 <div className="flex items-center gap-2 mb-1 text-accent">
                   <AlertCircle size={12} />
                   <span className="text-xs font-bold uppercase tracking-wider">Setup Instructions</span>
                 </div>
                 <p className="text-xs text-secondary leading-relaxed">
-                  Point your domain's A record to <code className="text-accent">76.76.21.21</code> or CNAME to <code className="text-accent">cname.torsor.app</code>.
+                  Attach a domain here, then point its DNS (A/CNAME) at this Torsor instance and route
+                  it to the app in your reverse proxy. Once it resolves here, the domain serves this
+                  project's deployment. DNS &amp; TLS are managed at your hosting layer.
                 </p>
               </div>
             </div>

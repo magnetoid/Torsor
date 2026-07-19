@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -214,11 +215,32 @@ func (s *Server) handleStopDeployment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "stopped"})
 }
 
-// handleDeployProxy publicly reverse-proxies a deployed project's workspace app. No auth:
-// access is gated on an active ('running') deployment row (created by the owner). The proxy
-// target comes from the runtime's live status, never from the client (no SSRF).
+// handleDeployProxy publicly reverse-proxies a deployed project's workspace app at the stable
+// /d/{projectID}/ path. No auth: access is gated on an active ('running') deployment row.
 func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
-	projectID := chi.URLParam(r, "projectID")
+	s.serveDeployment(w, r, chi.URLParam(r, "projectID"), "/"+chi.URLParam(r, "*"))
+}
+
+// handleCustomDomainProxy resolves the request's Host to a project via custom_domains and
+// serves that project's deployment. Registered as the router's NotFound handler, so a request
+// arriving on a custom domain (forwarded here by the reverse proxy) that matches no other route
+// is served the mapped project's app; unmatched requests on other hosts still 404.
+func (s *Server) handleCustomDomainProxy(w http.ResponseWriter, r *http.Request) {
+	host := stripPort(r.Host)
+	var projectID string
+	if err := s.pool.QueryRow(r.Context(),
+		`SELECT project_id FROM custom_domains WHERE domain = $1`, host).Scan(&projectID); err != nil {
+		// Not a custom domain → the ordinary "no route matched" 404 (same shape as before).
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not Found", "path": r.URL.Path})
+		return
+	}
+	s.serveDeployment(w, r, projectID, r.URL.Path)
+}
+
+// serveDeployment reverse-proxies to projectID's running deployment, forwarding upstreamPath to
+// the app. The proxy target comes from the runtime's live status, never from the client (no
+// SSRF). A booting app shows the self-refreshing "starting" page instead of a raw 502.
+func (s *Server) serveDeployment(w http.ResponseWriter, r *http.Request, projectID, upstreamPath string) {
 	var status string
 	if err := s.pool.QueryRow(r.Context(),
 		`SELECT status FROM deployments WHERE project_id = $1`, projectID).Scan(&status); err != nil || status != "running" {
@@ -238,17 +260,20 @@ func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
 	w.Header().Del("X-Frame-Options")
 	target := &url.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", st.PreviewHost, st.PreviewPort)}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	// The container's port is published before the app inside actually listens, so a freshly
-	// (re)started deployment can be reachable here before it serves. Without an ErrorHandler the
-	// default proxy would surface a bare 502 on the PUBLIC deployed URL; instead serve the same
-	// friendly, self-refreshing "starting" page the live preview uses so it recovers on its own.
 	proxy.ErrorHandler = func(rw http.ResponseWriter, _ *http.Request, _ error) {
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 		rw.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = rw.Write([]byte(previewStartingHTML))
 	}
-	rest := chi.URLParam(r, "*")
-	r.URL.Path = "/" + rest
+	r.URL.Path = upstreamPath
 	r.Host = target.Host
 	proxy.ServeHTTP(w, r)
+}
+
+// stripPort returns the host without any ":port" suffix.
+func stripPort(host string) string {
+	if i := strings.LastIndexByte(host, ':'); i >= 0 && !strings.Contains(host[i:], "]") {
+		return host[:i]
+	}
+	return host
 }
