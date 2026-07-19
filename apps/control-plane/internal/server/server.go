@@ -120,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 
 			// Coding agent engine — missions
 			r.Get("/projects/{projectID}/agent/missions", s.handleListMissions)
+			r.Post("/projects/{projectID}/agent/missions", s.handleCreateMission)
 			r.Get("/projects/{projectID}/agent/missions/{missionID}", s.handleGetMission)
 
 			// Teams / Organizations (replaces frontend "Workspaces" mock)

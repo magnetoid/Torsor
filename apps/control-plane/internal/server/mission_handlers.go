@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/magnetoid/torsor/control-plane/internal/agent"
 )
 
 // Coding agent engine — missions decompose a goal into ordered sub-tasks the engine runs
@@ -128,4 +131,90 @@ func (s *Server) handleGetMission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"mission": m, "tasks": tasks})
+}
+
+func (s *Server) handleCreateMission(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := s.requireOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Goal string `json:"goal"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	goal := strings.TrimSpace(body.Goal)
+	if goal == "" {
+		writeError(w, http.StatusBadRequest, "Mission goal is required")
+		return
+	}
+
+	// Plan the goal with the existing agent plan mode. planMissionGoal mirrors the Runner
+	// construction in agent_handlers.go (workspace + model resolution) but with Mode:"plan"
+	// and returns the proposed ordered objectives.
+	steps, err := s.planMissionGoal(r.Context(), r, projectID, goal)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if len(steps) == 0 {
+		writeError(w, http.StatusUnprocessableEntity, "The planner did not propose any steps; rephrase the goal.")
+		return
+	}
+
+	m, err := scanMission(s.pool.QueryRow(r.Context(),
+		`INSERT INTO agent_missions (project_id, user_id, goal, status, plan)
+		 VALUES ($1, $2, $3, 'awaiting_approval', $4) RETURNING `+missionCols,
+		projectID, userID(r), goal, jsonMarshal(steps)))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	for i, obj := range steps {
+		if _, err := s.pool.Exec(r.Context(),
+			`INSERT INTO agent_mission_tasks (mission_id, ordinal, objective) VALUES ($1, $2, $3)`,
+			m.ID, i, obj); err != nil {
+			s.fail(w, r, err)
+			return
+		}
+	}
+	tasks, err := s.loadMissionTasks(r.Context(), m.ID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"mission": m, "tasks": tasks})
+}
+
+// jsonMarshal is a tiny helper returning JSON bytes (plan column is jsonb).
+func jsonMarshal(v any) []byte {
+	b, _ := json.Marshal(v)
+	if b == nil {
+		return []byte("[]")
+	}
+	return b
+}
+
+// planMissionGoal runs the agent in plan mode over the goal and returns the proposed ordered
+// objectives. Mirrors the Runner construction in handleAgentRunSSE (agent_handlers.go) via the
+// shared resolveAgentRun resolution, but with Mode:"plan".
+func (s *Server) planMissionGoal(ctx context.Context, r *http.Request, projectID, goal string) ([]string, error) {
+	provider, rt, ws, apiKey, _, err := s.resolveAgentRun(ctx, r, projectID, "")
+	if err != nil {
+		return nil, err
+	}
+	runner := agent.NewRunner(provider, rt, agent.Config{
+		WorkspaceID: ws.ProjectID,
+		Mode:        "plan",
+		APIKey:      apiKey,
+		Memory:      &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: userID(r)},
+		Skills:      s.loadEnabledSkills(ctx, ws.ProjectID),
+	})
+	res, err := runner.Run(ctx, goal, nil)
+	if err != nil {
+		return nil, err
+	}
+	return res.Plan, nil
 }
