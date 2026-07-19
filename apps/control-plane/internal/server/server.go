@@ -153,6 +153,10 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/notifications/{notificationID}", s.handleDeleteNotification)
 			r.Delete("/notifications", s.handleClearNotifications)
 
+			// Per-user coding-agent preferences.
+			r.Get("/me/agent-prefs", s.handleGetAgentPrefs)
+			r.Patch("/me/agent-prefs", s.handleUpdateAgentPrefs)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
@@ -163,6 +167,10 @@ func (s *Server) Handler() http.Handler {
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireRole(auth.RoleSuperAdmin))
 				r.Patch("/admin/users/{userID}/role", s.handleAdminUpdateUserRole)
+				// Coding agent engine — global config + cross-user observability.
+				r.Get("/admin/agent/config", s.handleGetEngineConfig)
+				r.Patch("/admin/agent/config", s.handleUpdateEngineConfig)
+				r.Get("/admin/agent/missions", s.handleAdminListMissions)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
