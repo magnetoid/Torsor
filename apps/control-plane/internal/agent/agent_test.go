@@ -466,6 +466,22 @@ func TestRunInjectsSkills(t *testing.T) {
 	}
 }
 
+func TestRunResultCountsMutations(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"look","action":{"tool":"list_files","args":{"path":""}}}`,
+		`{"thought":"write","action":{"tool":"write_file","args":{"path":"a.txt","content":"hi"}}}`,
+		`{"thought":"run","action":{"tool":"run","args":{"command":"echo hi"}}}`,
+		`{"thought":"done","final":"done"}`,
+	}}
+	res, err := NewRunner(model, newMemWorkspace(), Config{WorkspaceID: "p1"}).Run(context.Background(), "t", nil)
+	if err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if res.Mutations != 2 {
+		t.Errorf("Mutations = %d, want 2 (write_file + run)", res.Mutations)
+	}
+}
+
 // Skills also apply in planning mode (they shape the plan, not just execution).
 func TestSkillsApplyInPlanningMode(t *testing.T) {
 	model := &scriptedModel{responses: []string{

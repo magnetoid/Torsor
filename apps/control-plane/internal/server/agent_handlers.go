@@ -145,24 +145,32 @@ func (s *Server) loadOrCreateWorkspaceCtx(ctx context.Context, projectID, uid st
 	return ws, rt, nil
 }
 
-// loadOrCreateWorkspace is the HTTP wrapper around loadOrCreateWorkspaceCtx: it enforces
-// project ownership and maps errors to responses (503 for a missing runtime, 500 otherwise).
-func (s *Server) loadOrCreateWorkspace(w http.ResponseWriter, r *http.Request) (workspace, plugin.WorkspaceRuntime, bool) {
-	projectID, ok := s.requireOwnedProject(w, r)
+// resolveAgentRun resolves everything a Runner needs for an owned project: the model provider,
+// the workspace runtime, the workspace row, the per-user API key, and the resolved provider
+// name. Extracted so handleAgentRunSSE and mission planning share one path. It does NOT check
+// ownership — callers MUST have verified that userID(r) owns projectID first (e.g. via
+// requireOwnedProject). A missing provider/runtime surfaces as runtimeUnavailableError (503).
+func (s *Server) resolveAgentRun(ctx context.Context, r *http.Request, projectID, providerName string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
+	return s.resolveAgentRunCtx(ctx, projectID, userID(r), providerName)
+}
+
+// resolveAgentRunCtx is the request-independent core of resolveAgentRun: given a project the
+// caller has already verified ownership of and the owner's user id, it resolves the model
+// provider, the workspace runtime, the workspace row, the per-user API key, and the resolved
+// provider name. The background mission runner uses this variant because it has no
+// *http.Request; resolveAgentRun wraps it for the request path. Like resolveAgentRun it does
+// NOT check ownership — callers must have verified that uid owns projectID first.
+func (s *Server) resolveAgentRunCtx(ctx context.Context, projectID, uid, providerName string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
+	provider, resolvedName, ok := s.pickModelProvider(providerName)
 	if !ok {
-		return workspace{}, nil, false
+		return nil, nil, workspace{}, "", "", runtimeUnavailableError{"No model provider available (specify 'provider')"}
 	}
-	ws, rt, err := s.loadOrCreateWorkspaceCtx(r.Context(), projectID, userID(r))
+	ws, rt, err := s.loadOrCreateWorkspaceCtx(ctx, projectID, uid)
 	if err != nil {
-		var rue runtimeUnavailableError
-		if errors.As(err, &rue) {
-			writeError(w, http.StatusServiceUnavailable, rue.Error())
-		} else {
-			s.fail(w, r, err)
-		}
-		return workspace{}, nil, false
+		return nil, nil, workspace{}, "", "", err
 	}
-	return ws, rt, true
+	apiKey := s.providerAPIKey(ctx, uid, resolvedName)
+	return provider, rt, ws, apiKey, resolvedName, nil
 }
 
 // handleAgentRunSSE runs the coding agent against an owned project's workspace and streams
@@ -182,16 +190,20 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	provider, providerName, ok := s.pickModelProvider(body.Provider)
+	// Enforces project ownership; a workspace is provisioned on first run so the agent
+	// "just works" from a project without a separate setup step.
+	projectID, ok := s.requireOwnedProject(w, r)
 	if !ok {
-		writeError(w, http.StatusServiceUnavailable, "No model provider available (specify 'provider')")
 		return
 	}
-
-	// Enforces project ownership and provisions a workspace on first run so the agent
-	// "just works" from a project without a separate setup step.
-	ws, rt, ok := s.loadOrCreateWorkspace(w, r)
-	if !ok {
+	provider, rt, ws, apiKey, providerName, err := s.resolveAgentRun(r.Context(), r, projectID, body.Provider)
+	if err != nil {
+		var rue runtimeUnavailableError
+		if errors.As(err, &rue) {
+			writeError(w, http.StatusServiceUnavailable, rue.Error())
+		} else {
+			s.fail(w, r, err)
+		}
 		return
 	}
 
@@ -230,7 +242,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	runner := agent.NewRunner(provider, rt, agent.Config{
 		WorkspaceID: ws.ProjectID,
 		MaxSteps:    maxSteps,
-		APIKey:      s.providerAPIKey(r.Context(), userID(r), providerName),
+		APIKey:      apiKey,
 		Mode:        body.Mode,
 		Plan:        body.ApprovedPlan,
 		Tools:       toolRouter,

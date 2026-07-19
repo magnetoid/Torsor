@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +29,14 @@ type Server struct {
 	auth   *auth.Manager
 	host   *plugin.Host
 	logger *slog.Logger
+
+	// missionCancels maps a running mission's id to its background context.CancelFunc so a
+	// stop request can cancel in-flight execution (in-process; single backend today).
+	missionCancels sync.Map
+
+	// activeMissions counts missions currently executing in the background, enforcing the
+	// engine's max-concurrent-missions cap (in-process; single backend today).
+	activeMissions atomic.Int64
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
@@ -118,6 +128,13 @@ func (s *Server) Handler() http.Handler {
 			r.Patch("/projects/{projectID}/skills/{skillID}", s.handleUpdateSkill)
 			r.Delete("/projects/{projectID}/skills/{skillID}", s.handleDeleteSkill)
 
+			// Coding agent engine — missions
+			r.Get("/projects/{projectID}/agent/missions", s.handleListMissions)
+			r.Post("/projects/{projectID}/agent/missions", s.handleCreateMission)
+			r.Get("/projects/{projectID}/agent/missions/{missionID}", s.handleGetMission)
+			r.Post("/projects/{projectID}/agent/missions/{missionID}/approve", s.handleApproveMission)
+			r.Post("/projects/{projectID}/agent/missions/{missionID}/stop", s.handleStopMission)
+
 			// Teams / Organizations (replaces frontend "Workspaces" mock)
 			r.Get("/teams", s.handleListTeams)
 			r.Post("/teams", s.handleCreateTeam)
@@ -141,6 +158,10 @@ func (s *Server) Handler() http.Handler {
 			r.Delete("/notifications/{notificationID}", s.handleDeleteNotification)
 			r.Delete("/notifications", s.handleClearNotifications)
 
+			// Per-user coding-agent preferences.
+			r.Get("/me/agent-prefs", s.handleGetAgentPrefs)
+			r.Patch("/me/agent-prefs", s.handleUpdateAgentPrefs)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
@@ -151,6 +172,10 @@ func (s *Server) Handler() http.Handler {
 			r.Group(func(r chi.Router) {
 				r.Use(s.requireRole(auth.RoleSuperAdmin))
 				r.Patch("/admin/users/{userID}/role", s.handleAdminUpdateUserRole)
+				// Coding agent engine — global config + cross-user observability.
+				r.Get("/admin/agent/config", s.handleGetEngineConfig)
+				r.Patch("/admin/agent/config", s.handleUpdateEngineConfig)
+				r.Get("/admin/agent/missions", s.handleAdminListMissions)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
