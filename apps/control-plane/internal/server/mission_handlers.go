@@ -165,7 +165,22 @@ func (s *Server) handleCreateMission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m, err := scanMission(s.pool.QueryRow(r.Context(),
+	// Enforce the engine's max-tasks cap before persisting the plan.
+	cfg := s.loadEngineConfig(r.Context())
+	if cfg.MaxTasks > 0 && len(steps) > cfg.MaxTasks {
+		steps = steps[:cfg.MaxTasks]
+	}
+
+	// Persist the mission row and its per-task rows in one transaction so a mid-loop failure
+	// can't leave a partial mission behind.
+	tx, err := s.pool.Begin(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	m, err := scanMission(tx.QueryRow(r.Context(),
 		`INSERT INTO agent_missions (project_id, user_id, goal, status, plan)
 		 VALUES ($1, $2, $3, 'awaiting_approval', $4) RETURNING `+missionCols,
 		projectID, userID(r), goal, jsonMarshal(steps)))
@@ -174,13 +189,18 @@ func (s *Server) handleCreateMission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i, obj := range steps {
-		if _, err := s.pool.Exec(r.Context(),
+		if _, err := tx.Exec(r.Context(),
 			`INSERT INTO agent_mission_tasks (mission_id, ordinal, objective) VALUES ($1, $2, $3)`,
 			m.ID, i, obj); err != nil {
 			s.fail(w, r, err)
 			return
 		}
 	}
+	if err := tx.Commit(r.Context()); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+
 	tasks, err := s.loadMissionTasks(r.Context(), m.ID)
 	if err != nil {
 		s.fail(w, r, err)
@@ -279,24 +299,39 @@ func (s *Server) handleApproveMission(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Engine caps (single-row config). Safe defaults on any read error so the engine never
-	// wedges on a config read. The full admin config surface (loadEngineConfig) arrives with
-	// the engine-config handlers; this inline read shares its enabled/max-retries semantics.
-	enabled := true
-	maxRetries := 2
-	_ = s.pool.QueryRow(r.Context(),
-		`SELECT enabled, max_retries FROM agent_engine_config WHERE id = TRUE`).
-		Scan(&enabled, &maxRetries)
-	if !enabled {
+	// Engine caps (single-row config; safe defaults on any read error so the engine never
+	// wedges on a config read).
+	cfg := s.loadEngineConfig(r.Context())
+	if !cfg.Enabled {
 		writeError(w, http.StatusServiceUnavailable, "The agent engine is disabled")
 		return
 	}
 
-	// Move to running and launch the orchestrator in the background.
-	_, _ = s.pool.Exec(r.Context(), `UPDATE agent_missions SET status='running', updated_at=NOW() WHERE id=$1`, m.ID)
+	// Reserve an in-process concurrency slot before moving the mission to running. The slot is
+	// released either here on failure or by runMission's deferred release once it finishes.
+	if cfg.MaxConcurrentMissions > 0 && s.activeMissions.Load() >= int64(cfg.MaxConcurrentMissions) {
+		writeError(w, http.StatusTooManyRequests, "Too many missions are already running; try again shortly")
+		return
+	}
+	s.activeMissions.Add(1)
+
+	// Compare-and-swap awaiting_approval → running so two concurrent approvals can't both
+	// launch the mission. Release the reserved slot on any failure to move it to running.
+	tag, err := s.pool.Exec(r.Context(),
+		`UPDATE agent_missions SET status='running', updated_at=NOW() WHERE id=$1 AND status='awaiting_approval'`, m.ID)
+	if err != nil {
+		s.activeMissions.Add(-1)
+		s.fail(w, r, err)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		s.activeMissions.Add(-1)
+		writeError(w, http.StatusConflict, "Mission is no longer awaiting approval")
+		return
+	}
 
 	uid := userID(r)
-	go s.runMission(projectID, m.ID, uid, maxRetries)
+	go s.runMission(projectID, m.ID, uid, cfg.MaxRetries)
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "running"})
 }
@@ -306,6 +341,7 @@ func (s *Server) handleApproveMission(w http.ResponseWriter, r *http.Request) {
 // registry (stop). Already-done tasks are marked for resume.
 func (s *Server) runMission(projectID, missionID, uid string, maxRetries int) {
 	ctx, cancel := context.WithCancel(context.Background())
+	defer s.activeMissions.Add(-1) // always release the concurrency slot reserved at approval
 	s.missionCancels.Store(missionID, cancel)
 	defer s.missionCancels.Delete(missionID)
 

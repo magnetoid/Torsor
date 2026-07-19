@@ -39,6 +39,9 @@ func (s *Server) handleUpdateEngineConfig(w http.ResponseWriter, r *http.Request
 	if b.MaxTasks < 1 {
 		b.MaxTasks = 1
 	}
+	if b.MaxRetries < 0 {
+		b.MaxRetries = 0
+	}
 	if b.MaxConcurrentMissions < 1 {
 		b.MaxConcurrentMissions = 1
 	}

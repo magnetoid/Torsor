@@ -19,6 +19,7 @@ interface MissionState {
   createMission: (projectId: string, goal: string) => Promise<void>;
   approveMission: (projectId: string, missionId: string, plan?: string[]) => Promise<void>;
   fetchMission: (projectId: string, missionId: string) => Promise<void>;
+  fetchLatest: (projectId: string) => Promise<void>;
   stopMission: (projectId: string, missionId: string) => Promise<void>;
 }
 
@@ -46,6 +47,13 @@ export const useMissionStore = create<MissionState>()((set, get) => ({
     const res = await apiRequest<{ mission: Mission; tasks: MissionTask[] }>(
       `/api/v1/projects/${projectId}/agent/missions/${missionId}`, { auth: true });
     set({ current: res });
+  },
+  fetchLatest: async (projectId) => {
+    const res = await apiRequest<{ items: Mission[] }>(
+      `/api/v1/projects/${projectId}/agent/missions`, { auth: true });
+    if (res.items.length > 0) {
+      await get().fetchMission(projectId, res.items[0].id);
+    }
   },
   stopMission: async (projectId, missionId) => {
     await apiRequest(`/api/v1/projects/${projectId}/agent/missions/${missionId}/stop`,

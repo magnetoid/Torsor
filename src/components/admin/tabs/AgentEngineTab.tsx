@@ -15,6 +15,12 @@ export default function AgentEngineTab() {
   return (
     <div className="p-6 max-w-3xl space-y-6">
       <h2 className="text-sm font-bold text-primary">Agent Engine</h2>
+      <label className="flex items-center gap-2 text-sm text-primary select-none">
+        <input type="checkbox" checked={cfg.enabled} onChange={(e) => setCfg({ ...cfg, enabled: e.target.checked })}
+          className="h-4 w-4 rounded border border-default bg-page accent-accent" />
+        Engine enabled
+        <span className="text-xs text-tertiary">({cfg.enabled ? 'accepting new missions' : 'disabled — approvals return 503'})</span>
+      </label>
       <div className="grid grid-cols-2 gap-4">
         <label className="text-xs text-secondary">Max sub-tasks
           <input type="number" value={cfg.maxTasks} onChange={(e) => setCfg({ ...cfg, maxTasks: +e.target.value })}

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -32,6 +33,10 @@ type Server struct {
 	// missionCancels maps a running mission's id to its background context.CancelFunc so a
 	// stop request can cancel in-flight execution (in-process; single backend today).
 	missionCancels sync.Map
+
+	// activeMissions counts missions currently executing in the background, enforcing the
+	// engine's max-concurrent-missions cap (in-process; single backend today).
+	activeMissions atomic.Int64
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {

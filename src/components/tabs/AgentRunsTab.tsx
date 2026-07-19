@@ -144,8 +144,14 @@ function RunComposer() {
 
 function MissionPanel() {
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
-  const { current, createMission, approveMission, fetchMission, stopMission } = useMissionStore();
+  const { current, createMission, approveMission, fetchMission, fetchLatest, stopMission } = useMissionStore();
   const [goal, setGoal] = useState('');
+
+  // On mount / project switch, hydrate the latest mission — but only when there's no current
+  // mission yet, so we never clobber an in-progress local mission.
+  useEffect(() => {
+    if (activeProjectId && !current) void fetchLatest(activeProjectId);
+  }, [activeProjectId, current, fetchLatest]);
 
   useEffect(() => {
     if (current?.mission.status === 'running' && activeProjectId) {
