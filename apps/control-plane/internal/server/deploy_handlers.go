@@ -42,16 +42,44 @@ func (s *Server) resolveWorkspaceRuntime(ctx context.Context, projectID string) 
 	return ws, rt, true
 }
 
-// handleDeploy marks a project deployed (public) and best-effort ensures its workspace app
-// is running. Owner-only. Exposes the app at deployPath(projectID).
+// handleDeploy marks a project deployed (public) and brings its app online. For a templated
+// project it runs a REAL production build + serve (see launchTemplateDeploy); otherwise it
+// best-effort ensures whatever is already running stays up. Owner-only. Exposes the app at
+// deployPath(projectID).
 func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	ws, rt, ok := s.loadWorkspace(w, r)
 	if !ok {
 		return
 	}
-	if st, err := rt.StartWorkspace(r.Context(), ws.ProjectID); err == nil {
+
+	// A templated project deploys its production build; anything else just keeps the running
+	// app up (there is no build/serve contract to run).
+	var templateID *string
+	_ = s.pool.QueryRow(r.Context(), `SELECT template FROM projects WHERE id = $1`, ws.ProjectID).Scan(&templateID)
+	tmpl, templated := Template{}, false
+	if templateID != nil {
+		if t, found := templateByID(*templateID); found && t.Serve != "" {
+			tmpl, templated = t, true
+		}
+	}
+
+	if templated {
+		// Real production deploy in the background: restart the container to free the shared
+		// app port from the dev server, then build && serve the production output. The public
+		// /d/ URL shows a self-refreshing "starting" page until the build finishes and serve
+		// binds. Detached context so it outlives this request.
+		pid := ws.ProjectID
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+			defer cancel()
+			if err := s.launchTemplateDeploy(ctx, rt, pid, tmpl); err != nil {
+				s.logger.Warn("deploy launch failed", "err", err, "project", pid)
+			}
+		}()
+	} else if st, err := rt.StartWorkspace(r.Context(), ws.ProjectID); err == nil {
 		s.persistStatus(r, ws, st)
 	}
+
 	var updatedAt time.Time
 	if err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO deployments (project_id, user_id, status) VALUES ($1, $2, 'running')
@@ -62,6 +90,35 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 	s.logDeploymentEvent(r.Context(), ws.ProjectID, userID(r), "deploy", "running", deployPath(ws.ProjectID))
 	writeJSON(w, http.StatusOK, deploymentDTO{Status: "running", URL: deployPath(ws.ProjectID), UpdatedAt: updatedAt})
+}
+
+// launchTemplateDeploy brings a templated project's PRODUCTION build online. It restarts the
+// workspace container — docker stop/start kills the dev server holding the shared app port
+// while the container filesystem (built output, node_modules) persists — then writes and runs
+// `build && serve` detached, so the deployed app serves its production output on the preview
+// port. Returns quickly (the build runs in the background inside the container); the public
+// /d/ URL shows a "starting" page until serve binds.
+func (s *Server) launchTemplateDeploy(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string, tmpl Template) error {
+	if _, err := rt.StopWorkspace(ctx, projectID, 5); err != nil {
+		return err
+	}
+	if _, err := rt.StartWorkspace(ctx, projectID); err != nil {
+		return err
+	}
+	inner := tmpl.Serve
+	if tmpl.Build != "" {
+		inner = tmpl.Build + " && " + tmpl.Serve
+	}
+	script := "cd " + workspaceDir + " && " + inner + "\n"
+	if err := rt.WriteFile(ctx, projectID, workspaceDir+"/.torsor-deploy.sh", []byte(script), true); err != nil {
+		return err
+	}
+	launch := "nohup sh " + workspaceDir + "/.torsor-deploy.sh >/tmp/torsor-deploy.log 2>&1 & echo launched"
+	return rt.Exec(ctx, plugin.ExecSpec{
+		WorkspaceID: projectID,
+		WorkingDir:  workspaceDir,
+		Command:     []string{"sh", "-c", launch},
+	}, func(plugin.ExecChunk) error { return nil })
 }
 
 // logDeploymentEvent appends to the deployment history log. Best-effort: a failed insert
