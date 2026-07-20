@@ -40,8 +40,6 @@ const ROLE_OPTIONS: UserRole[] = ['user', 'admin', 'super_admin'];
 export function AdminUsersTab() {
   const { users: rawUsers, usersTotal, isLoadingUsers, error, fetchUsers, updateUserRole } = useAdminStore();
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [grantCreditsOpen, setGrantCreditsOpen] = useState(false);
-  const [creditsAmount, setCreditsAmount] = useState('100000');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -92,11 +90,6 @@ export function AdminUsersTab() {
     }
   };
 
-  const handleGrantCredits = () => {
-    toast.success(`Granted ${creditsAmount} credits to ${selectedUsers.length} users`);
-    setGrantCreditsOpen(false);
-  };
-
   return (
     <div className="space-y-6">
       {/* Header & Filters */}
@@ -122,13 +115,6 @@ export function AdminUsersTab() {
 
         {selectedUsers.length > 0 && (
           <div className="flex items-center gap-2 animate-in slide-in-from-right-2 duration-200">
-            <button 
-              onClick={() => setGrantCreditsOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-accent/10 text-accent rounded-xl text-xs font-bold hover:bg-accent/20 transition-all"
-            >
-              <CreditCard size={16} />
-              Grant Credits ({selectedUsers.length})
-            </button>
             <button className="flex items-center gap-2 px-4 py-2.5 bg-error/10 text-error rounded-xl text-xs font-bold hover:bg-error/20 transition-all">
               <Ban size={16} />
               Suspend
@@ -246,13 +232,6 @@ export function AdminUsersTab() {
                           <Key size={14} />
                           Reset Password
                         </DropdownMenu.Item>
-                        <DropdownMenu.Item
-                          onClick={() => { setSelectedUsers([user.id]); setGrantCreditsOpen(true); }}
-                          className="flex items-center gap-2 px-3 py-2 text-xs text-secondary hover:text-accent hover:bg-accent/10 rounded-lg outline-none cursor-pointer"
-                        >
-                          <CreditCard size={14} />
-                          Grant Credits
-                        </DropdownMenu.Item>
                         <DropdownMenu.Separator className="h-px bg-default my-1" />
                         <DropdownMenu.Label className="px-3 py-1 text-xs font-bold text-tertiary uppercase tracking-wider">Set role</DropdownMenu.Label>
                         {ROLE_OPTIONS.filter((role) => role !== user.role).map((role) => (
@@ -316,54 +295,6 @@ export function AdminUsersTab() {
         </div>
       </div>
 
-      {/* Grant Credits Dialog */}
-      <Dialog.Root open={grantCreditsOpen} onOpenChange={setGrantCreditsOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] animate-in fade-in duration-300" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-surface border border-default rounded-xl p-8 shadow-2xl z-[201] animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
-                <CreditCard size={24} />
-              </div>
-              <div>
-                <Dialog.Title className="text-xl font-bold text-primary">Grant Credits</Dialog.Title>
-                <Dialog.Description className="text-sm text-secondary">
-                  Grant additional tokens to {selectedUsers.length} selected user(s).
-                </Dialog.Description>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-secondary uppercase tracking-wider ml-1">Token Amount</label>
-                <input 
-                  type="number" 
-                  value={creditsAmount}
-                  onChange={(e) => setCreditsAmount(e.target.value)}
-                  className="w-full bg-page border border-default rounded-xl px-4 py-3 text-sm text-primary outline-none focus:border-accent transition-colors"
-                />
-              </div>
-              <div className="p-4 bg-accent/5 border border-accent/10 rounded-xl text-xs text-accent leading-relaxed">
-                Tokens will be added to the users' managed credit pool and will not expire.
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-8">
-              <Dialog.Close asChild>
-                <button className="flex-1 py-3 bg-elevated border border-default rounded-xl text-sm font-bold text-primary hover:bg-surface transition-all">
-                  Cancel
-                </button>
-              </Dialog.Close>
-              <button 
-                onClick={handleGrantCredits}
-                className="flex-1 py-3 bg-accent hover:bg-accent-hover text-white rounded-xl font-bold text-sm shadow-lg shadow-accent/20 transition-all"
-              >
-                Grant Tokens
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
     </div>
   );
 }
