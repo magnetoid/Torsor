@@ -27,8 +27,13 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/ \
 
 # docker-runtime shells out to the `docker` CLI, so the runtime image needs it (and it
 # needs a shell for tini-free exec). Use alpine + the docker client rather than distroless.
+# chromium powers the agent's verify_app tool (internal/verify): one shared headless
+# browser in the control plane verifies every project's running app — no per-workspace
+# browser install. The image grows ~250MB for it; without chromium the tool degrades to an
+# honest "no browser available" observation, so leaner custom builds may drop this line.
 FROM alpine:3.20
-RUN apk add --no-cache docker-cli tini ca-certificates
+RUN apk add --no-cache docker-cli tini ca-certificates chromium
+ENV TORSOR_BROWSER_PATH=/usr/bin/chromium-browser
 WORKDIR /app
 COPY --from=build /out/control-plane /app/control-plane
 COPY --from=build /out/mock-runtime /app/mock-runtime

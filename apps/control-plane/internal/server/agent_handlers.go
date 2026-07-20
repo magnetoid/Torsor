@@ -256,16 +256,18 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		defer mcpRouter.Close()
 	}
 	runner := agent.NewRunner(provider, rt, agent.Config{
-		WorkspaceID: ws.ProjectID,
-		MaxSteps:    maxSteps,
-		APIKey:      apiKey,
-		Mode:        body.Mode,
-		Plan:        body.ApprovedPlan,
-		Tools:       toolRouter,
-		CheckApp:    checkAppProbe(rt, ws.ProjectID),
-		PreviewPort: previewPort(),
-		Memory:      &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: userID(r)},
-		Skills:      s.loadEnabledSkills(r.Context(), ws.ProjectID),
+		WorkspaceID:   ws.ProjectID,
+		MaxSteps:      maxSteps,
+		APIKey:        apiKey,
+		Mode:          body.Mode,
+		Plan:          body.ApprovedPlan,
+		Tools:         toolRouter,
+		CheckApp:      checkAppProbe(rt, ws.ProjectID),
+		VerifyApp:     s.verifyAppTool(rt, ws.ProjectID),
+		PreviewErrors: s.previewErrorsTool(ws.ProjectID),
+		PreviewPort:   previewPort(),
+		Memory:        &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: userID(r)},
+		Skills:        s.loadEnabledSkills(r.Context(), ws.ProjectID),
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).

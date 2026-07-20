@@ -170,6 +170,11 @@ func (s *Server) handleCreateMission(w http.ResponseWriter, r *http.Request) {
 	if cfg.MaxTasks > 0 && len(steps) > cfg.MaxTasks {
 		steps = steps[:cfg.MaxTasks]
 	}
+	// Verification gate: every mission ends with an explicit verify objective (planner
+	// plans are asked to end with verification, but models don't always comply). Appended
+	// before persisting so the user sees it at approval time; the orchestrator's normal
+	// retry machinery then applies to the verification itself.
+	steps = ensureVerifyObjective(steps, cfg.MaxTasks)
 
 	// Persist the mission row and its per-task rows in one transaction so a mid-loop failure
 	// can't leave a partial mission behind.
@@ -207,6 +212,30 @@ func (s *Server) handleCreateMission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"mission": m, "tasks": tasks})
+}
+
+// verifyObjective is the canonical verification sub-task appended to mission plans that
+// lack one — the engine's "did it actually work?" gate before a mission reports done.
+const verifyObjective = "Final verification: run the project's tests if it has any, then verify the running app end-to-end — use verify_app (and read_preview_errors) and fix every console error, uncaught exception, or failed request found, re-verifying until the check is clean."
+
+// ensureVerifyObjective guarantees the plan ends with a verification step. Plans that
+// already contain a verify/test step are left untouched; otherwise the canonical objective
+// is appended, evicting the last step only if the max-tasks cap would be exceeded. A cap of
+// 1 leaves the plan alone (a mission that is only verification would do no work).
+func ensureVerifyObjective(steps []string, maxTasks int) []string {
+	for _, st := range steps {
+		ls := strings.ToLower(st)
+		if strings.Contains(ls, "verif") || strings.Contains(ls, "test") {
+			return steps
+		}
+	}
+	if maxTasks == 1 {
+		return steps
+	}
+	if maxTasks > 0 && len(steps) >= maxTasks {
+		steps = steps[:maxTasks-1]
+	}
+	return append(steps, verifyObjective)
 }
 
 // jsonMarshal is a tiny helper returning JSON bytes (plan column is jsonb).
@@ -383,13 +412,15 @@ func (s *Server) subAgentRunner(projectID, uid string) orchestrator.RunSubTask {
 			return orchestrator.SubTaskResult{Ok: false, Summary: err.Error()}
 		}
 		runner := agent.NewRunner(provider, rt, agent.Config{
-			WorkspaceID: ws.ProjectID,
-			Mode:        "direct",
-			APIKey:      apiKey,
-			CheckApp:    checkAppProbe(rt, ws.ProjectID),
-			PreviewPort: previewPort(),
-			Memory:      &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: uid},
-			Skills:      s.loadEnabledSkills(ctx, ws.ProjectID),
+			WorkspaceID:   ws.ProjectID,
+			Mode:          "direct",
+			APIKey:        apiKey,
+			CheckApp:      checkAppProbe(rt, ws.ProjectID),
+			VerifyApp:     s.verifyAppTool(rt, ws.ProjectID),
+			PreviewErrors: s.previewErrorsTool(ws.ProjectID),
+			PreviewPort:   previewPort(),
+			Memory:        &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: uid},
+			Skills:        s.loadEnabledSkills(ctx, ws.ProjectID),
 		})
 		res, err := runner.Run(ctx, t.Objective, nil)
 		if err != nil {

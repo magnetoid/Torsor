@@ -20,6 +20,7 @@ import (
 	"github.com/magnetoid/torsor/control-plane/internal/db"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 	"github.com/magnetoid/torsor/control-plane/internal/redisx"
+	"github.com/magnetoid/torsor/control-plane/internal/verify"
 )
 
 type Server struct {
@@ -40,6 +41,15 @@ type Server struct {
 
 	// metrics holds in-process request counters exposed at /metrics (per-instance).
 	metrics *serverMetrics
+
+	// previewErrs maps projectID → *previewErrRing: recent console errors the IDE captured
+	// from the live preview, readable by the agent (in-process; single backend today).
+	previewErrs sync.Map
+
+	// browser is the lazily-located headless browser for the verify_app tool (nil when the
+	// host has none — the tool degrades honestly). Guarded by browserOnce.
+	browserOnce sync.Once
+	browser     *verify.Browser
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
@@ -137,6 +147,10 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/projects/{projectID}/learning/proposals", s.handleListProposals)
 			r.Post("/projects/{projectID}/learning/proposals/{proposalID}/accept", s.handleAcceptProposal)
 			r.Post("/projects/{projectID}/learning/proposals/{proposalID}/dismiss", s.handleDismissProposal)
+
+			// Preview error bridge: the IDE forwards console errors it captured from the
+			// live preview iframe; the agent reads them via read_preview_errors.
+			r.Post("/projects/{projectID}/preview/errors", s.handlePushPreviewErrors)
 
 			// Coding agent engine — missions
 			r.Get("/projects/{projectID}/agent/missions", s.handleListMissions)

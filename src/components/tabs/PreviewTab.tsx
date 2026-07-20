@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import * as Separator from '@radix-ui/react-separator';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { 
@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { MousePointerClick, Square } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { apiRequest } from '../../lib/api';
 import { useAppStore } from '../../useAppStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -43,6 +44,27 @@ export default function PreviewTab() {
   // instant feedback → persist via a real source splice or a drafted agent instruction.
   const ve = useVisualEdit(iframeRef, activeProjectId);
 
+  // Bridge to the agent: errors/warnings captured from the preview are batch-forwarded to
+  // the control plane (POST /preview/errors), where the coding agent reads them via its
+  // read_preview_errors tool — so "the agent sees what broke in the user's browser".
+  const errQueue = useRef<{ level: 'error' | 'warn'; text: string }[]>([]);
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const forwardError = useCallback((level: 'error' | 'warn', text: string) => {
+    if (!activeProjectId) return;
+    errQueue.current.push({ level, text: text.slice(0, 500) });
+    if (flushTimer.current) return;
+    flushTimer.current = setTimeout(() => {
+      const items = errQueue.current.splice(0, 20);
+      flushTimer.current = null;
+      if (items.length === 0) return;
+      void apiRequest(`/api/v1/projects/${activeProjectId}/preview/errors`, {
+        method: 'POST',
+        auth: true,
+        body: JSON.stringify({ items }),
+      }).catch(() => { /* best-effort bridge — never disturb the preview */ });
+    }, 2000);
+  }, [activeProjectId]);
+
   // Real console capture: the preview proxy is same-origin by default, so on iframe load we
   // patch the app's console (and window errors) to mirror into the drawer. A cross-origin
   // preview (custom VITE_API_URL) throws SecurityError → caught, drawer just stays empty.
@@ -59,6 +81,7 @@ export default function PreviewTab() {
           })
           .join(' ');
         setConsoleLogs((l) => [...l.slice(-199), { type, text, timestamp: Date.now() }]);
+        if (type === 'error' || type === 'warn') forwardError(type, text);
       };
       (['log', 'warn', 'error'] as const).forEach((k) => {
         const orig = w.console[k]?.bind(w.console);
@@ -68,6 +91,10 @@ export default function PreviewTab() {
         };
       });
       w.addEventListener('error', (e) => push('error', [(e as ErrorEvent)?.message ?? 'Uncaught error']));
+      w.addEventListener('unhandledrejection', (e) => {
+        const reason = (e as PromiseRejectionEvent)?.reason;
+        push('error', [`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`]);
+      });
     } catch {
       /* cross-origin preview — no console access */
     }
