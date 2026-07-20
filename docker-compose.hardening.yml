@@ -1,0 +1,45 @@
+# Torsor — production hardening overlay (opt-in).
+#
+# Fronts the host Docker socket with a locked-down proxy so the control-plane can
+# drive workspace containers WITHOUT a raw /var/run/docker.sock mount (which is a
+# container-escape / full-host-control surface). The control-plane's docker CLI is
+# pointed at the proxy via DOCKER_HOST; the proxy only permits the API endpoints the
+# WorkspaceRuntime actually uses. See docs/PRODUCTION-HARDENING.md.
+#
+# Apply on the server:  docker compose -f docker-compose.yml -f docker-compose.hardening.yml up -d
+# (Coolify: add this as an additional compose file for the stack.)
+services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.2
+    restart: unless-stopped
+    environment:
+      # Allowlist — only what cmd/docker-runtime calls (create/start/stop/rm/exec/
+      # commit/port/inspect/cp). Everything not enabled here is denied (default 0).
+      POST: 1          # required for create/start/stop/rm/exec/commit (mutating calls)
+      CONTAINERS: 1    # create/start/stop/rm/inspect/port/cp/logs
+      EXEC: 1          # docker exec (agent commands, PTY)
+      IMAGES: 1        # pull base images, list
+      COMMIT: 1        # docker commit (checkpoints/snapshots)
+      INFO: 1
+      VERSION: 1
+      PING: 1
+      # Explicitly denied (kept 0): SWARM, NODES, SERVICES, SECRETS, CONFIGS, PLUGINS,
+      # SYSTEM, NETWORKS admin, VOLUMES admin, BUILD — none are used by the runtime.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Internal only — never publish this port; it grants Docker control.
+    expose:
+      - "2375"
+
+  control-plane:
+    # Route the control-plane's docker CLI through the proxy instead of the raw socket.
+    # Remove the raw socket bind from the base compose when applying this overlay.
+    environment:
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+      # Workspace resource caps (already defaulted in-code; override here per host budget).
+      TORSOR_WS_MEMORY: 1g
+      TORSOR_WS_CPUS: "1"
+      TORSOR_WS_PIDS: "256"
+      TORSOR_WS_HARDENED: "true"
+    depends_on:
+      - docker-socket-proxy
