@@ -499,3 +499,70 @@ func TestSkillsApplyInPlanningMode(t *testing.T) {
 		t.Errorf("skills not injected in planning mode; got:\n%s", model.systems[0])
 	}
 }
+
+// verify_app dispatches to the wired browser check, feeds the report back as an
+// observation, and its prompt appendix (with the Potemkin rule) is advertised.
+func TestRunDispatchesVerifyApp(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"see the app","action":{"tool":"verify_app","args":{"js":"1+1"}}}`,
+		`{"thought":"clean","final":"verified"}`,
+	}}
+	var gotJS string
+	cfg := Config{
+		WorkspaceID: "p1",
+		VerifyApp: func(_ context.Context, js string) (string, error) {
+			gotJS = js
+			return "BROWSER CHECK OK — no problems", nil
+		},
+	}
+	var events []Event
+	if _, err := NewRunner(model, newMemWorkspace(), cfg).Run(context.Background(), "verify it", collect(&events)); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if gotJS != "1+1" {
+		t.Errorf("js arg not forwarded, got %q", gotJS)
+	}
+	if len(model.prompts) < 2 || !strings.Contains(model.prompts[1], "BROWSER CHECK OK") {
+		t.Errorf("browser report not fed back as observation")
+	}
+	if len(model.systems) == 0 || !strings.Contains(model.systems[0], "Potemkin check") {
+		t.Errorf("verify_app prompt appendix missing from system prompt")
+	}
+	// Without a wired VerifyApp the tool must be neither advertised nor callable.
+	model2 := &scriptedModel{responses: []string{
+		`{"thought":"try","action":{"tool":"verify_app","args":{}}}`,
+		`{"thought":"ok","final":"done"}`,
+	}}
+	if _, err := NewRunner(model2, newMemWorkspace(), Config{WorkspaceID: "p1"}).Run(context.Background(), "t", nil); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if !strings.Contains(model2.prompts[1], "not available in this run") {
+		t.Errorf("unwired verify_app should observe unavailability, got: %q", model2.prompts[1])
+	}
+	if strings.Contains(model2.systems[0], "Potemkin") {
+		t.Errorf("verify_app appendix must not be advertised when unwired")
+	}
+}
+
+// read_preview_errors surfaces the live-preview error feed to the agent.
+func TestRunDispatchesPreviewErrors(t *testing.T) {
+	model := &scriptedModel{responses: []string{
+		`{"thought":"what broke","action":{"tool":"read_preview_errors","args":{}}}`,
+		`{"thought":"fix next","final":"saw the errors"}`,
+	}}
+	cfg := Config{
+		WorkspaceID: "p1",
+		PreviewErrors: func(_ context.Context) (string, error) {
+			return "[12:00:01 error] TypeError: x is not a function", nil
+		},
+	}
+	if _, err := NewRunner(model, newMemWorkspace(), cfg).Run(context.Background(), "t", nil); err != nil {
+		t.Fatalf("Run error: %v", err)
+	}
+	if !strings.Contains(model.prompts[1], "TypeError") {
+		t.Errorf("preview errors not fed back as observation: %q", model.prompts[1])
+	}
+	if !strings.Contains(model.systems[0], "read_preview_errors") {
+		t.Errorf("read_preview_errors appendix missing from system prompt")
+	}
+}

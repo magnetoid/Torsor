@@ -85,6 +85,16 @@ type Config struct {
 	// observation text (nil error) so the agent can react and fix rather than abort.
 	// Wired by the server from the workspace runtime's status; nil hides the tool.
 	CheckApp func(ctx context.Context) (string, error)
+	// VerifyApp, when set, enables the verify_app tool: a real headless-browser check of
+	// the running app (page load, console errors, uncaught exceptions, failed requests,
+	// interactive-element audit) with an optional agent-supplied JS expression. Like
+	// CheckApp, failures should come back as observation text so the agent reacts and
+	// fixes rather than aborting. Wired by the server (internal/verify); nil hides the tool.
+	VerifyApp func(ctx context.Context, js string) (string, error)
+	// PreviewErrors, when set, enables the read_preview_errors tool: recent console
+	// errors/warnings captured from the user's live preview session (forwarded by the IDE),
+	// so the agent can see what actually broke in the user's browser. Nil hides the tool.
+	PreviewErrors func(ctx context.Context) (string, error)
 	// PreviewPort is the container port the live preview watches (TORSOR_WS_APP_PORT).
 	// The agent is told to bind its web/dev server to 0.0.0.0:PreviewPort so the app
 	// shows up in the preview and is deployable. Empty = no preview-port guidance.
@@ -222,6 +232,27 @@ One more tool is available in this run:
 
 Self-verification rule: after your edits, run the build/tests if the project has them, then call check_app to confirm the app actually responds (status 2xx/3xx). If it fails or errors, fix the cause and re-verify. Only return "final" after check_app succeeds — and mention the verification result in your final message.`
 
+// verifyAppPrompt advertises the headless-browser verification tool when the server wires
+// one up. Appended to the system prompt (models treat appendices as part of the tool list).
+const verifyAppPrompt = `
+
+One more tool is available in this run:
+- verify_app   {"js": "<optional JS expression to evaluate in the page>"}  -> loads the running app in a REAL headless browser and reports: page title, console errors, uncaught exceptions, failed network requests (>=400 or connection errors), and a count of interactive elements. The optional js expression runs in the page after load (e.g. probe app state, or drive a flow with a small script) and its value is returned.
+
+Browser-verification rules:
+- After building or changing UI, call verify_app — check_app only proves the server responds; verify_app proves the PAGE actually works in a browser.
+- Treat any reported console error, uncaught exception, or failed request as a bug to fix, then re-run verify_app.
+- Potemkin check: if the report shows zero interactive elements (or your feature's element is missing), the UI is a static shell — wire up the real handlers/data and re-verify.
+- Only return "final" when verify_app is clean (or the remaining findings are genuinely expected), and mention the verification result in your final message.`
+
+// previewErrorsPrompt advertises the live-preview error feed when the server wires one up.
+const previewErrorsPrompt = `
+
+One more tool is available in this run:
+- read_preview_errors  {}                                  -> returns recent console errors/warnings captured from the user's live preview of this app (what the USER actually saw break in their browser)
+
+Use read_preview_errors when the user reports something broken, and after UI changes, to see errors from the real preview session. An empty result means no errors were captured.`
+
 // memoryPrompt advertises the durable-memory tools when the server wires a MemoryStore.
 // Appended to the system prompt (models treat appendices as part of the tool list).
 const memoryPrompt = `
@@ -294,6 +325,14 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		if r.cfg.CheckApp != nil {
 			// Advertise the self-verification probe (reflection loop): edit → verify → fix.
 			system += checkAppPrompt
+		}
+		if r.cfg.VerifyApp != nil {
+			// Advertise the real-browser verification loop (see the app, not just the port).
+			system += verifyAppPrompt
+		}
+		if r.cfg.PreviewErrors != nil {
+			// Advertise the user's live-preview error feed.
+			system += previewErrorsPrompt
 		}
 		if r.cfg.Tools != nil {
 			// Advertise connected external (MCP) tools to the model alongside the built-ins.
@@ -487,6 +526,26 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 			return "error: check_app is not available in this run"
 		}
 		obs, err := r.cfg.CheckApp(ctx)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return obs
+
+	case "verify_app":
+		if r.cfg.VerifyApp == nil {
+			return "error: verify_app is not available in this run"
+		}
+		obs, err := r.cfg.VerifyApp(ctx, a.Args["js"])
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		return obs
+
+	case "read_preview_errors":
+		if r.cfg.PreviewErrors == nil {
+			return "error: read_preview_errors is not available in this run"
+		}
+		obs, err := r.cfg.PreviewErrors(ctx)
 		if err != nil {
 			return "error: " + err.Error()
 		}
