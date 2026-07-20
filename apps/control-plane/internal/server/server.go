@@ -37,10 +37,13 @@ type Server struct {
 	// activeMissions counts missions currently executing in the background, enforcing the
 	// engine's max-concurrent-missions cap (in-process; single backend today).
 	activeMissions atomic.Int64
+
+	// metrics holds in-process request counters exposed at /metrics (per-instance).
+	metrics *serverMetrics
 }
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
-	return &Server{cfg: cfg, pool: pool, redis: rc, auth: am, host: host, logger: logger}
+	return &Server{cfg: cfg, pool: pool, redis: rc, auth: am, host: host, logger: logger, metrics: newServerMetrics()}
 }
 
 // Handler builds the chi router with all middleware and routes.
@@ -48,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
+	r.Use(s.observe) // access log + request-id echo + /metrics counters (after RequestID)
 	r.Use(chimw.Recoverer)
 	r.Use(s.securityHeaders)
 	r.Use(s.cors)
@@ -55,6 +59,7 @@ func (s *Server) Handler() http.Handler {
 
 	r.Get("/health", s.handleHealth)
 	r.Get("/ready", s.handleReady)
+	r.Get("/metrics", s.handleMetrics) // Prometheus text exposition (per-instance counters)
 
 	// Public deployment proxy: serves a deployed project's app at a stable, tokenless URL.
 	// Access is gated on an active deployment row (owner-created), not the caller's identity.
