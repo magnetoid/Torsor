@@ -81,13 +81,13 @@ const BUILTIN_TABS: BuiltinTab[] = [
   { type: 'mcp', label: 'MCP Servers', component: MCPServersTab, icon: Plug, group: 'project', order: 3 },
   { type: 'settings', label: 'Settings', component: SettingsTab, icon: Settings, group: 'project', order: 4 },
   // Labs — honest previews of not-yet-wired surfaces (banner auto-applied below).
-  { type: 'database', label: 'Database', component: DatabaseTab, icon: Database, group: 'labs', order: 0, maturity: 'preview', previewFeature: 'the Database explorer' },
-  { type: 'storage', label: 'App Storage', component: AppStorageTab, icon: HardDrive, group: 'labs', order: 1, maturity: 'preview', previewFeature: 'App Storage' },
+  { type: 'database', label: 'Database', component: DatabaseTab, icon: Database, group: 'labs', order: 0 },
+  { type: 'storage', label: 'App Storage', component: AppStorageTab, icon: HardDrive, group: 'labs', order: 1 },
   { type: 'auth', label: 'Authentication', component: AuthTab, icon: UserCheck, group: 'labs', order: 2, maturity: 'preview', previewFeature: 'the Authentication manager' },
   { type: 'git', label: 'Git', component: GitTab, icon: GitBranch, group: 'build', order: 3 },
   { type: 'security', label: 'Security Scan', component: SecurityScanTab, icon: Shield, group: 'labs', order: 4, maturity: 'preview', previewFeature: 'the Security Scan' },
   { type: 'testing', label: 'App Testing', component: AppTestingTab, icon: FlaskConical, group: 'project', order: 5 },
-  { type: 'integrations', label: 'Integrations', component: IntegrationsTab, icon: Puzzle, group: 'labs', order: 7, maturity: 'preview', previewFeature: 'Integrations' },
+  { type: 'integrations', label: 'Integrations', component: IntegrationsTab, icon: Puzzle, group: 'labs', order: 7 },
   { type: 'skills', label: 'Agent Skills', component: AgentSkillsTab, icon: Sparkles, group: 'agent', order: 3 },
   { type: 'canvas', label: 'Canvas', component: CanvasTab, icon: Frame, group: 'labs', order: 10, maturity: 'preview', previewFeature: 'the Canvas' },
 ];
