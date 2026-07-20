@@ -137,3 +137,43 @@ func (s *Server) lookupUserSecret(ctx context.Context, uid, keyName string) (str
 	}
 	return cipher.Decrypt(enc)
 }
+
+// userSecretVault adapts one user's encrypted secrets to agent.SecretVault: the agent uses
+// {{secret:NAME}} placeholders, the loop expands them at exec time and scrubs the values
+// from observations — secret values never enter a model prompt.
+type userSecretVault struct {
+	s   *Server
+	uid string
+}
+
+func (v *userSecretVault) Value(ctx context.Context, name string) (string, bool) {
+	val, err := v.s.lookupUserSecret(ctx, v.uid, name)
+	if err != nil || val == "" {
+		return "", false
+	}
+	return val, true
+}
+
+func (v *userSecretVault) All(ctx context.Context) map[string]string {
+	cipher, err := v.s.secretCipher()
+	if err != nil { // disabled or misconfigured → nothing to expand/scrub
+		return nil
+	}
+	rows, err := v.s.pool.Query(ctx,
+		`SELECT key_name, encrypted_value FROM secrets WHERE user_id = $1`, v.uid)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var name, enc string
+		if err := rows.Scan(&name, &enc); err != nil {
+			return out
+		}
+		if val, err := cipher.Decrypt(enc); err == nil && val != "" {
+			out[name] = val
+		}
+	}
+	return out
+}

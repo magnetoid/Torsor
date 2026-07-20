@@ -73,8 +73,8 @@ func buildTemplateCatalog() []Template {
 			Image:       "node:20-alpine",
 			Setup:       "npm install",
 			Dev:         "npm run dev -- --host 0.0.0.0 --port " + port,
-			Build:       "npm install && npm run build",             // produces dist/
-			Serve:       "npx --yes serve -s dist -l " + port,        // serve the production build
+			Build:       "npm install && npm run build",       // produces dist/
+			Serve:       "npx --yes serve -s dist -l " + port, // serve the production build
 			Files: map[string]string{
 				"package.json":   viteReactPackageJSON,
 				"vite.config.js": fmt.Sprintf(viteReactConfig, port),

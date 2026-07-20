@@ -14,12 +14,12 @@ func TestResolveRole(t *testing.T) {
 		db    auth.Role
 		want  auth.Role
 	}{
-		{"x@y.com", auth.RoleAdmin, auth.RoleAdmin},            // keep DB admin
-		{"x@y.com", auth.RoleSuperAdmin, auth.RoleSuperAdmin},  // keep DB super_admin
-		{"x@y.com", auth.RoleUser, auth.RoleUser},              // plain user
+		{"x@y.com", auth.RoleAdmin, auth.RoleAdmin},             // keep DB admin
+		{"x@y.com", auth.RoleSuperAdmin, auth.RoleSuperAdmin},   // keep DB super_admin
+		{"x@y.com", auth.RoleUser, auth.RoleUser},               // plain user
 		{"boss@torsor.dev", auth.RoleUser, auth.RoleSuperAdmin}, // email promotion
 		{"BOSS@torsor.dev", auth.RoleUser, auth.RoleSuperAdmin}, // case-insensitive
-		{"x@y.com", auth.Role(""), auth.RoleUser},              // empty -> user
+		{"x@y.com", auth.Role(""), auth.RoleUser},               // empty -> user
 	}
 	for _, c := range cases {
 		if got := s.resolveRole(c.email, c.db); got != c.want {

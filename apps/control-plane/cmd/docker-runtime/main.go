@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
@@ -87,6 +88,12 @@ type limits struct {
 	// publishHost is the host interface the workspace app port is published on
 	// (TORSOR_WS_PUBLISH_HOST, default 127.0.0.1). See buildCreateArgsForImage.
 	publishHost string
+	// containerRuntime is the OCI runtime for workspace containers
+	// (TORSOR_WS_DOCKER_RUNTIME, e.g. "runsc" for gVisor). Empty = docker's default
+	// (runc). gVisor's userspace kernel is the recommended production setting for
+	// agent-generated code: shared-kernel containers are no longer an adequate trust
+	// boundary for untrusted code (2026 consensus).
+	containerRuntime string
 }
 
 func envOr(key, def string) string {
@@ -98,16 +105,17 @@ func envOr(key, def string) string {
 
 func limitsFromEnv() limits {
 	return limits{
-		memory:       envOr("TORSOR_WS_MEMORY", "1g"),
-		cpus:         envOr("TORSOR_WS_CPUS", "1"),
-		pids:         envOr("TORSOR_WS_PIDS", "256"),
-		network:      envOr("TORSOR_WS_NETWORK", "bridge"),
-		hardened:     envOr("TORSOR_WS_HARDENED", "true") != "false",
-		allowlist:    parseAllowlist(envOr("TORSOR_WS_IMAGE_ALLOWLIST", "")),
-		keepAlive:    envOr("TORSOR_WS_KEEPALIVE", "true") != "false",
-		appPort:      strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")),
-		defaultImage: envOr("TORSOR_WS_DEFAULT_IMAGE", "node:20-alpine"),
-		publishHost:  resolvePublishHost(),
+		memory:           envOr("TORSOR_WS_MEMORY", "1g"),
+		cpus:             envOr("TORSOR_WS_CPUS", "1"),
+		pids:             envOr("TORSOR_WS_PIDS", "256"),
+		network:          envOr("TORSOR_WS_NETWORK", "bridge"),
+		hardened:         envOr("TORSOR_WS_HARDENED", "true") != "false",
+		allowlist:        parseAllowlist(envOr("TORSOR_WS_IMAGE_ALLOWLIST", "")),
+		keepAlive:        envOr("TORSOR_WS_KEEPALIVE", "true") != "false",
+		appPort:          strings.TrimSpace(os.Getenv("TORSOR_WS_APP_PORT")),
+		defaultImage:     envOr("TORSOR_WS_DEFAULT_IMAGE", "node:20-alpine"),
+		publishHost:      resolvePublishHost(),
+		containerRuntime: strings.TrimSpace(os.Getenv("TORSOR_WS_DOCKER_RUNTIME")),
 	}
 }
 
@@ -211,6 +219,9 @@ func buildCreateArgsForImage(name, image string, spec plugin.WorkspaceSpec, lim 
 	}
 	if lim.network != "" {
 		args = append(args, "--network", lim.network)
+	}
+	if lim.containerRuntime != "" {
+		args = append(args, "--runtime", lim.containerRuntime)
 	}
 	if lim.hardened {
 		args = append(args, "--security-opt", "no-new-privileges")
@@ -628,6 +639,27 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// ensureNetwork creates the workspace network if it names a custom bridge that doesn't
+// exist yet (docker's built-ins — bridge/host/none — are left alone). A dedicated network
+// (TORSOR_WS_NETWORK=torsor-ws) puts every workspace on its own subnet so host firewall
+// rules (see scripts/harden-workspace-egress.sh) can block link-local metadata and
+// internal-network pivots for exactly that subnet. Best-effort: if creation fails, the
+// first workspace create will surface the real error.
+func ensureNetwork(name string) {
+	switch name {
+	case "", "bridge", "host", "none":
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if _, err := run(ctx, nil, "network", "inspect", name); err == nil {
+		return // already exists
+	}
+	_, _ = run(ctx, nil, "network", "create", "--driver", "bridge", name)
+}
+
 func main() {
-	plugin.ServeRuntime(runtime{lim: limitsFromEnv()})
+	lim := limitsFromEnv()
+	ensureNetwork(lim.network)
+	plugin.ServeRuntime(runtime{lim: lim})
 }

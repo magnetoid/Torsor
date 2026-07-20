@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/magnetoid/torsor/control-plane/internal/textsafe"
 )
 
 // Project memories — durable per-project facts/notes/decisions that persist across agent
@@ -240,7 +242,14 @@ func (m *projectMemoryStore) Recall(ctx context.Context, query string) (string, 
 		if err := rows.Scan(&kind, &content); err != nil {
 			return "", err
 		}
-		fmt.Fprintf(&b, "- [%s] %s\n", kind, content)
+		// Memories can be authored via the UI too — strip invisible Unicode before they
+		// re-enter a prompt (Rules-File-Backdoor class defense; log on hit).
+		clean, removed := textsafe.Sanitize(content)
+		if removed > 0 {
+			m.s.logger.Warn("memory contained hidden unicode; stripped before recall",
+				"project", m.projectID, "removed_runes", removed)
+		}
+		fmt.Fprintf(&b, "- [%s] %s\n", kind, clean)
 		n++
 	}
 	if err := rows.Err(); err != nil {

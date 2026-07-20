@@ -421,6 +421,8 @@ func (s *Server) subAgentRunner(projectID, uid string) orchestrator.RunSubTask {
 			PreviewPort:   previewPort(),
 			Memory:        &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: uid},
 			Skills:        s.loadEnabledSkills(ctx, ws.ProjectID),
+			Secrets:       &userSecretVault{s: s, uid: uid},
+			GuardCommands: true,
 		})
 		res, err := runner.Run(ctx, t.Objective, nil)
 		if err != nil {

@@ -182,12 +182,16 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 	}
 
 	runner := agent.NewRunner(provider, rt, agent.Config{
-		WorkspaceID: ws.ProjectID,
-		MaxSteps:    backgroundMaxSteps,
-		APIKey:      apiKey,
-		Tools:       toolRouter,
-		CheckApp:    checkAppProbe(rt, ws.ProjectID),
-		PreviewPort: previewPort(),
+		WorkspaceID:   ws.ProjectID,
+		MaxSteps:      backgroundMaxSteps,
+		APIKey:        apiKey,
+		Tools:         toolRouter,
+		CheckApp:      checkAppProbe(rt, ws.ProjectID),
+		VerifyApp:     s.verifyAppTool(rt, ws.ProjectID),
+		PreviewErrors: s.previewErrorsTool(ws.ProjectID),
+		PreviewPort:   previewPort(),
+		Secrets:       &userSecretVault{s: s, uid: uid},
+		GuardCommands: true,
 	})
 	result, runErr := runner.Run(taskCtx, prompt, onEvent)
 	s.recordUsage(uid, providerName, result.Model, result.TokensIn, result.TokensOut)

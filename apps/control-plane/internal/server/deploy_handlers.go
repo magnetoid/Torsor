@@ -53,6 +53,19 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Deploy gate: refuse to publish a workspace that contains credential material (finding
+	// locations only — values are never echoed). Disable with TORSOR_DEPLOY_SCAN=off.
+	if deployScanEnabled() {
+		if findings := scanWorkspaceSecrets(r.Context(), rt, ws.ProjectID); len(findings) > 0 {
+			s.logger.Warn("deploy blocked by secret scan", "project", ws.ProjectID, "findings", len(findings))
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error":    "Deploy blocked: possible secrets found in the project. Remove them (or store them under Settings → Secrets and reference them as {{secret:NAME}}), then deploy again.",
+				"findings": findings,
+			})
+			return
+		}
+	}
+
 	// A templated project deploys its production build; anything else just keeps the running
 	// app up (there is no build/serve contract to run).
 	var templateID *string
