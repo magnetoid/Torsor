@@ -37,22 +37,53 @@ interface AdminUsersResponse {
   offset: number;
 }
 
+export interface AdminWorkspace {
+  id: string;
+  status: string;
+  runtime: string;
+  owner: string;
+  project: string;
+  createdAt: string;
+}
+
+export interface AdminPlatform {
+  providers: string[];
+  workspaces: { total: number; byStatus: Record<string, number> };
+  usageTotals: { tokensIn: number; tokensOut: number };
+  usageByProvider: { provider: string; tokensIn: number; tokensOut: number; calls: number }[];
+}
+
+export interface PlatformSettings {
+  maintenanceMode: boolean;
+  announcement: string;
+}
+
 interface AdminState {
   stats: AdminStats | null;
   users: AdminUser[];
   usersTotal: number;
+  workspaces: AdminWorkspace[];
+  platform: AdminPlatform | null;
+  settings: PlatformSettings;
   isLoadingStats: boolean;
   isLoadingUsers: boolean;
   error: string | null;
   fetchStats: () => Promise<void>;
   fetchUsers: (params?: { search?: string; limit?: number; offset?: number }) => Promise<void>;
   updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+  fetchWorkspaces: () => Promise<void>;
+  fetchPlatform: () => Promise<void>;
+  fetchSettings: () => Promise<void>;
+  saveSettings: (updates: Partial<PlatformSettings>) => Promise<void>;
 }
 
 export const useAdminStore = create<AdminState>()((set, get) => ({
   stats: null,
   users: [],
   usersTotal: 0,
+  workspaces: [],
+  platform: null,
+  settings: { maintenanceMode: false, announcement: '' },
   isLoadingStats: false,
   isLoadingUsers: false,
   error: null,
@@ -88,5 +119,34 @@ export const useAdminStore = create<AdminState>()((set, get) => ({
     set({
       users: get().users.map((u) => (u.id === userId ? { ...u, role: updated.role } : u)),
     });
+  },
+  fetchWorkspaces: async () => {
+    try {
+      const res = await apiRequest<{ items: AdminWorkspace[] }>('/api/v1/admin/workspaces', { auth: true });
+      set({ workspaces: res.items });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load workspaces' });
+    }
+  },
+  fetchPlatform: async () => {
+    try {
+      const platform = await apiRequest<AdminPlatform>('/api/v1/admin/platform', { auth: true });
+      set({ platform });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load platform stats' });
+    }
+  },
+  fetchSettings: async () => {
+    try {
+      const settings = await apiRequest<PlatformSettings>('/api/v1/admin/settings', { auth: true });
+      set({ settings });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load settings' });
+    }
+  },
+  saveSettings: async (updates) => {
+    const next = { ...get().settings, ...updates };
+    set({ settings: next });
+    await apiRequest('/api/v1/admin/settings', { method: 'PATCH', auth: true, body: JSON.stringify(next) });
   },
 }));

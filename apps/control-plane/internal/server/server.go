@@ -181,6 +181,11 @@ func (s *Server) Handler() http.Handler {
 				r.Get("/admin/agent/config", s.handleGetEngineConfig)
 				r.Patch("/admin/agent/config", s.handleUpdateEngineConfig)
 				r.Get("/admin/agent/missions", s.handleAdminListMissions)
+				// Platform observability + settings (real, replaces the mock admin dashboards).
+				r.Get("/admin/workspaces", s.handleAdminWorkspaces)
+				r.Get("/admin/platform", s.handleAdminPlatform)
+				r.Get("/admin/settings", s.handleGetPlatformSettings)
+				r.Patch("/admin/settings", s.handleUpdatePlatformSettings)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
