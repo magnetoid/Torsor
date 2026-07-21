@@ -66,14 +66,22 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// A templated project deploys its production build; anything else just keeps the running
-	// app up (there is no build/serve contract to run).
+	// A templated project deploys its production build. A template-less project gets
+	// zero-config detection over the workspace's real files (agent-written apps, imports)
+	// so it deploys with a real build+serve too; only when nothing is detectable do we
+	// fall back to keeping whatever is already running up.
 	var templateID *string
 	_ = s.pool.QueryRow(r.Context(), `SELECT template FROM projects WHERE id = $1`, ws.ProjectID).Scan(&templateID)
 	tmpl, templated := Template{}, false
 	if templateID != nil {
 		if t, found := templateByID(*templateID); found && t.Serve != "" {
 			tmpl, templated = t, true
+		}
+	}
+	if !templated {
+		if t, ok := detectWorkspacePlan(r.Context(), rt, ws.ProjectID); ok && t.Serve != "" {
+			tmpl, templated = t, true
+			s.logger.Info("deploy: zero-config detection", "project", ws.ProjectID, "kind", t.ID)
 		}
 	}
 
