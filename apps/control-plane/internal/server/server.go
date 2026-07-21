@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -324,6 +325,24 @@ func (s *Server) Handler() http.Handler {
 	// by the reverse proxy) matches no route above, so the NotFound handler resolves it to the
 	// mapped project's deployment. Non-custom-domain misses still return the ordinary 404.
 	r.NotFound(s.handleCustomDomainProxy)
+	// Host-mode previews: requests for <projectID>.<PreviewDomain> bypass the normal
+	// routing tree and serve the workspace app at "/" on its own origin (wildcard DNS +
+	// TLS terminate at the front proxy). Everything else falls through to the router.
+	if s.cfg.PreviewDomain != "" {
+		router := r
+		suffix := "." + s.cfg.PreviewDomain
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			host := req.Host
+			if i := strings.IndexByte(host, ':'); i >= 0 {
+				host = host[:i]
+			}
+			if strings.HasSuffix(host, suffix) {
+				s.handleHostPreview(w, req)
+				return
+			}
+			router.ServeHTTP(w, req)
+		})
+	}
 	return r
 }
 
@@ -373,8 +392,9 @@ func (s *Server) handleRoot(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
 	payload := map[string]any{
-		"appUrl": s.cfg.AppURL,
-		"apiUrl": s.cfg.APIURL,
+		"appUrl":        s.cfg.AppURL,
+		"apiUrl":        s.cfg.APIURL,
+		"previewDomain": s.cfg.PreviewDomain,
 		"features": map[string]string{
 			"auth":           "jwt-password",
 			"projects":       "db-backed",

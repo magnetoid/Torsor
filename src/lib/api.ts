@@ -99,12 +99,29 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return response.json() as Promise<T>;
 }
 
-/** Build the live-preview proxy URL for a project's workspace. The token rides as a query
- *  param because the preview loads in an iframe, which can't set an Authorization header. */
+/** Runtime config fetched once from the control plane. `previewDomain` non-empty switches
+ *  previews to host mode: each project served at its own origin (<id>.<previewDomain>),
+ *  where root-absolute asset URLs, module imports, and the HMR WebSocket all work. */
+let previewDomain = '';
+export async function loadRuntimeConfig(): Promise<void> {
+  try {
+    const cfg = await apiRequest<{ previewDomain?: string }>('/api/v1/config');
+    previewDomain = cfg.previewDomain ?? '';
+  } catch {
+    /* config is an enhancement; path-mode previews work without it */
+  }
+}
+
+/** Build the live-preview URL for a project's workspace. The token rides as a query param
+ *  because the preview loads in an iframe, which can't set an Authorization header; the
+ *  server then sets a scoped cookie so the page's sub-requests authenticate too. */
 export function previewUrlFor(projectId: string): string {
   const token = getStoredToken() ?? '';
   // Cache-bust so a fresh workspace/app isn't masked by a previously cached preview.
   const t = Date.now();
+  if (previewDomain) {
+    return `https://${encodeURIComponent(projectId)}.${previewDomain}/?access_token=${encodeURIComponent(token)}&t=${t}`;
+  }
   return `${API_URL}/api/v1/projects/${encodeURIComponent(projectId)}/preview/?access_token=${encodeURIComponent(token)}&t=${t}`;
 }
 
