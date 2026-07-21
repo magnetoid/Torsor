@@ -7,3 +7,7 @@ coverage/
 .env*
 !.env.example
 apps/control-plane/docker-runtime
+apps/control-plane/server
+apps/control-plane/mock-runtime
+apps/control-plane/mock-model
+apps/control-plane/mock-agent-model
