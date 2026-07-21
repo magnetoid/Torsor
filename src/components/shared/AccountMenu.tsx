@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Settings, Shield, User as UserIcon, LogOut } from 'lucide-react';
+import { Settings, Shield, User as UserIcon, LogOut, Info, Rocket, MessageSquareHeart } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { popoverMotion } from '../../lib/motion';
 import { useAuthStore } from '../../stores/authStore';
@@ -93,6 +93,31 @@ export function AccountMenu({ size = 'sm' }: { size?: 'sm' | 'md' }) {
               </DropdownMenu.Item>
             </>
           )}
+
+          <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
+
+          {/* Platform: About / What's New (changelog) / Feedback */}
+          <DropdownMenu.Item
+            onSelect={() => navigate('/about')}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
+          >
+            <Info size={15} className="shrink-0" />
+            About
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => navigate('/updates')}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
+          >
+            <Rocket size={15} className="shrink-0" />
+            What's New
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => navigate('/feedback')}
+            className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
+          >
+            <MessageSquareHeart size={15} className="shrink-0" />
+            Send Feedback
+          </DropdownMenu.Item>
 
           <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
           <DropdownMenu.Item

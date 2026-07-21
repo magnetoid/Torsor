@@ -9,6 +9,7 @@ import { AdminUsersTab } from '../components/admin/tabs/AdminUsersTab';
 import { AdminRevenueTab } from '../components/admin/tabs/AdminRevenueTab';
 import { AdminPlatformTab } from '../components/admin/tabs/AdminPlatformTab';
 import { AdminSettingsTab } from '../components/admin/tabs/AdminSettingsTab';
+import { AdminUpdatesTab } from '../components/admin/tabs/AdminUpdatesTab';
 import AgentEngineTab from '../components/admin/tabs/AgentEngineTab';
 
 export function AdminPage() {
@@ -28,6 +29,8 @@ export function AdminPage() {
         return <AdminPlatformTab />;
       case 'agent-engine':
         return <AgentEngineTab />;
+      case 'updates':
+        return <AdminUpdatesTab />;
       case 'settings':
         return <AdminSettingsTab />;
       default:

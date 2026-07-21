@@ -9,6 +9,7 @@ import {
   Activity,
   Bot,
   Settings,
+  Megaphone,
   ArrowLeft,
   LogOut
 } from 'lucide-react';
@@ -38,6 +39,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { id: 'revenue', label: 'Revenue', icon: CreditCard, href: '/admin/revenue' },
     { id: 'platform', label: 'Platform', icon: Activity, href: '/admin/platform' },
     { id: 'agent-engine', label: 'Agent Engine', icon: Bot, href: '/admin/agent-engine' },
+    { id: 'updates', label: 'Updates', icon: Megaphone, href: '/admin/updates' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 
