@@ -56,7 +56,7 @@ func TestEnvFailsClosed(t *testing.T) {
 		wantDev bool
 	}{
 		{"development", true},
-		{"", false},        // unset → NOT dev (fail closed)
+		{"", false}, // unset → NOT dev (fail closed)
 		{"production", false},
 		{"staging", false},
 		{"Development", false}, // case-sensitive; only exact "development"

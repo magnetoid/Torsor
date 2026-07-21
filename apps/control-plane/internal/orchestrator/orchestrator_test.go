@@ -34,7 +34,9 @@ func TestExecuteAllPass(t *testing.T) {
 	o := &Orchestrator{
 		Store: store,
 		Cfg:   Config{MaxRetries: 2},
-		Run:   func(_ context.Context, s SubTask) SubTaskResult { return SubTaskResult{Ok: true, Summary: "did " + s.Objective} },
+		Run: func(_ context.Context, s SubTask) SubTaskResult {
+			return SubTaskResult{Ok: true, Summary: "did " + s.Objective}
+		},
 	}
 	status, summary := o.Execute(context.Background(), tasks("a", "b"))
 	if status != "completed" {

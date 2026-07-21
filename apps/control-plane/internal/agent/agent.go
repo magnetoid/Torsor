@@ -106,6 +106,28 @@ type Config struct {
 	// Skills are user-defined instructions injected into the system prompt so the project's
 	// conventions shape both planning and execution. Empty = none.
 	Skills []Skill
+	// Secrets, when set, lets the agent USE the user's stored secrets without ever seeing
+	// them: {{secret:NAME}} placeholders in run commands and written files are expanded at
+	// exec time, and every stored secret value is scrubbed back to its placeholder in tool
+	// observations before they reach the model (so even `cat .env` can't leak a stored
+	// value into context). Nil disables both expansion and scrubbing.
+	Secrets SecretVault
+	// GuardCommands, when true, blocks destructive run commands (rm -rf outside the
+	// workspace, DROP DATABASE, force-push, curl|sh, …) — the block comes back as an
+	// observation so the agent adapts instead of aborting. Wired on by the server for all
+	// runs; the user can always run such commands themselves in the terminal.
+	GuardCommands bool
+}
+
+// SecretVault gives the agent placeholder-based access to the user's stored secrets. It
+// follows the same narrow-interface design as Model/Workspace: the server backs it with
+// the encrypted secrets table; tests use a fake. The agent loop guarantees values returned
+// by Value/All never enter a model prompt.
+type SecretVault interface {
+	// Value returns the decrypted secret for name ("" , false when absent).
+	Value(ctx context.Context, name string) (string, bool)
+	// All returns every stored (name → value) pair, used to scrub observations.
+	All(ctx context.Context) map[string]string
 }
 
 // ExternalTool is a tool contributed from outside the built-in set (an MCP server today).
@@ -312,6 +334,9 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	}
 	// Planning phase: propose a plan and pause for approval (no actions taken yet).
 	planning := r.cfg.Mode == "plan" && len(r.cfg.Plan) == 0
+	// Stored secret values for observation scrubbing (loaded once below when a vault is
+	// wired; values must never reach a prompt).
+	var secretVals map[string]string
 	system := systemPrompt
 	if planning {
 		system = planSystemPrompt
@@ -341,6 +366,12 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		if r.cfg.Memory != nil {
 			// Advertise the durable remember/recall tools.
 			system += memoryPrompt
+		}
+		if r.cfg.Secrets != nil {
+			// Load the vault once per run: names feed the prompt (values never do), and
+			// the values scrub every observation back to placeholders.
+			secretVals = r.cfg.Secrets.All(ctx)
+			system += fmt.Sprintf(secretsPromptFmt, secretNames(secretVals))
 		}
 	}
 	// Skills (user-defined conventions) shape both planning and execution, so they're
@@ -416,6 +447,9 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		if st.Action.Tool == "write_file" || st.Action.Tool == "run" {
 			result.Mutations++
 		}
+		// Scrub BEFORE truncating: truncation could split a secret value in half and let
+		// the fragment evade replacement.
+		obs = scrubSecrets(obs, secretVals)
 		trimmed := truncate(obs, r.cfg.MaxObservLen)
 		emit(Event{Kind: EventToolResult, Step: i, Tool: st.Action.Tool, Result: trimmed})
 		fmt.Fprintf(&transcript, "\nAction: %s %v\nObservation: %s\n", st.Action.Tool, st.Action.Args, trimmed)
@@ -515,11 +549,14 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 		if a.Args["path"] == "" {
 			return "error: write_file requires a non-empty path"
 		}
-		err := r.ws.WriteFile(ctx, r.cfg.WorkspaceID, a.Args["path"], []byte(a.Args["content"]), true)
+		// {{secret:NAME}} placeholders expand at write time (e.g. composing a .env), so the
+		// file holds the real value while the model only ever handled the placeholder.
+		content, missing := expandSecrets(ctx, r.cfg.Secrets, a.Args["content"])
+		err := r.ws.WriteFile(ctx, r.cfg.WorkspaceID, a.Args["path"], []byte(content), true)
 		if err != nil {
 			return "error: " + err.Error()
 		}
-		return fmt.Sprintf("wrote %d bytes to %s", len(a.Args["content"]), a.Args["path"])
+		return fmt.Sprintf("wrote %d bytes to %s", len(content), a.Args["path"]) + missingSecretsNote(missing)
 
 	case "check_app":
 		if r.cfg.CheckApp == nil {
@@ -576,11 +613,19 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 		if cmd == "" {
 			return "error: run requires a non-empty command"
 		}
+		// Destructive-action gate: irreversible commands are refused (as an observation, so
+		// the agent adapts); the user can always run them manually in the Terminal.
+		if r.cfg.GuardCommands {
+			if reason := destructiveReason(cmd); reason != "" {
+				return "BLOCKED by safety policy — this command was NOT run (" + reason + "). If it is genuinely required, tell the user in your final message to run it manually in the Terminal; otherwise achieve the goal another way."
+			}
+		}
+		execCmd, missing := expandSecrets(ctx, r.cfg.Secrets, cmd)
 		var out strings.Builder
 		exit := 0
 		err := r.ws.Exec(ctx, plugin.ExecSpec{
 			WorkspaceID: r.cfg.WorkspaceID,
-			Command:     []string{"sh", "-c", cmd},
+			Command:     []string{"sh", "-c", execCmd},
 		}, func(c plugin.ExecChunk) error {
 			out.WriteString(c.Stdout)
 			out.WriteString(c.Stderr)
@@ -592,7 +637,7 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 		if err != nil {
 			return "error: " + err.Error()
 		}
-		return fmt.Sprintf("exit=%d\n%s", exit, out.String())
+		return fmt.Sprintf("exit=%d\n%s", exit, out.String()) + missingSecretsNote(missing)
 
 	default:
 		return fmt.Sprintf("error: unknown tool %q", a.Tool)

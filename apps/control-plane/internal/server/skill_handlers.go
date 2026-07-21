@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/magnetoid/torsor/control-plane/internal/agent"
+	"github.com/magnetoid/torsor/control-plane/internal/textsafe"
 )
 
 // Agent skills — user-defined, reusable instructions injected into the coding agent's system
@@ -195,7 +196,16 @@ func (s *Server) loadEnabledSkills(ctx context.Context, projectID string) []agen
 			s.logger.Warn("failed to scan skill", "err", err)
 			return out
 		}
-		out = append(out, agent.Skill{Name: name, Instruction: instruction})
+		// Rules-File-Backdoor defense: strip invisible Unicode (zero-width, bidi controls,
+		// tag block) before a skill reaches the system prompt; a hit is a strong
+		// hidden-instruction signal, so log it.
+		clean, removed := textsafe.Sanitize(instruction)
+		if removed > 0 {
+			s.logger.Warn("skill contained hidden unicode; stripped before prompt injection",
+				"project", projectID, "skill", name, "removed_runes", removed)
+		}
+		name, _ = textsafe.Sanitize(name)
+		out = append(out, agent.Skill{Name: name, Instruction: clean})
 	}
 	return out
 }

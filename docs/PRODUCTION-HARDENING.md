@@ -107,6 +107,59 @@ Docker, or the Firecracker/K8s `WorkspaceRuntime` — see the roadmap.
 
 ---
 
+## 4. Workspace egress control (ready to apply)
+
+Assume the coding agent WILL eventually be prompt-injected (industry consensus: injection is
+an architectural property of LLMs, not a patchable bug) — so bound what a hijacked workspace
+can reach. Two steps on the host:
+
+1. **Dedicated workspace network.** Set `TORSOR_WS_NETWORK=torsor-ws` on the docker-runtime
+   (compose env). The plugin auto-creates the bridge network on boot; every workspace lands
+   on its own subnet, separable from the control-plane/postgres/redis network.
+2. **Firewall that subnet**: run [scripts/harden-workspace-egress.sh](../scripts/harden-workspace-egress.sh)
+   (as root). It installs `DOCKER-USER` iptables rules for the workspace subnet:
+   - **blocks** `169.254.0.0/16` (cloud metadata SSRF), `10/8`, `172.16/12`, `192.168/16`
+     (internal pivots)
+   - **allows** DNS, established/related return traffic, same-subnet (preview), public internet
+     (npm installs keep working).
+   Persist the rules with `iptables-persistent` (Debian: `netfilter-persistent save`).
+
+Validate from inside a workspace: `curl -m 3 http://169.254.169.254/` must fail;
+`curl -m 5 https://registry.npmjs.org/` must succeed.
+
+Related in-code guards (shipped with this phase, no host action needed): the agent's
+destructive-command policy, secret placeholder expansion + observation scrubbing, the
+hidden-Unicode sanitizer on skills/memories, and the pre-publish secret scan on deploys
+(disable with `TORSOR_DEPLOY_SCAN=off`).
+
+**gVisor (recommended production default):** install gVisor on the host
+([gvisor.dev/docs/user_guide/install](https://gvisor.dev/docs/user_guide/install/)), register
+`runsc` in `/etc/docker/daemon.json`, and set `TORSOR_WS_DOCKER_RUNTIME=runsc` — every
+workspace then runs under a userspace kernel, upgrading the container trust boundary without
+any other change. Validate: provision a workspace from each template and confirm dev servers
+boot under runsc.
+
+---
+
+## 5. Deployed-app domain isolation (DNS/infra task)
+
+User-deployed apps currently share the platform origin (`/d/{id}` on the API host, or
+subdomains of the app domain). For real multi-tenant hardening:
+
+1. Serve deployed apps from a **separate registrable domain** than the control plane (e.g.
+   apps on `*.torsorapps.dev`, IDE/API on `app.torsor.dev`) so a malicious deployed app can
+   never be same-site with platform session cookies.
+2. Submit that apps domain to the **Public Suffix List** (publicsuffix.org — the reason
+   `github.io` / `vercel.app` / `herokuapp.com` are listed): browsers then treat each
+   `user.torsorapps.dev` as its own site — no cross-tenant cookies, no cookie claim over the
+   parent domain.
+3. Wildcard TLS for the apps domain via ACME **DNS-01** (the only challenge that issues
+   wildcards).
+4. Add an abuse-report path + admin takedown for phishing on user subdomains (rampant on
+   Vercel/Netlify per 2025-26 incident reports) before opening signups broadly.
+
+---
+
 ## Status
 
 | Item | State |
@@ -116,3 +169,7 @@ Docker, or the Firecracker/K8s `WorkspaceRuntime` — see the roadmap.
 | Off-host backup copies | ⚠️ add object-storage sync |
 | Docker-socket proxy | ✅ overlay + runbook (apply on host, drop raw socket) |
 | Workspace persistent volumes | 📋 designed; server-validated rollout (snapshot-aware) |
+| Workspace egress firewall | ✅ script + runbook (apply on host: network + iptables) |
+| gVisor workspace runtime | ✅ code flag (`TORSOR_WS_DOCKER_RUNTIME=runsc`); install on host |
+| Agent blast-radius guards | ✅ in-code (command policy, secret scrubbing, unicode sanitizer, deploy scan) |
+| Apps domain + PSL isolation | 📋 DNS/infra task (separate domain, PSL submission) |
