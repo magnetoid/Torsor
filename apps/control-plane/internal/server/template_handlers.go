@@ -91,9 +91,30 @@ func (s *Server) handlePrepareWorkspace(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Scaffold starter files only when the workspace dir is empty (never clobber real work).
+	// Seed an empty workspace (never clobber real work): the project's stored files (DB
+	// rows — what the user created/uploaded in the IDE) go in first as the source of
+	// truth, then template starter files fill any gaps. Without the DB seed, a
+	// template-less (zero-config) project booted into an empty workspace and served a
+	// bare directory listing instead of its own files.
 	if entries, err := rt.ListFiles(ctx, projectID, workspaceDir); err == nil && len(entries) == 0 {
+		seeded := map[string]bool{}
+		if rows, qerr := s.pool.Query(ctx,
+			`SELECT filename, content FROM project_files WHERE project_id = $1`, projectID); qerr == nil {
+			for rows.Next() {
+				var name string
+				var content *string
+				if rows.Scan(&name, &content) == nil && name != "" && content != nil {
+					if err := rt.WriteFile(ctx, projectID, workspaceDir+"/"+name, []byte(*content), true); err == nil {
+						seeded[name] = true
+					}
+				}
+			}
+			rows.Close()
+		}
 		for path, content := range tmpl.Files {
+			if seeded[path] {
+				continue
+			}
 			if err := rt.WriteFile(ctx, projectID, workspaceDir+"/"+path, []byte(content), true); err != nil {
 				s.fail(w, r, err)
 				return
