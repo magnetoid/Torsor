@@ -160,6 +160,33 @@ subdomains of the app domain). For real multi-tenant hardening:
 
 ---
 
+## 6. Wildcard preview domain (infra task; unlocks Vite/HMR previews)
+
+Path-mode previews (`/api/v1/projects/{id}/preview/*`) can only serve apps whose asset URLs
+are relative — anything emitting root-absolute URLs (a Vite dev server's `/src/main.jsx`,
+`/@vite/client`) escapes the path prefix and breaks. Host mode gives every project its own
+origin, where everything (assets, module imports, the HMR WebSocket, first-party auth
+cookie) just works:
+
+1. **DNS**: wildcard record `*.preview.<your-domain>` → this host.
+2. **TLS**: wildcard cert for `*.preview.<your-domain>` via ACME **DNS-01** (the only
+   challenge type that issues wildcards — certbot/Traefik/Caddy with your DNS provider API).
+3. **Reverse proxy**: an nginx/Traefik server block for `*.preview.<your-domain>` proxying
+   to the frontend container's control-plane upstream (same upstream as `/api/`), with
+   WebSocket upgrade headers (`Upgrade`/`Connection`) passed through.
+4. **Env**: set `TORSOR_PREVIEW_DOMAIN=preview.<your-domain>` on the control plane and
+   redeploy. The IDE switches preview iframes to `https://<projectID>.preview.<domain>/`
+   automatically (via `/api/v1/config`).
+
+Auth: first load carries `?access_token` (the IDE adds it); the control plane sets an
+HttpOnly first-party cookie on the preview origin so every sub-request and the HMR
+WebSocket authenticate. Ownership is enforced per request (subdomain = project id, must be
+owned by the caller). Keep this domain separate from any *deployed-app* domain (§5) — the
+preview origin carries an authed cookie; deployed apps must never share a registrable
+domain with it.
+
+---
+
 ## Status
 
 | Item | State |

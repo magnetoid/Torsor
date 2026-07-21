@@ -34,6 +34,7 @@ type Config struct {
 	AgentWorkers          int      // TORSOR_AGENT_WORKERS: background agent worker goroutines (0 => disabled)
 	OllamaHost            string   // OLLAMA_HOST: base URL of the local Ollama server for the model catalog
 	CollabURL             string   // TORSOR_COLLAB_URL: ws:// base URL of the Yjs co-editing sidecar ("" => disabled)
+	PreviewDomain         string   // TORSOR_PREVIEW_DOMAIN: wildcard host for live previews, e.g. "preview.torsor.dev" — requests to <projectID>.<domain> are served as root-path previews ("" => path-based preview only)
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -74,6 +75,7 @@ func Load() Config {
 		AgentWorkers:          envInt("TORSOR_AGENT_WORKERS", 2),
 		OllamaHost:            envStr("OLLAMA_HOST", "http://127.0.0.1:11434"),
 		CollabURL:             os.Getenv("TORSOR_COLLAB_URL"),
+		PreviewDomain:         strings.TrimPrefix(strings.TrimSpace(os.Getenv("TORSOR_PREVIEW_DOMAIN")), "*."),
 	}
 }
 

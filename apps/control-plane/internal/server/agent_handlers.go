@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +32,9 @@ func previewPort() string {
 // checkAppProbe builds the agent's check_app tool: an HTTP GET against the workspace's
 // preview target (the exact address the live preview proxies to), so the agent can verify
 // "the app actually responds" after its edits. Probe failures return as observation text
-// (nil error) so the agent reacts and fixes instead of aborting the run.
+// (nil error) so the agent reacts and fixes instead of aborting the run — and on failure
+// the observation includes which ports ARE listening inside the workspace, so the classic
+// "server bound to the wrong port" mistake is self-diagnosable in one step.
 func checkAppProbe(rt plugin.WorkspaceRuntime, projectID string) func(ctx context.Context) (string, error) {
 	return func(ctx context.Context) (string, error) {
 		st, err := rt.StatusWorkspace(ctx, projectID)
@@ -48,12 +52,68 @@ func checkAppProbe(rt plugin.WorkspaceRuntime, projectID string) func(ctx contex
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			return "app did not respond: " + err.Error(), nil
+			return "app did not respond: " + err.Error() + portHint(ctx, rt, projectID), nil
 		}
 		defer resp.Body.Close()
 		head, _ := io.ReadAll(io.LimitReader(resp.Body, 600))
 		return fmt.Sprintf("status=%d\n%s", resp.StatusCode, string(head)), nil
 	}
+}
+
+// portHint reports which TCP ports are LISTENING inside the workspace by reading
+// /proc/net/tcp{,6} (present in every Linux container; no ss/netstat needed) and parsing
+// the hex socket table here. Empty string when nothing is listening or the exec fails —
+// the hint is best-effort color on a probe failure, never a failure itself.
+func portHint(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string) string {
+	var out strings.Builder
+	err := rt.Exec(ctx, plugin.ExecSpec{
+		WorkspaceID: projectID,
+		Command:     []string{"sh", "-c", "cat /proc/net/tcp /proc/net/tcp6 2>/dev/null"},
+	}, func(c plugin.ExecChunk) error {
+		out.WriteString(c.Stdout)
+		return nil
+	})
+	if err != nil {
+		return ""
+	}
+	ports := listeningPorts(out.String())
+	if len(ports) == 0 {
+		return "\nNo TCP port is listening inside the workspace at all — the server is not running (or exited). Start it in the background and re-check."
+	}
+	return fmt.Sprintf("\nPorts currently LISTENING inside the workspace: %s. The preview only watches port %s on 0.0.0.0 — restart your server on that port (e.g. --host 0.0.0.0 --port %s).",
+		strings.Join(ports, ", "), previewPort(), previewPort())
+}
+
+// listeningPorts parses /proc/net/tcp(6) content and returns the distinct local ports in
+// LISTEN state (st == 0A), sorted ascending as strings.
+func listeningPorts(procNetTCP string) []string {
+	seen := map[int]bool{}
+	for _, line := range strings.Split(procNetTCP, "\n") {
+		f := strings.Fields(line)
+		// sl local_address rem_address st ... — LISTEN is state 0A.
+		if len(f) < 4 || f[3] != "0A" {
+			continue
+		}
+		i := strings.LastIndex(f[1], ":")
+		if i < 0 {
+			continue
+		}
+		var port int
+		if _, err := fmt.Sscanf(f[1][i+1:], "%X", &port); err != nil || port <= 0 {
+			continue
+		}
+		seen[port] = true
+	}
+	ports := make([]int, 0, len(seen))
+	for p := range seen {
+		ports = append(ports, p)
+	}
+	sort.Ints(ports)
+	out := make([]string, len(ports))
+	for i, p := range ports {
+		out[i] = strconv.Itoa(p)
+	}
+	return out
 }
 
 // agentBody is the request for an agent run: a task plus an optional provider override.

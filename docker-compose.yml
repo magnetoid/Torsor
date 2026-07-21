@@ -116,6 +116,21 @@ services:
       TORSOR_WS_DEFAULT_IMAGE: ${TORSOR_WS_DEFAULT_IMAGE:-node:20-alpine}
       TORSOR_WS_APP_PORT: ${TORSOR_WS_APP_PORT:-3000}
       TORSOR_WS_MEMORY: ${TORSOR_WS_MEMORY:-1g}
+      # Dedicated bridge network for workspace containers (auto-created by the
+      # docker-runtime plugin). Gives workspaces their own subnet so the host firewall
+      # can block metadata/RFC1918 egress for exactly that subnet — apply
+      # scripts/harden-workspace-egress.sh on the host after first boot
+      # (see docs/PRODUCTION-HARDENING.md §4).
+      TORSOR_WS_NETWORK: ${TORSOR_WS_NETWORK:-torsor-ws}
+      # OCI runtime for workspaces; set to "runsc" after installing gVisor on the host
+      # for userspace-kernel isolation of agent-generated code.
+      TORSOR_WS_DOCKER_RUNTIME: ${TORSOR_WS_DOCKER_RUNTIME:-}
+      # Host-mode previews: set to a wildcard-routed domain (e.g. preview.torsor.dev with
+      # *.preview.torsor.dev DNS + TLS pointing at this stack) and each project's live
+      # preview is served at <projectID>.<domain> on its own origin — required for apps
+      # with root-absolute asset URLs (Vite dev) and for working HMR. Empty = path-mode
+      # preview only (single-file/relative-URL apps).
+      TORSOR_PREVIEW_DOMAIN: ${TORSOR_PREVIEW_DOMAIN:-}
       # The host interface the workspace port is published on. This container proxies the
       # preview/deploy to it, so it must be reachable FROM this container. When the control
       # plane runs in a container (this compose), 127.0.0.1 is the container's own loopback

@@ -23,6 +23,7 @@ import { useThemeStore } from './lib/theme';
 import { Toaster } from 'sonner';
 import { useEffect } from 'react';
 import { useAuthStore } from './stores/authStore';
+import { loadRuntimeConfig } from './lib/api';
 import { useWorkspaceStore } from './stores/workspaceStore';
 import { useNotificationStore } from './stores/notificationStore';
 
@@ -32,6 +33,7 @@ export default function App() {
 
   useEffect(() => {
     void initialize();
+    void loadRuntimeConfig(); // enables host-mode previews when the server exposes a preview domain
   }, [initialize]);
 
   // Load workspaces + notifications when auth is ready
