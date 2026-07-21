@@ -186,6 +186,11 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/me/agent-prefs", s.handleGetAgentPrefs)
 			r.Patch("/me/agent-prefs", s.handleUpdateAgentPrefs)
 
+			// Platform identity / changelog / feedback (any authed user).
+			r.Get("/about", s.handleAbout)
+			r.Get("/updates", s.handleListUpdates)
+			r.Post("/feedback", s.handleCreateFeedback)
+
 			// Admin / super-admin platform dashboard (role-gated on the effective role:
 			// DB role + SUPER_ADMIN_EMAILS promotion, same as apps/api).
 			r.Group(func(r chi.Router) {
@@ -205,6 +210,13 @@ func (s *Server) Handler() http.Handler {
 				r.Get("/admin/platform", s.handleAdminPlatform)
 				r.Get("/admin/settings", s.handleGetPlatformSettings)
 				r.Patch("/admin/settings", s.handleUpdatePlatformSettings)
+				// Central update system: broadcast announcements, publish changelog
+				// entries, and triage user feedback.
+				r.Post("/admin/notifications/broadcast", s.handleAdminBroadcast)
+				r.Post("/admin/updates", s.handlePublishUpdate)
+				r.Delete("/admin/updates/{updateID}", s.handleDeleteUpdate)
+				r.Get("/admin/feedback", s.handleAdminListFeedback)
+				r.Patch("/admin/feedback/{feedbackID}", s.handleAdminUpdateFeedback)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:

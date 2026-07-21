@@ -58,6 +58,24 @@ export interface PlatformSettings {
   announcement: string;
 }
 
+export interface AdminPlatformUpdate {
+  id: string;
+  version: string;
+  title: string;
+  body: string;
+  publishedAt: string;
+}
+
+export interface AdminFeedback {
+  id: string;
+  userEmail: string;
+  category: string;
+  message: string;
+  page: string;
+  status: 'new' | 'reviewed';
+  createdAt: string;
+}
+
 interface AdminState {
   stats: AdminStats | null;
   users: AdminUser[];
@@ -75,6 +93,16 @@ interface AdminState {
   fetchPlatform: () => Promise<void>;
   fetchSettings: () => Promise<void>;
   saveSettings: (updates: Partial<PlatformSettings>) => Promise<void>;
+
+  // Central update system (super admin): broadcasts, changelog, feedback triage.
+  updates: AdminPlatformUpdate[];
+  feedback: AdminFeedback[];
+  broadcast: (title: string, message: string, link?: string) => Promise<number>;
+  fetchUpdates: () => Promise<void>;
+  publishUpdate: (u: { version: string; title: string; body: string; broadcast: boolean }) => Promise<void>;
+  deleteUpdate: (id: string) => Promise<void>;
+  fetchFeedback: () => Promise<void>;
+  setFeedbackStatus: (id: string, status: 'new' | 'reviewed') => Promise<void>;
 }
 
 export const useAdminStore = create<AdminState>()((set, get) => ({
@@ -148,5 +176,44 @@ export const useAdminStore = create<AdminState>()((set, get) => ({
     const next = { ...get().settings, ...updates };
     set({ settings: next });
     await apiRequest('/api/v1/admin/settings', { method: 'PATCH', auth: true, body: JSON.stringify(next) });
+  },
+
+  updates: [],
+  feedback: [],
+  broadcast: async (title, message, link) => {
+    const res = await apiRequest<{ notified: number }>('/api/v1/admin/notifications/broadcast', {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify({ title, message, link: link ?? '' }),
+    });
+    return res.notified;
+  },
+  fetchUpdates: async () => {
+    try {
+      const res = await apiRequest<{ items: AdminPlatformUpdate[] }>('/api/v1/updates', { auth: true });
+      set({ updates: res.items });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load updates' });
+    }
+  },
+  publishUpdate: async (u) => {
+    await apiRequest('/api/v1/admin/updates', { method: 'POST', auth: true, body: JSON.stringify(u) });
+    await get().fetchUpdates();
+  },
+  deleteUpdate: async (id) => {
+    await apiRequest(`/api/v1/admin/updates/${id}`, { method: 'DELETE', auth: true });
+    set({ updates: get().updates.filter((u) => u.id !== id) });
+  },
+  fetchFeedback: async () => {
+    try {
+      const res = await apiRequest<{ items: AdminFeedback[] }>('/api/v1/admin/feedback', { auth: true });
+      set({ feedback: res.items });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load feedback' });
+    }
+  },
+  setFeedbackStatus: async (id, status) => {
+    await apiRequest(`/api/v1/admin/feedback/${id}`, { method: 'PATCH', auth: true, body: JSON.stringify({ status }) });
+    set({ feedback: get().feedback.map((f) => (f.id === id ? { ...f, status } : f)) });
   },
 }));

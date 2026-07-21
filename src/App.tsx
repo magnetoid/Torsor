@@ -13,6 +13,9 @@ import { BillingPage } from './pages/BillingPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { ProjectListPage } from './pages/ProjectListPage';
 import { HelpPage } from './pages/HelpPage';
+import { AboutPage } from './pages/AboutPage';
+import { UpdatesPage } from './pages/UpdatesPage';
+import { FeedbackPage } from './pages/FeedbackPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ProtectedRoute, PublicRoute, AdminRoute } from './components/auth/ProtectedRoute';
@@ -184,6 +187,36 @@ export default function App() {
               <ErrorBoundary name="Help & Support">
                 <ProtectedRoute>
                   <HelpPage />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <ErrorBoundary name="About">
+                <ProtectedRoute>
+                  <AboutPage />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/updates"
+            element={
+              <ErrorBoundary name="What's New">
+                <ProtectedRoute>
+                  <UpdatesPage />
+                </ProtectedRoute>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="/feedback"
+            element={
+              <ErrorBoundary name="Send Feedback">
+                <ProtectedRoute>
+                  <FeedbackPage />
                 </ProtectedRoute>
               </ErrorBoundary>
             }
