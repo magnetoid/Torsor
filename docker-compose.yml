@@ -136,12 +136,14 @@ services:
       # preview only (single-file/relative-URL apps).
       TORSOR_PREVIEW_DOMAIN: ${TORSOR_PREVIEW_DOMAIN:-}
       # The host interface the workspace port is published on. This container proxies the
-      # preview/deploy to it, so it must be reachable FROM this container. When the control
-      # plane runs in a container (this compose), 127.0.0.1 is the container's own loopback
-      # and cannot reach the host — set this to the docker bridge gateway (what
-      # host.docker.internal resolves to; e.g. 10.0.0.1 or 172.17.0.1). Kept off the public
-      # internet. Leave 127.0.0.1 only if the control plane runs directly on the host.
-      TORSOR_WS_PUBLISH_HOST: ${TORSOR_WS_PUBLISH_HOST:-127.0.0.1}
+      # preview/deploy to it, so it must be reachable FROM this container. Default EMPTY on
+      # purpose: the runtime then auto-resolves host.docker.internal (the docker gateway —
+      # exactly the address a containerized control-plane reaches the host at) and falls
+      # back to 127.0.0.1 only when that doesn't resolve (control plane directly on the
+      # host). A hardcoded 127.0.0.1 default here previously forced loopback bindings the
+      # containerized control-plane could not reach — breaking previews silently. Override
+      # only to pin a specific interface; never expose to the public internet.
+      TORSOR_WS_PUBLISH_HOST: ${TORSOR_WS_PUBLISH_HOST:-}
     expose:
       - "3001"
     volumes:

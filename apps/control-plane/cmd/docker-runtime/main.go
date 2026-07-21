@@ -278,7 +278,16 @@ func (r runtime) previewTarget(ctx context.Context, id string) (string, int32) {
 	if err != nil {
 		return "", 0
 	}
-	return "127.0.0.1", int32(p)
+	// Connect to the SAME host interface the port was published on. The old hardcoded
+	// "127.0.0.1" silently broke every preview/check_app/verify_app whenever the
+	// control-plane runs in a container (its loopback is not the host's): the port is
+	// bound on lim.publishHost (the docker bridge gateway in the containerized deploy),
+	// so that is the address the status must report.
+	host := r.lim.publishHost
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	return host, int32(p)
 }
 
 type runtime struct {
