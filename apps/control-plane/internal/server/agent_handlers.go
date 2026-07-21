@@ -17,6 +17,7 @@ import (
 
 	"github.com/magnetoid/torsor/control-plane/internal/agent"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
+	"github.com/magnetoid/torsor/control-plane/internal/textsafe"
 )
 
 // previewPort is the container port the live preview watches (TORSOR_WS_APP_PORT),
@@ -116,6 +117,52 @@ func listeningPorts(procNetTCP string) []string {
 	return out
 }
 
+// loadRulesDoc reads the project's AGENTS.md (the ecosystem-standard rules file every
+// major agent honors) from the workspace root, sanitized against hidden-Unicode injection
+// before it can reach a system prompt. Best-effort: absent file or read error = "".
+func (s *Server) loadRulesDoc(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string) string {
+	content, err := rt.ReadFile(ctx, projectID, "AGENTS.md")
+	if err != nil || len(content) == 0 {
+		return ""
+	}
+	clean, removed := textsafe.Sanitize(string(content))
+	if removed > 0 {
+		s.logger.Warn("AGENTS.md contained hidden unicode; stripped before prompt injection",
+			"project", projectID, "removed_runes", removed)
+	}
+	return clean
+}
+
+// Model routing (TORSOR_MODEL_ROUTING): per-role provider selection so cheap/fast models
+// handle the tool loop while a stronger model plans and reflects — the dual-model pattern
+// (e.g. "plan=anthropic,step=ollama,reflect=ollama"). An explicit user-picked provider
+// always wins; unrouted roles fall back to the normal default resolution.
+func routedProviderName(role string) string {
+	for _, pair := range strings.Split(os.Getenv("TORSOR_MODEL_ROUTING"), ",") {
+		k, v, ok := strings.Cut(strings.TrimSpace(pair), "=")
+		if ok && strings.TrimSpace(k) == role {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+// pickModelProviderFor resolves a provider for a routing role: explicit name > routed
+// role > default resolution (sole provider / TORSOR_DEFAULT_MODEL).
+func (s *Server) pickModelProviderFor(role, explicit string) (plugin.ModelProvider, string, bool) {
+	if explicit != "" {
+		return s.pickModelProvider(explicit)
+	}
+	if routed := routedProviderName(role); routed != "" {
+		if p, name, ok := s.pickModelProvider(routed); ok {
+			return p, name, ok
+		}
+		// A routed-but-unloaded provider falls back to the default rather than failing
+		// the run — routing is an optimization, not a gate.
+	}
+	return s.pickModelProvider("")
+}
+
 // agentBody is the request for an agent run: a task plus an optional provider override.
 type agentBody struct {
 	Task     string `json:"task"`
@@ -210,8 +257,8 @@ func (s *Server) loadOrCreateWorkspaceCtx(ctx context.Context, projectID, uid st
 // name. Extracted so handleAgentRunSSE and mission planning share one path. It does NOT check
 // ownership — callers MUST have verified that userID(r) owns projectID first (e.g. via
 // requireOwnedProject). A missing provider/runtime surfaces as runtimeUnavailableError (503).
-func (s *Server) resolveAgentRun(ctx context.Context, r *http.Request, projectID, providerName string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
-	return s.resolveAgentRunCtx(ctx, projectID, userID(r), providerName)
+func (s *Server) resolveAgentRun(ctx context.Context, r *http.Request, projectID, providerName, role string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
+	return s.resolveAgentRunCtx(ctx, projectID, userID(r), providerName, role)
 }
 
 // resolveAgentRunCtx is the request-independent core of resolveAgentRun: given a project the
@@ -220,8 +267,8 @@ func (s *Server) resolveAgentRun(ctx context.Context, r *http.Request, projectID
 // provider name. The background mission runner uses this variant because it has no
 // *http.Request; resolveAgentRun wraps it for the request path. Like resolveAgentRun it does
 // NOT check ownership — callers must have verified that uid owns projectID first.
-func (s *Server) resolveAgentRunCtx(ctx context.Context, projectID, uid, providerName string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
-	provider, resolvedName, ok := s.pickModelProvider(providerName)
+func (s *Server) resolveAgentRunCtx(ctx context.Context, projectID, uid, providerName, role string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
+	provider, resolvedName, ok := s.pickModelProviderFor(role, providerName)
 	if !ok {
 		return nil, nil, workspace{}, "", "", runtimeUnavailableError{"No model provider available (specify 'provider')"}
 	}
@@ -256,7 +303,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	provider, rt, ws, apiKey, providerName, err := s.resolveAgentRun(r.Context(), r, projectID, body.Provider)
+	provider, rt, ws, apiKey, providerName, err := s.resolveAgentRun(r.Context(), r, projectID, body.Provider, "step")
 	if err != nil {
 		var rue runtimeUnavailableError
 		if errors.As(err, &rue) {
@@ -330,6 +377,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 		Skills:        s.loadEnabledSkills(r.Context(), ws.ProjectID),
 		Secrets:       &userSecretVault{s: s, uid: userID(r)},
 		GuardCommands: true,
+		RulesDoc:      s.loadRulesDoc(r.Context(), rt, ws.ProjectID),
 	})
 	result, err := runner.Run(r.Context(), body.Task, send)
 	// Record whatever usage accrued, even on a mid-run error (partial steps still cost).

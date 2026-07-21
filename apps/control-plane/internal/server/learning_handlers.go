@@ -226,6 +226,14 @@ func (s *Server) reflectAsync(projectID, uid string, model agent.Model, apiKey, 
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
+		// Routing role "reflect": when TORSOR_MODEL_ROUTING names a provider for
+		// reflection, use it (with the user's key for THAT provider) instead of the
+		// run's provider — reflection is summarization, a cheap-model job.
+		if routed := routedProviderName("reflect"); routed != "" {
+			if p, name, ok := s.pickModelProvider(routed); ok {
+				model, apiKey = p, s.providerAPIKey(ctx, uid, name)
+			}
+		}
 		p, err := agent.Reflect(ctx, model, agent.ReflectInput{
 			Task: task, ActionLog: actionLog, Final: final, APIKey: apiKey,
 		})

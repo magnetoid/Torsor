@@ -117,6 +117,15 @@ type Config struct {
 	// observation so the agent adapts instead of aborting. Wired on by the server for all
 	// runs; the user can always run such commands themselves in the terminal.
 	GuardCommands bool
+	// RulesDoc is the project's AGENTS.md content (the ecosystem-standard agent rules
+	// file), injected into the system prompt so repo conventions steer the run. The server
+	// loads + sanitizes it from the workspace root; empty = none present.
+	RulesDoc string
+	// MaxTranscriptChars bounds the growing transcript fed back each turn. When exceeded,
+	// older tool exchanges are compacted into a one-line-per-action digest while the task,
+	// approved plan, and the most recent exchanges stay verbatim — long-horizon runs keep
+	// working instead of drowning in their own history ("context rot"). 0 = default.
+	MaxTranscriptChars int
 }
 
 // SecretVault gives the agent placeholder-based access to the user's stored secrets. It
@@ -174,6 +183,9 @@ func (c *Config) withDefaults() {
 	}
 	if c.MaxObservLen <= 0 {
 		c.MaxObservLen = 4000
+	}
+	if c.MaxTranscriptChars <= 0 {
+		c.MaxTranscriptChars = 30000
 	}
 }
 
@@ -321,17 +333,21 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	}
 	var result RunResult
 
-	// The transcript accumulates the task and each observation as plain text, ending with
-	// a marker that asks for the next JSON step. Kept as text so it works with any model.
-	var transcript strings.Builder
-	fmt.Fprintf(&transcript, "Task: %s\n", task)
+	// The transcript = a pinned header (task + approved plan, never compacted) plus one
+	// exchange per turn. When the rendered size exceeds MaxTranscriptChars, older
+	// exchanges collapse to their one-line digests while recent ones stay verbatim — the
+	// deterministic compaction that keeps long-horizon runs from drowning in their own
+	// history. Kept as text so it works with any model.
+	var header strings.Builder
+	fmt.Fprintf(&header, "Task: %s\n", task)
 	// Executing a user-approved plan: pin the agreed steps so the loop follows them.
 	if len(r.cfg.Plan) > 0 {
-		transcript.WriteString("\nApproved plan — follow these steps in order:\n")
+		header.WriteString("\nApproved plan — follow these steps in order:\n")
 		for i, s := range r.cfg.Plan {
-			fmt.Fprintf(&transcript, "%d. %s\n", i+1, s)
+			fmt.Fprintf(&header, "%d. %s\n", i+1, s)
 		}
 	}
+	var log transcriptLog
 	// Planning phase: propose a plan and pause for approval (no actions taken yet).
 	planning := r.cfg.Mode == "plan" && len(r.cfg.Plan) == 0
 	// Stored secret values for observation scrubbing (loaded once below when a vault is
@@ -379,6 +395,13 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 	if len(r.cfg.Skills) > 0 {
 		system += skillsPrompt(r.cfg.Skills)
 	}
+	// AGENTS.md (the ecosystem-standard rules file) also shapes both modes.
+	if doc := strings.TrimSpace(r.cfg.RulesDoc); doc != "" {
+		if len(doc) > 6000 {
+			doc = doc[:6000] + "\n…(AGENTS.md truncated)"
+		}
+		system += "\n\nProject AGENTS.md — repository rules you MUST follow:\n" + doc
+	}
 
 	for i := 1; i <= r.cfg.MaxSteps; i++ {
 		result.Steps = i
@@ -386,7 +409,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 			return result, err
 		}
 
-		prompt := transcript.String() + "\nRespond with your next JSON step."
+		prompt := header.String() + log.render(r.cfg.MaxTranscriptChars) + "\nRespond with your next JSON step."
 		res, err := r.model.Complete(ctx, plugin.CompleteRequest{
 			Prompt:    prompt,
 			System:    system,
@@ -408,7 +431,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 			// Nudge the model back to protocol instead of aborting: feed the parse error
 			// as an observation. This recovers from an occasional malformed turn.
 			emit(Event{Kind: EventThought, Step: i, Text: "(unparseable model output; re-prompting)"})
-			fmt.Fprintf(&transcript, "\nSystem: your last output was not a single valid JSON step (%s). Respond with ONE JSON object only.\n", perr)
+			log.addNote(fmt.Sprintf("System: your last output was not a single valid JSON step (%s). Respond with ONE JSON object only.", perr))
 			continue
 		}
 
@@ -417,7 +440,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		if planning {
 			if len(st.Plan) == 0 {
 				emit(Event{Kind: EventThought, Step: i, Text: "(no plan proposed; re-prompting)"})
-				transcript.WriteString("\nSystem: respond with a JSON object containing a non-empty \"plan\" array.\n")
+				log.addNote(`System: respond with a JSON object containing a non-empty "plan" array.`)
 				continue
 			}
 			if st.Thought != "" {
@@ -452,7 +475,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 		obs = scrubSecrets(obs, secretVals)
 		trimmed := truncate(obs, r.cfg.MaxObservLen)
 		emit(Event{Kind: EventToolResult, Step: i, Tool: st.Action.Tool, Result: trimmed})
-		fmt.Fprintf(&transcript, "\nAction: %s %v\nObservation: %s\n", st.Action.Tool, st.Action.Args, trimmed)
+		log.addExchange(*st.Action, trimmed)
 	}
 
 	msg := fmt.Sprintf("Stopped after the %d-step budget was reached without finishing.", r.cfg.MaxSteps)

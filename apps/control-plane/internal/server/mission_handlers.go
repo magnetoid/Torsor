@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/magnetoid/torsor/control-plane/internal/agent"
 	"github.com/magnetoid/torsor/control-plane/internal/orchestrator"
+	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
 
 // Coding agent engine — missions decompose a goal into ordered sub-tasks the engine runs
@@ -251,7 +253,8 @@ func jsonMarshal(v any) []byte {
 // objectives. Mirrors the Runner construction in handleAgentRunSSE (agent_handlers.go) via the
 // shared resolveAgentRun resolution, but with Mode:"plan".
 func (s *Server) planMissionGoal(ctx context.Context, r *http.Request, projectID, goal string) ([]string, error) {
-	provider, rt, ws, apiKey, _, err := s.resolveAgentRun(ctx, r, projectID, "")
+	// Routing role "plan": the dual-model pattern sends planning to the strong model.
+	provider, rt, ws, apiKey, _, err := s.resolveAgentRun(ctx, r, projectID, "", "plan")
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +264,7 @@ func (s *Server) planMissionGoal(ctx context.Context, r *http.Request, projectID
 		APIKey:      apiKey,
 		Memory:      &projectMemoryStore{s: s, projectID: ws.ProjectID, userID: userID(r)},
 		Skills:      s.loadEnabledSkills(ctx, ws.ProjectID),
+		RulesDoc:    s.loadRulesDoc(ctx, rt, ws.ProjectID),
 	})
 	res, err := runner.Run(ctx, goal, nil)
 	if err != nil {
@@ -271,15 +275,23 @@ func (s *Server) planMissionGoal(ctx context.Context, r *http.Request, projectID
 
 // dbMissionStore adapts the missions tables to orchestrator.Store for one mission, so the
 // DB-agnostic orchestrator can persist progress (making a mission resumable and observable).
+// When writeSpec is set, every status change also rewrites the mission's spec file inside
+// the workspace — the externalized, inspectable state (spec-driven pattern): progress lives
+// in files + git, not in a context window, so any fresh agent run (or the user) can read
+// exactly where the mission stands.
 type dbMissionStore struct {
 	s         *Server
 	missionID string
+	writeSpec func(ctx context.Context) // best-effort spec-file refresh; nil = disabled
 }
 
 func (d *dbMissionStore) SetTaskStatus(ctx context.Context, taskID, status string, attempts int, result string) error {
 	_, err := d.s.pool.Exec(ctx,
 		`UPDATE agent_mission_tasks SET status=$2, attempts=$3, result=$4, updated_at=NOW() WHERE id=$1`,
 		taskID, status, attempts, result)
+	if d.writeSpec != nil {
+		d.writeSpec(ctx)
+	}
 	return err
 }
 
@@ -287,7 +299,51 @@ func (d *dbMissionStore) SetMissionStatus(ctx context.Context, status, summary s
 	_, err := d.s.pool.Exec(ctx,
 		`UPDATE agent_missions SET status=$2, summary=$3, updated_at=NOW() WHERE id=$1`,
 		d.missionID, status, summary)
+	if d.writeSpec != nil {
+		d.writeSpec(ctx)
+	}
 	return err
+}
+
+// missionSpecPath is where a mission's externalized state lives in the workspace.
+func missionSpecPath(missionID string) string { return ".torsor/specs/" + missionID + "/plan.md" }
+
+// renderMissionSpec produces the spec file: goal, status, and a checkbox per task.
+func renderMissionSpec(m mission, tasks []missionTask) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Mission: %s\n\nStatus: %s\nMission ID: %s\nUpdated: %s\n\n## Tasks\n",
+		m.Goal, m.Status, m.ID, time.Now().UTC().Format(time.RFC3339))
+	for _, t := range tasks {
+		mark := " "
+		switch t.Status {
+		case "done":
+			mark = "x"
+		case "failed":
+			mark = "!"
+		case "running":
+			mark = ">"
+		}
+		fmt.Fprintf(&b, "- [%s] %d. %s\n", mark, t.Ordinal+1, t.Objective)
+		if t.Result != "" {
+			fmt.Fprintf(&b, "      result: %s\n", firstLine(t.Result, 200))
+		}
+	}
+	b.WriteString("\nThis file is maintained by the Torsor agent engine. It is the mission's source of truth — a fresh agent run can resume from it.\n")
+	return b.String()
+}
+
+// missionSpecWriter builds the best-effort spec refresher for runMission. Every write
+// re-reads the DB rows so the file always reflects persisted truth.
+func (s *Server) missionSpecWriter(rt plugin.WorkspaceRuntime, projectID, missionID string) func(ctx context.Context) {
+	return func(ctx context.Context) {
+		m, tasks, err := s.loadMission(ctx, projectID, missionID)
+		if err != nil {
+			return
+		}
+		if err := rt.WriteFile(ctx, projectID, missionSpecPath(missionID), []byte(renderMissionSpec(m, tasks)), true); err != nil {
+			s.logger.Warn("mission: spec write failed", "err", err, "mission", missionID)
+		}
+	}
 }
 
 // handleApproveMission approves an awaiting-approval mission (optionally with an edited plan)
@@ -387,10 +443,18 @@ func (s *Server) runMission(projectID, missionID, uid string, maxRetries int) {
 		}
 	}
 
+	// Externalized mission state: write the spec file up front and refresh it on every
+	// status change, and point each sub-task's agent at it for broader context.
+	store := &dbMissionStore{s: s, missionID: missionID}
+	if _, rt, err := s.loadOrCreateWorkspaceCtx(ctx, projectID, uid); err == nil {
+		store.writeSpec = s.missionSpecWriter(rt, projectID, missionID)
+		store.writeSpec(ctx)
+	}
+
 	o := &orchestrator.Orchestrator{
-		Store: &dbMissionStore{s: s, missionID: missionID},
+		Store: store,
 		Cfg:   orchestrator.Config{MaxRetries: maxRetries},
-		Run:   s.subAgentRunner(projectID, uid),
+		Run:   s.subAgentRunner(projectID, uid, missionID),
 	}
 	status, summary := o.Execute(ctx, subs)
 	if status == "completed" {
@@ -405,9 +469,10 @@ func (s *Server) runMission(projectID, missionID, uid string, maxRetries int) {
 
 // subAgentRunner returns a RunSubTask that runs one sub-task as a direct-mode agent run in the
 // project workspace and reports Ok when the run finished without erroring (returned a final).
-func (s *Server) subAgentRunner(projectID, uid string) orchestrator.RunSubTask {
+// missionID (optional) points the sub-task at the mission's spec file for broader context.
+func (s *Server) subAgentRunner(projectID, uid, missionID string) orchestrator.RunSubTask {
 	return func(ctx context.Context, t orchestrator.SubTask) orchestrator.SubTaskResult {
-		provider, rt, ws, apiKey, _, err := s.resolveAgentRunCtx(ctx, projectID, uid, "")
+		provider, rt, ws, apiKey, _, err := s.resolveAgentRunCtx(ctx, projectID, uid, "", "step")
 		if err != nil {
 			return orchestrator.SubTaskResult{Ok: false, Summary: err.Error()}
 		}
@@ -423,8 +488,14 @@ func (s *Server) subAgentRunner(projectID, uid string) orchestrator.RunSubTask {
 			Skills:        s.loadEnabledSkills(ctx, ws.ProjectID),
 			Secrets:       &userSecretVault{s: s, uid: uid},
 			GuardCommands: true,
+			RulesDoc:      s.loadRulesDoc(ctx, rt, ws.ProjectID),
 		})
-		res, err := runner.Run(ctx, t.Objective, nil)
+		objective := t.Objective
+		if missionID != "" {
+			objective += "\n\n(This is one task of a larger mission. The mission's goal, task checklist, and progress live in " +
+				missionSpecPath(missionID) + " — read it if you need broader context. Do not edit it; the engine maintains it.)"
+		}
+		res, err := runner.Run(ctx, objective, nil)
 		if err != nil {
 			return orchestrator.SubTaskResult{Ok: false, Summary: err.Error()}
 		}
