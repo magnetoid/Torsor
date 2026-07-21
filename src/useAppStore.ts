@@ -347,13 +347,12 @@ export const useAppStore = create<AppState>()(
         const patch = (id: string, changes: Partial<BootStep>) =>
           set((s) => ({ bootSteps: s.bootSteps.map((st) => (st.id === id ? { ...st, ...changes } : st)) }));
 
-        // If the project was created from a template, one prepare call provisions with the
-        // template image, scaffolds starter files, and launches setup + dev — so the preview
-        // boots automatically. Otherwise fall back to the plain provision + start.
-        const template = useProjectStore.getState().projects.find((p) => p.id === projectId)?.template;
-
+        // One prepare call provisions, scaffolds (template) or stack-detects (zero-config),
+        // and launches setup + dev — so the preview boots automatically for templated AND
+        // template-less projects. Only when the server can't detect how to run the project
+        // (400) fall back to the plain provision + start (bare container, no dev server).
         try {
-          if (template) {
+          try {
             await apiRequest(`/api/v1/projects/${projectId}/workspace/prepare`, {
               method: 'POST',
               auth: true,
@@ -361,8 +360,8 @@ export const useAppStore = create<AppState>()(
             });
             advance('provision', 'start');
             advance('start', 'wait');
-          } else {
-            // 1. Provision (idempotent: ON CONFLICT (project_id) DO UPDATE on the server).
+          } catch {
+            // Undetectable project: 1. Provision (idempotent on the server) …
             await apiRequest(`/api/v1/projects/${projectId}/workspace`, {
               method: 'POST',
               auth: true,
@@ -370,7 +369,7 @@ export const useAppStore = create<AppState>()(
             });
             advance('provision', 'start');
 
-            // 2. Start the workspace (starts the container/dev process).
+            // … 2. Start the workspace (container only; the user/agent starts the app).
             await apiRequest(`/api/v1/projects/${projectId}/workspace/start`, { method: 'POST', auth: true });
             advance('start', 'wait');
           }

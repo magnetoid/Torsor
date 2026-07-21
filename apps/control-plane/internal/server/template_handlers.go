@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
+	"github.com/magnetoid/torsor/control-plane/internal/appdetect"
 	"github.com/magnetoid/torsor/control-plane/internal/plugin"
 )
 
@@ -29,14 +31,26 @@ func (s *Server) handlePrepareWorkspace(w http.ResponseWriter, r *http.Request) 
 		s.fail(w, r, err)
 		return
 	}
-	if templateID == nil || *templateID == "" {
-		writeError(w, http.StatusBadRequest, "This project has no template to prepare")
-		return
-	}
-	tmpl, ok := templateByID(*templateID)
-	if !ok {
-		writeError(w, http.StatusBadRequest, "Unknown template: "+*templateID)
-		return
+	var tmpl Template
+	if templateID != nil && *templateID != "" {
+		t, ok := templateByID(*templateID)
+		if !ok {
+			writeError(w, http.StatusBadRequest, "Unknown template: "+*templateID)
+			return
+		}
+		tmpl = t
+	} else {
+		// Zero-config path: no template — detect the stack from the project's own files
+		// (package.json, requirements.txt, go.mod, index.html, …) and synthesize the same
+		// Image/Setup/Dev contract, so imported or hand-rolled projects boot to a live
+		// preview exactly like templated ones.
+		detected, ok := s.detectProjectPlan(r.Context(), projectID)
+		if !ok {
+			writeError(w, http.StatusBadRequest,
+				"Couldn't detect how to run this project. Add a package.json (with a dev/start script), requirements.txt, go.mod, or index.html — or ask the agent to set the project up.")
+			return
+		}
+		tmpl = detected
 	}
 
 	rt, runtimeName, ok := s.pickRuntime("")
@@ -109,4 +123,60 @@ func (s *Server) handlePrepareWorkspace(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "template": tmpl.ID, "status": st.Status})
+}
+
+// detectProjectPlan builds a synthetic Template for a template-less project by running
+// zero-config stack detection (internal/appdetect) over the project's stored files. The
+// project's files are the DB rows (the pre-provision source of truth); the detected plan
+// carries the same lifecycle contract templates use.
+func (s *Server) detectProjectPlan(ctx context.Context, projectID string) (Template, bool) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT filename, content FROM project_files WHERE project_id = $1 AND filename = ANY($2)`,
+		projectID, appdetect.KeyFiles)
+	if err != nil {
+		return Template{}, false
+	}
+	defer rows.Close()
+	files := map[string]string{}
+	for rows.Next() {
+		var name string
+		var content *string
+		if err := rows.Scan(&name, &content); err != nil {
+			return Template{}, false
+		}
+		if content != nil {
+			files[name] = *content
+		}
+	}
+	plan, ok := appdetect.Detect(files, previewPort())
+	if !ok {
+		return Template{}, false
+	}
+	return Template{
+		ID:    "detected:" + plan.Kind,
+		Name:  "Detected: " + plan.Kind,
+		Image: plan.Image,
+		Setup: plan.Setup,
+		Dev:   plan.Dev,
+		Build: plan.Build,
+		Serve: plan.Serve,
+	}, true
+}
+
+// detectWorkspacePlan is the runtime-side variant for deploys: the workspace already holds
+// the real files (possibly agent-written after provisioning), so read the key files from
+// the container instead of the DB.
+func detectWorkspacePlan(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string) (Template, bool) {
+	files := map[string]string{}
+	for _, name := range appdetect.KeyFiles {
+		if content, err := rt.ReadFile(ctx, projectID, workspaceDir+"/"+name); err == nil && len(content) > 0 {
+			files[name] = string(content)
+		}
+	}
+	plan, ok := appdetect.Detect(files, previewPort())
+	if !ok {
+		return Template{}, false
+	}
+	return Template{ID: "detected:" + plan.Kind, Image: plan.Image, Setup: plan.Setup,
+		Dev: plan.Dev, Build: plan.Build, Serve: plan.Serve}, true
 }
