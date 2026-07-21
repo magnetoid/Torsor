@@ -132,7 +132,7 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 		return
 	}
 
-	provider, providerName, ok := s.pickModelProvider("")
+	provider, providerName, ok := s.pickModelProviderFor("step", "")
 	if !ok {
 		s.finishTaskRow(id, "failed", "", "no model provider available", 0, "", 0, 0)
 		s.publishTaskDone(id)
@@ -192,6 +192,7 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 		PreviewPort:   previewPort(),
 		Secrets:       &userSecretVault{s: s, uid: uid},
 		GuardCommands: true,
+		RulesDoc:      s.loadRulesDoc(parent, rt, ws.ProjectID),
 	})
 	result, runErr := runner.Run(taskCtx, prompt, onEvent)
 	s.recordUsage(uid, providerName, result.Model, result.TokensIn, result.TokensOut)

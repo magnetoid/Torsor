@@ -99,6 +99,10 @@ services:
       # Default provider for agent runs when the caller names none — background/delegated
       # runs always take this path. "ollama" keeps the free-local promise (no key required).
       TORSOR_DEFAULT_MODEL: ${TORSOR_DEFAULT_MODEL:-ollama}
+      # Per-role model routing (dual-model pattern): send planning/reflection to one
+      # provider and the tool loop to another, e.g. "plan=anthropic,step=ollama,reflect=ollama".
+      # Explicit user picks always win; unrouted roles use TORSOR_DEFAULT_MODEL.
+      TORSOR_MODEL_ROUTING: ${TORSOR_MODEL_ROUTING:-}
       # Workspace runtimes: mock (in-memory, safe anywhere) + docker (real containers).
       # Default to docker so terminals/preview/agent-exec are REAL. This requires the
       # Docker socket mounted below. SECURITY: mounting the socket gives this container
