@@ -681,10 +681,20 @@ func ensureNetwork(name string) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	if _, err := run(ctx, nil, "network", "inspect", name); err == nil {
-		return // already exists
+	if _, err := run(ctx, nil, "network", "inspect", name); err != nil {
+		_, _ = run(ctx, nil, "network", "create", "--driver", "bridge", name)
 	}
-	_, _ = run(ctx, nil, "network", "create", "--driver", "bridge", name)
+	// Self-connect: when this plugin runs inside the control-plane container, attach that
+	// container to the workspace network so previews/check_app/verify_app reach workspace
+	// containers DIRECTLY by IP (host-published gateway ports are dropped between
+	// user-defined bridges by docker's isolation chains). Inside a container the hostname
+	// is the container id; on a host-run control plane the connect just fails and is
+	// ignored (the published-port fallback covers that deploy shape). Deliberately NOT
+	// done via compose: a fixed-name network declared there collides with this
+	// runtime-created (label-less) network and fails the whole stack deploy.
+	if self, err := os.Hostname(); err == nil && self != "" {
+		_, _ = run(ctx, nil, "network", "connect", name, self)
+	}
 }
 
 func main() {

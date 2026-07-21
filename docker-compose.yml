@@ -160,11 +160,11 @@ services:
         condition: service_healthy
     networks:
       - torsor_network
-      # Also joined to the dedicated workspace network so previews/check_app/verify_app
-      # reach workspace containers DIRECTLY by container IP — no host port publishing, no
-      # DNAT, no docker inter-bridge isolation in the path. The runtime reports each
-      # workspace's IP on this network as the preview target.
-      - torsor-ws
+    # NOTE: the control-plane is ALSO attached to the dedicated workspace network
+    # (torsor-ws) so previews reach workspace containers directly by IP — but the
+    # attachment is done by the docker-runtime plugin at boot (self-connect), NOT here:
+    # a fixed-name network declared in compose collides with the runtime-created
+    # (label-less) one and fails the whole deploy ("found but has incorrect labels").
     healthcheck:
       test: ["CMD", "/app/control-plane", "-health"]
       interval: 15s
@@ -246,10 +246,4 @@ volumes:
 
 networks:
   torsor_network:
-    driver: bridge
-  # The dedicated workspace network (fixed name — the docker-runtime attaches workspace
-  # containers to it by TORSOR_WS_NETWORK, and the host egress firewall targets its
-  # subnet). Compose creates it if absent; the runtime's ensureNetwork is then a no-op.
-  torsor-ws:
-    name: torsor-ws
     driver: bridge
