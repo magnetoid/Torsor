@@ -32,20 +32,33 @@ iptables -S DOCKER-USER | grep -- "--comment $COMMENT" | sed 's/^-A //' | while 
   iptables -D $rule || true
 done
 
-# Return traffic for connections the workspace initiated to allowed destinations.
-iptables -I DOCKER-USER 1 -s "$SUBNET" -m state --state ESTABLISHED,RELATED -j RETURN \
+# The workspace app port (previews/deploys are proxied to it by the control plane).
+APP_PORT="${TORSOR_WS_APP_PORT:-3000}"
+
+# Inbound preview path MUST be ACCEPT (not RETURN): docker's inter-bridge isolation
+# (DOCKER-ISOLATION-STAGE-2) would otherwise DROP the DNAT'd forward from the
+# control-plane's network into this user-defined bridge — host->port works, container->port
+# doesn't. ACCEPT in DOCKER-USER short-circuits the isolation chains for exactly this path.
+iptables -I DOCKER-USER 1 -d "$SUBNET" -p tcp --dport "$APP_PORT" -j ACCEPT \
   -m comment --comment "$COMMENT"
+# Return traffic for connections in either direction (also ACCEPT: replies from the
+# workspace to the control-plane's bridge would hit the same isolation DROP).
+iptables -I DOCKER-USER 2 -s "$SUBNET" -m state --state ESTABLISHED,RELATED -j ACCEPT \
+  -m comment --comment "$COMMENT"
+# The control plane shares this network (direct preview reach) — workspaces must NOT be
+# able to call its API from inside (unauthenticated endpoints exist: /health, signup).
+iptables -I DOCKER-USER 3 -s "$SUBNET" -p tcp --dport 3001 -j REJECT -m comment --comment "$COMMENT"
 # DNS (the embedded docker DNS lives on the bridge; UDP+TCP 53 anywhere is fine).
-iptables -I DOCKER-USER 2 -s "$SUBNET" -p udp --dport 53 -j RETURN -m comment --comment "$COMMENT"
-iptables -I DOCKER-USER 3 -s "$SUBNET" -p tcp --dport 53 -j RETURN -m comment --comment "$COMMENT"
-# Workspaces may talk to each other / their own gateway on the same subnet (preview publishing).
-iptables -I DOCKER-USER 4 -s "$SUBNET" -d "$SUBNET" -j RETURN -m comment --comment "$COMMENT"
+iptables -I DOCKER-USER 4 -s "$SUBNET" -p udp --dport 53 -j RETURN -m comment --comment "$COMMENT"
+iptables -I DOCKER-USER 5 -s "$SUBNET" -p tcp --dport 53 -j RETURN -m comment --comment "$COMMENT"
+# Workspaces may talk to each other's app ports on the same subnet.
+iptables -I DOCKER-USER 6 -s "$SUBNET" -d "$SUBNET" -j RETURN -m comment --comment "$COMMENT"
 # Block cloud metadata + link-local.
-iptables -I DOCKER-USER 5 -s "$SUBNET" -d 169.254.0.0/16 -j REJECT -m comment --comment "$COMMENT"
+iptables -I DOCKER-USER 7 -s "$SUBNET" -d 169.254.0.0/16 -j REJECT -m comment --comment "$COMMENT"
 # Block private-range pivots (the control plane reaches workspaces, not the reverse).
-iptables -I DOCKER-USER 6 -s "$SUBNET" -d 10.0.0.0/8     -j REJECT -m comment --comment "$COMMENT"
-iptables -I DOCKER-USER 7 -s "$SUBNET" -d 172.16.0.0/12  -j REJECT -m comment --comment "$COMMENT"
-iptables -I DOCKER-USER 8 -s "$SUBNET" -d 192.168.0.0/16 -j REJECT -m comment --comment "$COMMENT"
+iptables -I DOCKER-USER 8 -s "$SUBNET" -d 10.0.0.0/8     -j REJECT -m comment --comment "$COMMENT"
+iptables -I DOCKER-USER 9 -s "$SUBNET" -d 172.16.0.0/12  -j REJECT -m comment --comment "$COMMENT"
+iptables -I DOCKER-USER 10 -s "$SUBNET" -d 192.168.0.0/16 -j REJECT -m comment --comment "$COMMENT"
 
 echo "installed. verify from inside a workspace container:"
 echo "  curl -m 3 http://169.254.169.254/   -> must FAIL"

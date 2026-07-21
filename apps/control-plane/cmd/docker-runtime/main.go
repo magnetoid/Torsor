@@ -258,11 +258,31 @@ func buildCreateArgsForImage(name, image string, spec plugin.WorkspaceSpec, lim 
 	return args
 }
 
-// previewTarget asks docker for the host mapping of the workspace's published app port and
-// returns (host, port). Returns ("", 0) when nothing is published or the lookup fails.
+// previewTarget resolves where the control plane should connect to reach the workspace's
+// app. On a custom workspace network (TORSOR_WS_NETWORK) the target is the container's IP
+// on that network — the control plane is attached to the same network (compose), so the
+// connection is direct container-to-container: no host port binding, no DNAT, and no
+// docker inter-bridge isolation in the path (host-published gateway bindings are silently
+// dropped by DOCKER-ISOLATION between user-defined bridges — learned in production).
+// On docker's built-in networks it falls back to the published host port.
+// Returns ("", 0) when nothing is resolvable.
 func (r runtime) previewTarget(ctx context.Context, id string) (string, int32) {
 	if r.lim.appPort == "" {
 		return "", 0
+	}
+	switch r.lim.network {
+	case "", "bridge", "host", "none":
+		// built-ins: use the published host port below
+	default:
+		out, err := run(ctx, nil, "inspect", "-f",
+			fmt.Sprintf(`{{(index .NetworkSettings.Networks %q).IPAddress}}`, r.lim.network),
+			containerName(id))
+		if ip := strings.TrimSpace(out); err == nil && ip != "" && ip != "<no value>" {
+			if p, perr := strconv.Atoi(r.lim.appPort); perr == nil {
+				return ip, int32(p)
+			}
+		}
+		// fall through to the published-port path (e.g. container not yet on the network)
 	}
 	out, err := run(ctx, nil, "port", containerName(id), r.lim.appPort+"/tcp")
 	if err != nil {
