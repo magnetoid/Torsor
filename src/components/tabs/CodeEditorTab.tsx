@@ -199,7 +199,10 @@ export default function CodeEditorTab() {
     return path;
   };
 
-  if (!activeFileId) {
+  // Guard BOTH the id and the resolved file: a persisted activeFileId can outlive its file
+  // (project switch, deletion, a fresh workspace) — rendering on the id alone crashed the
+  // editor with "Cannot read properties of undefined (reading 'name')".
+  if (!activeFileId || !activeFile) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-secondary gap-4">
         <div className="w-16 h-16 rounded-xl bg-surface border border-default flex items-center justify-center">
