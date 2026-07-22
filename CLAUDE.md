@@ -33,8 +33,12 @@ npm run build:all         # frontend + api + worker
 # Frontend dev server (port 3000)
 npm run dev
 
-# Backend dev (run infra first, then the TS services on the host)
+# Backend dev — the DEFAULT backend is the Go control-plane (see "Go control plane" below).
+# Run infra first, then the control-plane on the host:
 docker compose up postgres redis
+#   (control-plane run command is in the "Go control plane" section)
+
+# Legacy TS backend (apps/api + apps/worker) — reference/rollback only, not the default stack:
 npm run dev -w apps/api       # tsx watch, port 3001
 npm run dev -w apps/worker
 

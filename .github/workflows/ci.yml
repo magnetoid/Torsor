@@ -3,7 +3,18 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs-only pushes don't affect build/test output — skip CI for them.
+    # (This only skips GitHub Actions; the Coolify deploy is filtered separately
+    #  via the application's "Watch Paths" setting in the Coolify dashboard.)
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 # Cancel superseded runs on the same ref.
 concurrency:
