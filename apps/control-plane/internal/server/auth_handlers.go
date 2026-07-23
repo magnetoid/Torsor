@@ -173,11 +173,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var id, hash string
+	var id string
+	var hash *string
 	err := s.pool.QueryRow(r.Context(),
 		`SELECT id, password_hash FROM users WHERE email = $1 LIMIT 1`, strings.ToLower(body.Email),
 	).Scan(&id, &hash)
-	if err == pgx.ErrNoRows || (err == nil && !auth.VerifyPassword(body.Password, hash)) {
+	if err == pgx.ErrNoRows || (err == nil && (hash == nil || !auth.VerifyPassword(body.Password, *hash))) {
 		writeError(w, http.StatusUnauthorized, "Invalid email or password")
 		return
 	}
