@@ -837,3 +837,41 @@ export async function apiExecCollect(
   });
   return { stdout, stderr, exitCode };
 }
+
+// ---- GitHub App settings (super admin): instance-wide "Sign in with GitHub" config ----
+// Secrets are write-only: the server returns only *Set booleans, never the stored values.
+
+export interface GitHubSettings {
+  appId: string;
+  appSlug: string;
+  clientId: string;
+  clientSecretSet: boolean;
+  privateKeySet: boolean;
+  webhookSecretSet: boolean;
+  enabled: boolean;
+  allowSignup: boolean;
+  callbackUrl: string;
+}
+
+export interface GitHubSettingsPatch {
+  appId?: string;
+  appSlug?: string;
+  clientId?: string;
+  clientSecret?: string;
+  privateKey?: string;
+  webhookSecret?: string;
+  enabled?: boolean;
+  allowSignup?: boolean;
+}
+
+export async function apiGetGitHubSettings(): Promise<GitHubSettings> {
+  return apiRequest<GitHubSettings>('/api/v1/admin/github-settings', { auth: true });
+}
+
+export async function apiUpdateGitHubSettings(patch: GitHubSettingsPatch): Promise<GitHubSettings> {
+  return apiRequest<GitHubSettings>('/api/v1/admin/github-settings', {
+    method: 'PATCH',
+    auth: true,
+    body: JSON.stringify(patch),
+  });
+}

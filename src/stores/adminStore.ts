@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { apiRequest } from '../lib/api';
+import { apiRequest, apiGetGitHubSettings, apiUpdateGitHubSettings, type GitHubSettings, type GitHubSettingsPatch } from '../lib/api';
 
 export type UserRole = 'user' | 'admin' | 'super_admin';
 
@@ -94,6 +94,11 @@ interface AdminState {
   fetchSettings: () => Promise<void>;
   saveSettings: (updates: Partial<PlatformSettings>) => Promise<void>;
 
+  // GitHub App settings (super admin): instance-wide "Sign in with GitHub" config.
+  githubSettings: GitHubSettings | null;
+  fetchGitHubSettings: () => Promise<void>;
+  saveGitHubSettings: (patch: GitHubSettingsPatch) => Promise<void>;
+
   // Central update system (super admin): broadcasts, changelog, feedback triage.
   updates: AdminPlatformUpdate[];
   feedback: AdminFeedback[];
@@ -112,6 +117,7 @@ export const useAdminStore = create<AdminState>()((set, get) => ({
   workspaces: [],
   platform: null,
   settings: { maintenanceMode: false, announcement: '' },
+  githubSettings: null,
   isLoadingStats: false,
   isLoadingUsers: false,
   error: null,
@@ -176,6 +182,19 @@ export const useAdminStore = create<AdminState>()((set, get) => ({
     const next = { ...get().settings, ...updates };
     set({ settings: next });
     await apiRequest('/api/v1/admin/settings', { method: 'PATCH', auth: true, body: JSON.stringify(next) });
+  },
+
+  fetchGitHubSettings: async () => {
+    try {
+      const githubSettings = await apiGetGitHubSettings();
+      set({ githubSettings });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to load GitHub settings' });
+    }
+  },
+  saveGitHubSettings: async (patch) => {
+    const githubSettings = await apiUpdateGitHubSettings(patch);
+    set({ githubSettings });
   },
 
   updates: [],
