@@ -10,6 +10,7 @@ import {
   Bot,
   Settings,
   Megaphone,
+  Github,
   ArrowLeft,
   LogOut
 } from 'lucide-react';
@@ -40,6 +41,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { id: 'platform', label: 'Platform', icon: Activity, href: '/admin/platform' },
     { id: 'agent-engine', label: 'Agent Engine', icon: Bot, href: '/admin/agent-engine' },
     { id: 'updates', label: 'Updates', icon: Megaphone, href: '/admin/updates' },
+    { id: 'github', label: 'GitHub', icon: Github, href: '/admin/github' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/admin/settings' },
   ];
 

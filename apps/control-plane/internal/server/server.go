@@ -82,6 +82,7 @@ func (s *Server) Handler() http.Handler {
 
 		r.Get("/", s.handleRoot)
 		r.Get("/config", s.handleConfig)
+		r.Get("/auth/providers", s.handleAuthProviders)
 
 		// WebSocket streaming authenticates from the access_token query param (browsers
 		// can't set headers on WebSocket), so it lives outside the Bearer-header group.
@@ -107,6 +108,9 @@ func (s *Server) Handler() http.Handler {
 			r.Use(httprate.LimitByIP(s.cfg.AuthRateLimit, 15*time.Minute))
 			r.Post("/auth/signup", s.handleSignup)
 			r.Post("/auth/login", s.handleLogin)
+			r.Get("/auth/github", s.handleGitHubLoginStart)
+			r.Get("/auth/github/callback", s.handleGitHubCallback)
+			r.Post("/auth/github/exchange", s.handleGitHubExchange)
 		})
 
 		r.Group(func(r chi.Router) {
@@ -218,6 +222,9 @@ func (s *Server) Handler() http.Handler {
 				r.Delete("/admin/updates/{updateID}", s.handleDeleteUpdate)
 				r.Get("/admin/feedback", s.handleAdminListFeedback)
 				r.Patch("/admin/feedback/{feedbackID}", s.handleAdminUpdateFeedback)
+				// GitHub App settings (Sign in with GitHub): encrypted secrets, masked on read.
+				r.Get("/admin/github-settings", s.handleGetGitHubSettings)
+				r.Patch("/admin/github-settings", s.handleUpdateGitHubSettings)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:

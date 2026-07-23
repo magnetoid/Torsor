@@ -138,6 +138,29 @@ export async function fetchPreviewUrl(projectId: string): Promise<string | null>
   }
 }
 
+// --- Auth providers / GitHub OAuth (Phase 2) --------------------------------------------
+
+/** Shape returned by the login/signup/exchange endpoints. `user` is the raw server row —
+ *  callers normalize it (see authStore's `normalizeUser`) rather than typing it here. */
+export interface AuthResponse {
+  token: string;
+  user: any;
+}
+
+/** Which social-login providers the backend has configured (e.g. a GitHub App is set up).
+ *  Drives whether the UI shows a given "Continue with ..." button. */
+export async function apiGetAuthProviders(): Promise<{ github: { enabled: boolean } }> {
+  return apiRequest<{ github: { enabled: boolean } }>('/api/v1/auth/providers');
+}
+
+/** Exchange a GitHub OAuth `code` (from the callback redirect) for a Torsor session. */
+export async function apiGitHubExchange(code: string): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>('/api/v1/auth/github/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
 /** A container image from the marketplace search (Docker Hub). */
 export interface RegistryImage {
   name: string;
@@ -813,4 +836,42 @@ export async function apiExecCollect(
     },
   });
   return { stdout, stderr, exitCode };
+}
+
+// ---- GitHub App settings (super admin): instance-wide "Sign in with GitHub" config ----
+// Secrets are write-only: the server returns only *Set booleans, never the stored values.
+
+export interface GitHubSettings {
+  appId: string;
+  appSlug: string;
+  clientId: string;
+  clientSecretSet: boolean;
+  privateKeySet: boolean;
+  webhookSecretSet: boolean;
+  enabled: boolean;
+  allowSignup: boolean;
+  callbackUrl: string;
+}
+
+export interface GitHubSettingsPatch {
+  appId?: string;
+  appSlug?: string;
+  clientId?: string;
+  clientSecret?: string;
+  privateKey?: string;
+  webhookSecret?: string;
+  enabled?: boolean;
+  allowSignup?: boolean;
+}
+
+export async function apiGetGitHubSettings(): Promise<GitHubSettings> {
+  return apiRequest<GitHubSettings>('/api/v1/admin/github-settings', { auth: true });
+}
+
+export async function apiUpdateGitHubSettings(patch: GitHubSettingsPatch): Promise<GitHubSettings> {
+  return apiRequest<GitHubSettings>('/api/v1/admin/github-settings', {
+    method: 'PATCH',
+    auth: true,
+    body: JSON.stringify(patch),
+  });
 }

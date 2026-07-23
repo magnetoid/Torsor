@@ -11,6 +11,7 @@ import { AdminPlatformTab } from '../components/admin/tabs/AdminPlatformTab';
 import { AdminSettingsTab } from '../components/admin/tabs/AdminSettingsTab';
 import { AdminUpdatesTab } from '../components/admin/tabs/AdminUpdatesTab';
 import AgentEngineTab from '../components/admin/tabs/AgentEngineTab';
+import { AdminGitHubTab } from '../components/admin/tabs/AdminGitHubTab';
 
 export function AdminPage() {
   const { tab = 'overview' } = useParams<{ tab: string }>();
@@ -33,6 +34,8 @@ export function AdminPage() {
         return <AdminUpdatesTab />;
       case 'settings':
         return <AdminSettingsTab />;
+      case 'github':
+        return <AdminGitHubTab />;
       default:
         return <Navigate to="/admin" replace />;
     }
