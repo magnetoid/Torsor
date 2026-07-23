@@ -138,6 +138,29 @@ export async function fetchPreviewUrl(projectId: string): Promise<string | null>
   }
 }
 
+// --- Auth providers / GitHub OAuth (Phase 2) --------------------------------------------
+
+/** Shape returned by the login/signup/exchange endpoints. `user` is the raw server row —
+ *  callers normalize it (see authStore's `normalizeUser`) rather than typing it here. */
+export interface AuthResponse {
+  token: string;
+  user: any;
+}
+
+/** Which social-login providers the backend has configured (e.g. a GitHub App is set up).
+ *  Drives whether the UI shows a given "Continue with ..." button. */
+export async function apiGetAuthProviders(): Promise<{ github: { enabled: boolean } }> {
+  return apiRequest<{ github: { enabled: boolean } }>('/api/v1/auth/providers');
+}
+
+/** Exchange a GitHub OAuth `code` (from the callback redirect) for a Torsor session. */
+export async function apiGitHubExchange(code: string): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>('/api/v1/auth/github/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
 /** A container image from the marketplace search (Docker Hub). */
 export interface RegistryImage {
   name: string;

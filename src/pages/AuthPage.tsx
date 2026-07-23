@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Github, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { Input } from '../components/shared/Input';
+import { apiGetAuthProviders } from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function AuthPage() {
@@ -18,11 +19,18 @@ export function AuthPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const hostLabel = typeof window !== 'undefined' ? window.location.host : 'app.torsor.dev';
 
-  // OAuth (GitHub/Google) is not wired yet — the buttons are intentionally not rendered
-  // rather than shown as dead controls that throw. Email/password is the real path.
-  const { loginWithEmail, signup, isLoading, error, clearError } = useAuthStore();
+  // GitHub OAuth is only shown once the backend confirms a GitHub App is configured
+  // (GET /api/v1/auth/providers); Google is not wired yet, so its button stays hidden.
+  const { loginWithEmail, loginWithGitHub, signup, isLoading, error, clearError } = useAuthStore();
   const navigate = useNavigate();
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/';
+
+  const [githubEnabled, setGithubEnabled] = useState(false);
+  useEffect(() => {
+    apiGetAuthProviders()
+      .then((p) => setGithubEnabled(p.github.enabled))
+      .catch(() => setGithubEnabled(false));
+  }, []);
 
   React.useEffect(() => {
     setIsLogin(routeMode === 'login');
@@ -154,6 +162,24 @@ export function AuthPage() {
                 )}
               </button>
             </form>
+
+            {githubEnabled && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-default" />
+                  <span className="text-xs text-tertiary uppercase tracking-wider">or</span>
+                  <div className="h-px flex-1 bg-default" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void loginWithGitHub()}
+                  className="w-full h-11 bg-surface hover:bg-elevated border border-default text-primary rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                >
+                  <Github size={18} />
+                  Continue with GitHub
+                </button>
+              </>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

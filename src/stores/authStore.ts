@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { apiRequest, getStoredToken, setStoredToken, setUnauthorizedHandler } from '../lib/api';
+import { apiRequest, getApiBaseUrl, getStoredToken, setStoredToken, setUnauthorizedHandler } from '../lib/api';
 
 export interface User {
   id: string;
@@ -89,7 +89,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       loginWithGitHub: async () => {
-        throw new Error('GitHub auth is not wired yet in Phase 2');
+        window.location.href = `${getApiBaseUrl()}/api/v1/auth/github`;
       },
       loginWithGoogle: async () => {
         throw new Error('Google auth is not wired yet in Phase 2');
