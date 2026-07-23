@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-import { apiRequest, getApiBaseUrl, getStoredToken, setStoredToken, setUnauthorizedHandler } from '../lib/api';
+import { apiGitHubExchange, apiRequest, getApiBaseUrl, getStoredToken, setStoredToken, setUnauthorizedHandler } from '../lib/api';
 
 export interface User {
   id: string;
@@ -28,6 +28,7 @@ interface AuthState {
   clearError: () => void;
   initialize: () => Promise<void>;
   loginWithGitHub: () => Promise<void>;
+  completeGitHubLogin: (code: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
@@ -90,6 +91,22 @@ export const useAuthStore = create<AuthState>()(
       },
       loginWithGitHub: async () => {
         window.location.href = `${getApiBaseUrl()}/api/v1/auth/github`;
+      },
+      completeGitHubLogin: async (code: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiGitHubExchange(code);
+          setStoredToken(response.token);
+          set({
+            user: normalizeUser(response.user),
+            token: response.token,
+            isAuthenticated: true,
+            isLoading: false,
+          });
+        } catch (error) {
+          set({ isLoading: false, error: error instanceof Error ? error.message : 'GitHub login failed' });
+          throw error;
+        }
       },
       loginWithGoogle: async () => {
         throw new Error('Google auth is not wired yet in Phase 2');

@@ -8,6 +8,7 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { AdminPage } from './pages/AdminPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { AuthPage } from './pages/AuthPage';
+import { GitHubCallbackPage } from './pages/GitHubCallbackPage';
 import { ProjectWorkspace } from './pages/ProjectWorkspace';
 import { BillingPage } from './pages/BillingPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
@@ -76,15 +77,25 @@ export default function App() {
               </ErrorBoundary>
             } 
           />
-          <Route 
-            path="/signup" 
+          <Route
+            path="/signup"
             element={
               <ErrorBoundary name="Signup">
                 <PublicRoute>
                   <AuthPage />
                 </PublicRoute>
               </ErrorBoundary>
-            } 
+            }
+          />
+          <Route
+            path="/auth/callback"
+            element={
+              <ErrorBoundary name="GitHubCallback">
+                <PublicRoute>
+                  <GitHubCallbackPage />
+                </PublicRoute>
+              </ErrorBoundary>
+            }
           />
 
           {/* Protected Routes */}
@@ -284,6 +295,7 @@ function RouteTitleManager() {
 
     if (path === '/login') title = 'Sign In | Torsor';
     else if (path === '/signup') title = 'Create Account | Torsor';
+    else if (path === '/auth/callback') title = 'Signing In | Torsor';
     else if (path === '/') title = 'Home | Torsor';
     else if (path === '/projects') title = 'Projects | Torsor';
     else if (path.startsWith('/project/')) title = 'Workspace | Torsor';
