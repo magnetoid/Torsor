@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 	githuboauth "golang.org/x/oauth2/github"
 )
@@ -30,6 +32,7 @@ func (s *Server) githubOAuthConfig(cfg *githubConfig) *oauth2.Config {
 		ClientSecret: cfg.ClientSecret,
 		Endpoint:     githuboauth.Endpoint,
 		RedirectURL:  s.githubCallbackURL(),
+		Scopes:       []string{"user:email"},
 	}
 }
 
@@ -58,7 +61,17 @@ func (s *Server) handleGitHubLoginStart(w http.ResponseWriter, r *http.Request) 
 		s.redirectLogin(w, r, "github_unavailable")
 		return
 	}
-	state := s.signSignedToken(ghStatePurpose, randHex(16), ghStateTTL)
+	nonce := randHex(16)
+	state := s.signSignedToken(ghStatePurpose, nonce, ghStateTTL)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "gh_oauth_state",
+		Value:    nonce,
+		Path:     "/api/v1/auth/github",
+		MaxAge:   int(ghStateTTL.Seconds()),
+		HttpOnly: true,
+		Secure:   strings.HasPrefix(s.cfg.AppURL, "https://"),
+		SameSite: http.SameSiteLaxMode,
+	})
 	http.Redirect(w, r, s.githubOAuthConfig(cfg).AuthCodeURL(state), http.StatusFound)
 }
 
@@ -69,10 +82,22 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		s.redirectLogin(w, r, "github_unavailable")
 		return
 	}
-	if _, err := s.verifySignedToken(ghStatePurpose, r.URL.Query().Get("state")); err != nil {
+	nonce, err := s.verifySignedToken(ghStatePurpose, r.URL.Query().Get("state"))
+	if err != nil {
 		s.redirectLogin(w, r, "state")
 		return
 	}
+	cookie, cerr := r.Cookie("gh_oauth_state")
+	if cerr != nil || cookie.Value == "" || subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(nonce)) != 1 {
+		s.redirectLogin(w, r, "state")
+		return
+	}
+	// One-time use: clear the state cookie.
+	http.SetCookie(w, &http.Cookie{
+		Name: "gh_oauth_state", Value: "", Path: "/api/v1/auth/github",
+		MaxAge: -1, HttpOnly: true,
+		Secure: strings.HasPrefix(s.cfg.AppURL, "https://"), SameSite: http.SameSiteLaxMode,
+	})
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		s.redirectLogin(w, r, "exchange_failed")
@@ -93,7 +118,11 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	email, err := fetchGitHubPrimaryVerifiedEmail(r.Context(), hc)
 	if err != nil {
-		s.redirectLogin(w, r, "email_unverified")
+		if err == errNoVerifiedEmail {
+			s.redirectLogin(w, r, "email_unverified")
+		} else {
+			s.redirectLogin(w, r, "server_error")
+		}
 		return
 	}
 
@@ -102,7 +131,7 @@ func (s *Server) handleGitHubCallback(w http.ResponseWriter, r *http.Request) {
 		s.redirectLogin(w, r, "signups_disabled")
 		return
 	} else if err != nil {
-		s.fail(w, r, err)
+		s.redirectLogin(w, r, "server_error")
 		return
 	}
 
@@ -141,14 +170,18 @@ func (s *Server) resolveGitHubUser(r *http.Request, gh *githubUser, email string
 	providerUserID := strconv.FormatInt(gh.ID, 10)
 
 	var identityUser string
-	_ = s.pool.QueryRow(ctx,
+	if err := s.pool.QueryRow(ctx,
 		`SELECT user_id FROM user_identities WHERE provider = 'github' AND provider_user_id = $1`,
-		providerUserID).Scan(&identityUser)
+		providerUserID).Scan(&identityUser); err != nil && err != pgx.ErrNoRows {
+		return "", err
+	}
 
 	var emailUser string
 	if identityUser == "" {
-		_ = s.pool.QueryRow(ctx,
-			`SELECT id FROM users WHERE email = LOWER($1) LIMIT 1`, email).Scan(&emailUser)
+		if err := s.pool.QueryRow(ctx,
+			`SELECT id FROM users WHERE email = LOWER($1) LIMIT 1`, email).Scan(&emailUser); err != nil && err != pgx.ErrNoRows {
+			return "", err
+		}
 	}
 
 	action, target := decideGitHubAccount(identityUser, emailUser, allowSignup)
