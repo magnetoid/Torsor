@@ -21,9 +21,12 @@ const (
 	ghHandoffTTL     = 60 * time.Second
 )
 
-// redirectLogin sends the browser back to the SPA login page with an error code.
+// redirectLogin sends the browser to the OAuth callback page with an error code.
+// The callback page (/auth/callback, GitHubCallbackPage) owns the reason->message map
+// and a "Back to sign in" button; AuthPage does not read the query string, so failures
+// must land here to be surfaced rather than silently bouncing to a blank login form.
 func (s *Server) redirectLogin(w http.ResponseWriter, r *http.Request, reason string) {
-	http.Redirect(w, r, s.cfg.AppURL+"/login?error="+reason, http.StatusFound)
+	http.Redirect(w, r, s.cfg.AppURL+"/auth/callback?error="+reason, http.StatusFound)
 }
 
 func (s *Server) githubOAuthConfig(cfg *githubConfig) *oauth2.Config {
