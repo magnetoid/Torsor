@@ -218,6 +218,9 @@ func (s *Server) Handler() http.Handler {
 				r.Delete("/admin/updates/{updateID}", s.handleDeleteUpdate)
 				r.Get("/admin/feedback", s.handleAdminListFeedback)
 				r.Patch("/admin/feedback/{feedbackID}", s.handleAdminUpdateFeedback)
+				// GitHub App settings (Sign in with GitHub): encrypted secrets, masked on read.
+				r.Get("/admin/github-settings", s.handleGetGitHubSettings)
+				r.Patch("/admin/github-settings", s.handleUpdateGitHubSettings)
 			})
 
 			// Project workspace (WorkspaceRuntime capability), scoped to project ownership:
