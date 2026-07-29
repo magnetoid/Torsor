@@ -78,7 +78,7 @@ export default function IntegrationsTab() {
     const ok = await createSecret(secretKey(item.id), val);
     setSavingId(null);
     if (ok) {
-      toast.success(`${item.name} connected`);
+      toast.success(`${item.name} credential saved`);
       setKeyInputs((p) => ({ ...p, [item.id]: '' }));
       setOpenId(null);
     } else {
@@ -88,7 +88,7 @@ export default function IntegrationsTab() {
 
   const handleDisconnect = async (item: Integration) => {
     await deleteSecret(secretKey(item.id));
-    toast(`${item.name} disconnected`);
+    toast(`${item.name} credential removed`);
   };
 
   return (
@@ -97,7 +97,7 @@ export default function IntegrationsTab() {
       <div className="h-12 bg-surface flex items-center justify-between px-4 shrink-0 border-b border-default">
         <div className="flex items-center gap-2">
           <Layers size={18} className="text-accent" />
-          <h2 className="text-sm font-bold text-primary">Integrations</h2>
+          <h2 className="text-sm font-bold text-primary">API Credentials</h2>
         </div>
         <div className="relative w-64">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
@@ -110,6 +110,15 @@ export default function IntegrationsTab() {
             className="w-full bg-page border border-default rounded-lg pl-9 pr-3 py-1.5 text-xs text-primary outline-none focus:border-accent/50 transition-colors"
           />
         </div>
+      </div>
+
+      {/* Honest framing: saving a key here stores an encrypted credential your agent and
+          workspace can use — it does not activate a managed integration. Live tool
+          connections are MCP servers (see the MCP Servers tab). */}
+      <div className="px-4 py-2 bg-elevated text-xs text-secondary border-b border-default">
+        Keys are stored encrypted in your secrets vault for the agent and your code to use.
+        For live tool connections, add an <span className="font-semibold text-primary">MCP server</span> in
+        the MCP Servers tab.
       </div>
 
       {!enabled && (
@@ -135,13 +144,13 @@ export default function IntegrationsTab() {
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success/10 text-success text-xs font-bold uppercase tracking-tighter">
                         <Check size={10} />
-                        Connected
+                        Key saved
                       </div>
                       <button
                         onClick={() => void handleDisconnect(item)}
                         className="px-2 py-1 rounded-lg text-secondary hover:text-error text-xs font-bold uppercase tracking-wider transition-colors focus-ring"
                       >
-                        Disconnect
+                        Remove
                       </button>
                     </div>
                   ) : (
@@ -151,7 +160,7 @@ export default function IntegrationsTab() {
                           disabled={!enabled}
                           className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20 focus-ring disabled:opacity-50"
                         >
-                          Connect
+                          Add key
                         </button>
                       </Popover.Trigger>
                       <Popover.Portal>
@@ -159,7 +168,7 @@ export default function IntegrationsTab() {
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2">
                               <Settings size={14} className="text-accent" />
-                              <span className="text-xs font-bold text-primary">Connect {item.name}</span>
+                              <span className="text-xs font-bold text-primary">Add {item.name} key</span>
                             </div>
                             <Popover.Close className="p-1 text-secondary hover:text-primary rounded transition-colors">
                               <X size={14} />
@@ -191,7 +200,7 @@ export default function IntegrationsTab() {
                               disabled={saving}
                               className="w-full px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors disabled:opacity-50 flex items-center justify-center gap-2 focus-ring"
                             >
-                              {saving ? <Loader2 size={12} className="animate-spin" /> : 'Save & Connect'}
+                              {saving ? <Loader2 size={12} className="animate-spin" /> : 'Save credential'}
                             </button>
                           </div>
                           <Popover.Arrow className="fill-default" />
@@ -208,7 +217,7 @@ export default function IntegrationsTab() {
                   <div className="flex items-center justify-between pt-4 border-t border-default">
                     <div className="flex items-center gap-1 text-xs text-tertiary">
                       <ShieldCheck size={12} />
-                      <span>Official</span>
+                      <span>Encrypted at rest</span>
                     </div>
                     <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:text-accent-hover flex items-center gap-1 font-medium focus-ring rounded">
                       Docs

@@ -40,7 +40,6 @@ function formatTokens(n: number): string {
 
 const PlanCard = ({
   title,
-  price,
   features,
   isCurrent,
   isPopular,
@@ -51,7 +50,6 @@ const PlanCard = ({
   isBusy,
 }: {
   title: string,
-  price: string,
   features: string[],
   isCurrent?: boolean,
   isPopular?: boolean,
@@ -71,12 +69,8 @@ const PlanCard = ({
         Most Popular
       </Badge>
     )}
-    <h3 className="text-lg font-bold mb-1">{title}</h3>
-    <div className="flex items-baseline gap-1 mb-6">
-      <span className="text-2xl font-bold">{price}</span>
-      {price !== 'Custom' && <span className="text-xs text-secondary">/mo</span>}
-    </div>
-    
+    <h3 className="text-lg font-bold mb-6">{title}</h3>
+
     <ul className="space-y-3 mb-8 flex-1">
       {features.map((feature, i) => (
         <li key={i} className="flex items-start gap-2 text-xs text-primary">
@@ -154,10 +148,6 @@ export const BillingPage: React.FC = () => {
       return;
     }
     if (activeWorkspace.plan === plan) return;
-    if (plan === 'enterprise') {
-      window.location.href = 'mailto:sales@torsor.dev?subject=Enterprise%20plan%20enquiry';
-      return;
-    }
     setChangingPlan(plan);
     try {
       await updateWorkspace(activeWorkspace.id, { plan });
@@ -187,11 +177,10 @@ export const BillingPage: React.FC = () => {
             
             {/* Plan Cards */}
             <section>
-              <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-6">Subscription Plans</h3>
-              <div className="flex flex-row gap-6">
+              <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-6">Plan tiers <span className="normal-case font-medium text-tertiary">— assigned by your instance admin; no payment connected</span></h3>
+              <div className="flex flex-col md:flex-row gap-6">
                 <PlanCard
                   title="Free"
-                  price="$0"
                   isCurrent={currentPlan === 'free'}
                   isBusy={changingPlan === 'free'}
                   onSelect={() => handleChangePlan('free')}
@@ -203,11 +192,10 @@ export const BillingPage: React.FC = () => {
                     "10 sandbox hrs",
                     "Public projects only"
                   ]}
-                  buttonText="Switch to Free"
+                  buttonText="Select Free"
                 />
                 <PlanCard
                   title="Pro"
-                  price="$25"
                   isPopular
                   isCurrent={currentPlan === 'pro'}
                   isBusy={changingPlan === 'pro'}
@@ -222,11 +210,10 @@ export const BillingPage: React.FC = () => {
                     "Private projects",
                     "Custom domains"
                   ]}
-                  buttonText="Upgrade to Pro"
+                  buttonText="Select Pro"
                 />
                 <PlanCard
                   title="Team"
-                  price="$49"
                   isCurrent={currentPlan === 'team'}
                   isBusy={changingPlan === 'team'}
                   onSelect={() => handleChangePlan('team')}
@@ -239,11 +226,10 @@ export const BillingPage: React.FC = () => {
                     "SSO / SAML",
                     "Audit logs & SLA"
                   ]}
-                  buttonText="Upgrade to Team"
+                  buttonText="Select Team"
                 />
                 <PlanCard
                   title="Enterprise"
-                  price="Custom"
                   gradient
                   isCurrent={currentPlan === 'enterprise'}
                   onSelect={() => handleChangePlan('enterprise')}
@@ -254,7 +240,7 @@ export const BillingPage: React.FC = () => {
                     "Air-gapped deployment",
                     "24/7 Priority support"
                   ]}
-                  buttonText="Contact Sales"
+                  buttonText="Select Enterprise"
                 />
               </div>
             </section>
@@ -262,16 +248,21 @@ export const BillingPage: React.FC = () => {
             {/* Usage Dashboard */}
             <section>
               <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-6">Usage Overview</h3>
-              <div className="grid grid-cols-4 gap-4 mb-8">
-                <StatCard label="Tokens Used" value={formatTokens(totalTokens)} max="2M" icon={TrendingUp} />
-                <StatCard label="Sandbox Hours" value="42" max="100" icon={Clock} />
-                <StatCard label="Projects" value="8" max="25" icon={Box} />
-                <StatCard label="Team Members" value="3" max="unlimited" icon={Users} />
+              {/* Real values only: tokens + calls from usage_events, members from the teams API. */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                <StatCard
+                  label="Tokens Used"
+                  value={formatTokens(totalTokens)}
+                  max={formatTokens(activeWorkspace?.limits?.maxTokensPerMonth ?? 0)}
+                  icon={TrendingUp}
+                />
+                <StatCard label="Model Calls" value={formatTokens(usage?.totals.events ?? 0)} max="—" icon={Box} />
+                <StatCard label="Members" value={activeWorkspace?.usage?.memberCount ?? 1} max="—" icon={Users} />
               </div>
 
-              <div className="grid grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Chart */}
-                <Card className="col-span-2 space-y-6">
+                <Card className="lg:col-span-2 space-y-6">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-bold">Token Usage (Last 30 Days)</h4>
                     <div className="flex gap-4">
@@ -362,37 +353,26 @@ export const BillingPage: React.FC = () => {
             </section>
 
             {/* Billing Details */}
-            <section className="grid grid-cols-3 gap-8 pb-12">
-              <div className="col-span-1 space-y-6">
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
+              <div className="lg:col-span-1 space-y-6">
                 <div>
                   <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-4">Payment Method</h3>
-                  <Card className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-6 bg-surface border border-default rounded flex items-center justify-center">
-                        <CardIcon size={14} className="text-secondary" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Visa **** 4242</p>
-                        <p className="text-xs text-secondary">Expires 12/27</p>
-                      </div>
-                    </div>
-                    <button className="text-xs font-bold text-accent hover:text-accent-hover focus-ring">Update</button>
-                  </Card>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-bold text-secondary uppercase tracking-wider mb-4">Next Billing Date</h3>
+                  {/* Honest: there is no payment backend on a self-hosted instance. */}
                   <Card className="flex items-center gap-3">
-                    <Calendar size={18} className="text-accent" />
+                    <div className="w-10 h-6 bg-surface border border-default rounded flex items-center justify-center shrink-0">
+                      <CardIcon size={14} className="text-secondary" />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium">March 28, 2026</p>
-                      <p className="text-xs text-secondary">Estimated: $28.00</p>
+                      <p className="text-sm font-medium">No payment method</p>
+                      <p className="text-xs text-secondary">
+                        Billing isn&apos;t connected on this instance.
+                      </p>
                     </div>
                   </Card>
                 </div>
               </div>
 
-              <div className="col-span-2">
+              <div className="lg:col-span-2">
                 <div className="flex items-center gap-2 mb-4">
                   <h3 className="text-sm font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
                 </div>

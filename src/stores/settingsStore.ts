@@ -92,8 +92,9 @@ export const useSettingsStore = create<SettingsState>()(
         requireAdminApproval: true,
         forceReauthOnModelChange: false,
       },
+      // Honest defaults: nothing is connected until a real integration exists.
       integrations: {
-        github: { connected: true, repos: ['acme-web', 'acme-api', 'tesseract-core'] },
+        github: { connected: false, repos: [] },
         gitlab: { connected: false, repos: [] },
         supabase: { url: '', key: '' },
         vercel: { connected: false },

@@ -27,6 +27,7 @@ import { useAuthStore } from './stores/authStore';
 import { loadRuntimeConfig } from './lib/api';
 import { useWorkspaceStore } from './stores/workspaceStore';
 import { useNotificationStore } from './stores/notificationStore';
+import { MaintenanceBanner } from './components/shared/MaintenanceBanner';
 
 export default function App() {
   const { toggleTheme, theme } = useThemeStore();
@@ -65,6 +66,7 @@ export default function App() {
     <ErrorBoundary name="App">
       <BrowserRouter>
         <RouteTitleManager />
+        <MaintenanceBanner />
         <Routes>
           {/* Public Routes */}
           <Route 

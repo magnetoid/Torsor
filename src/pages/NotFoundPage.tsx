@@ -54,9 +54,9 @@ export function NotFoundPage() {
       <div className="mt-24 pt-8 border-t border-default w-full max-w-sm">
         <p className="text-xs font-bold text-tertiary uppercase tracking-widest mb-4">Need help?</p>
         <div className="flex justify-center gap-6">
-          <a href="#" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Documentation</a>
-          <a href="#" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Support</a>
-          <a href="#" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Status</a>
+          <a href="/help" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Help</a>
+          <a href="/feedback" className="text-xs font-bold text-secondary hover:text-accent transition-colors">Feedback</a>
+          <a href="/about" className="text-xs font-bold text-secondary hover:text-accent transition-colors">About</a>
         </div>
       </div>
     </div>

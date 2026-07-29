@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { Settings, Shield, User as UserIcon, LogOut, Info, Rocket, MessageSquareHeart } from 'lucide-react';
+import { Settings, Shield, LogOut, Info, Rocket, MessageSquareHeart } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { popoverMotion } from '../../lib/motion';
 import { useAuthStore } from '../../stores/authStore';
@@ -66,13 +66,6 @@ export function AccountMenu({ size = 'sm' }: { size?: 'sm' | 'md' }) {
 
           <DropdownMenu.Separator className="h-[1px] bg-default my-1" />
 
-          <DropdownMenu.Item
-            onSelect={() => navigate('/settings')}
-            className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
-          >
-            <UserIcon size={15} className="shrink-0" />
-            Account
-          </DropdownMenu.Item>
           <DropdownMenu.Item
             onSelect={() => navigate('/settings')}
             className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-secondary hover:text-primary rounded-md cursor-pointer outline-none transition-colors data-[highlighted]:bg-elevated data-[highlighted]:text-primary"
