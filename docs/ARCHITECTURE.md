@@ -135,7 +135,10 @@ workspace/lifecycle tables in Phase 2.
 - **Isolation:** one Docker container per workspace, persistent volume per project,
   built from the project's devcontainer.
 - **In-container agent:** a small workspace agent exposes file ops, a PTY, and process
-  spawning to the control plane over a multiplexed connection.
+  spawning to the control plane over a multiplexed connection. *(Interim reality
+  **[now]**: file ops, exec, and a real interactive PTY already ship via the runtime
+  plugin's `ExecInteractive` bidi stream — `internal/server/pty_handlers.go` — without
+  a dedicated in-container agent.)*
 - **Previews:** the control-plane gateway reverse-proxies the in-container dev server
   port out to the frontend `PreviewTab` (hot reload preserved).
 - **Pluggable:** the entire runtime sits behind `WorkspaceRuntime`, so Firecracker
@@ -165,7 +168,9 @@ workspace/lifecycle tables in Phase 2.
 ## Security checklist
 
 - [ ] Strong `JWT_SECRET` in production (enforced: throws if weak — `apps/api/src/auth.ts`)
-- [ ] Sessions actually validated/revocable (Phase 0 fix — table is currently write-only)
+- [x] Sessions actually validated/revocable — every authed request checks the
+      `sessions` row (exists + unexpired) and logout deletes it
+      (`apps/control-plane/internal/auth/middleware.go`)
 - [ ] CORS restricted to known origins in production (`CORS_ORIGIN`)
 - [ ] Parameterized queries everywhere (currently true)
 - [ ] Per-user ownership checks on all project/file routes (currently true)

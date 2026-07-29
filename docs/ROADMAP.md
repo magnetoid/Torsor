@@ -8,6 +8,12 @@ for the target design.
 (edit, run, preview, test, deploy) runs in the cloud you control — free out of the box,
 modular via plugins, skinnable via themes, and bootstrapped from templates.
 
+> **Reality-sync note (2026-07-30):** checkboxes below were audited against the code
+> (see [COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md) and
+> [DESIGN-UX-PLAN.md](./DESIGN-UX-PLAN.md)). The repo had moved well past this file:
+> PTY terminal, live preview, the agent loop, missions, model providers and the deploy
+> path all shipped. Phase 8 (below) is the current frontier.
+
 **Locked decisions:**
 - Backend control plane: **Go** (single static binary)
 - Workspace isolation: **Docker container per workspace** (devcontainer standard), pluggable
@@ -47,7 +53,7 @@ green for both frontend and API.
 
 ---
 
-## Phase 1 — Go control plane + plugin kernel 🚧 (in progress)
+## Phase 1 — Go control plane + plugin kernel ✅ (done)
 **Goal:** real backend as a single binary, with the contribution system in place first.
 
 - [x] Scaffold Go control plane at `apps/control-plane`: config, structured logging
@@ -72,11 +78,11 @@ green for both frontend and API.
       a registry + `applyTheme`. Built-in `dark`/`light` mirror `index.css` exactly (live
       theme is now registry-driven) and a `midnight` skin demonstrates runtime swap via
       `setThemeById`. Frontend `tsc` + `vite build` green.
-- [ ] Cut over: point the 2 real frontend stores (`authStore`, `projectStore`) +
-      compose/nginx at the Go service and retire `apps/api`
+- [x] Cut over: compose/nginx route to the Go service (ADR 0009); `apps/api` retained
+      for rollback only
 
-> The Go service currently ships **in parallel** with `apps/api` (nothing depends on it
-> yet), so the cutover is deliberate and reversible. See `apps/control-plane/README.md`.
+> Cutover is done and reversible (flip nginx/compose back). `apps/api` stays until the
+> control plane is battle-tested. See `apps/control-plane/README.md`.
 
 **Done when:** the app runs end-to-end on the Go binary; the editor/terminal/git UI are
 registered as plugins; a second theme can be swapped at runtime.
@@ -91,55 +97,72 @@ registered as plugins; a second theme can be swapped at runtime.
       streaming `Exec`, and file ops (list/read/write) proven end-to-end over gRPC
       (`internal/plugin/runtime_host_test.go`). HTTP surface under `/api/v1/runtimes`.
       Loaded via `TORSOR_WORKSPACE_RUNTIME_PLUGINS`.
-- [~] **Docker implementation** of `WorkspaceRuntime` (`cmd/docker-runtime`, shells out to
-      the `docker` CLI — container-per-workspace, exec streaming, file ops). Loads + handshakes
-      as a valid plugin (verified); full lifecycle against a live Docker daemon still to be
-      exercised on a Docker host.
+- [x] **Docker implementation** of `WorkspaceRuntime` (`cmd/docker-runtime`) —
+      container-per-workspace with cgroup limits (mem/cpu/pids), image allowlist,
+      `no-new-privileges`, optional gVisor (`TORSOR_WS_DOCKER_RUNTIME=runsc`),
+      snapshot/restore/fork via `docker commit`, interactive PTY (`ExecInteractive`).
 - [x] Workspace/lifecycle tables added to schema (`workspaces`, one per project, owned by a
       user) + **project-scoped, ownership-checked** workspace API
       (`/api/v1/projects/{id}/workspace*`) — runtime workspace id is the project id, never a
       client value, so users can't act on others' workspaces.
-- [ ] Per-project container from a `devcontainer.json`; persistent volume; resource quotas
-- [ ] In-container workspace agent: file ops, PTY, process spawn over multiplexed conn
-- [ ] Wire the real **file tree** + **xterm terminal** to the live container
+- [~] Per-project container: resource quotas ✅ (cgroups); `devcontainer.json` ❌;
+      **persistent volumes ❌ (designed snapshot-aware, awaiting rollout —
+      PRODUCTION-HARDENING §1; top data-durability priority)**
+- [~] In-container workspace agent: file ops/exec/PTY ship today via `docker exec` +
+      `ExecInteractive`; a dedicated in-container agent over a multiplexed conn remains
+      [target]
+- [x] Wire the real **file tree** + **xterm terminal** to the live container
 
 **Done when:** a user opens a project, sees real files, and runs real commands in a
-real terminal in their cloud workspace.
+real terminal in their cloud workspace. ← **This is true today**; volumes are the gap.
 
 ---
 
 ## Phase 3 — Live preview + dev servers
 **Goal:** real, hot-reloading preview of the running app.
 
-- [ ] Detect/run the project dev server inside the container
-- [ ] Gateway reverse-proxies the container port to the `PreviewTab`
-- [ ] Log streaming + port detection + multi-port support
+- [x] Detect/run the project dev server inside the container (templates +
+      zero-config `internal/appdetect`, `.torsor-run.sh`)
+- [x] Gateway reverse-proxies the container port to the `PreviewTab` (path mode +
+      wildcard host mode via `TORSOR_PREVIEW_DOMAIN`; console-error bridge to the agent)
+- [~] Log streaming ✅ (exec/task SSE) · port detection ❌ (fixed `TORSOR_WS_APP_PORT`
+      convention) · **multi-port ❌ — single port per workspace blocks
+      frontend+backend+DB apps (Phase 8)**
 
-**Done when:** editing a file updates the live preview with hot reload.
+**Done when:** editing a file updates the live preview with hot reload. ← True today.
 
 ---
 
 ## Phase 4 — The agent loop (vibe coding)
 **Goal:** describe → agent edits files in the live container → preview updates.
 
-- [ ] `ModelProvider` plugins: **Ollama default** + BYO-key (Claude/OpenAI/Gemini)
-- [ ] Per-user/project key management via the existing `secrets` table (encrypted)
-- [ ] Agent loop in Go: read/write workspace files, run commands in sandbox, stream
-      tokens to `ChatPanel`; tool-use + diffs + accept/reject
-- [ ] Task history + cost/usage tracking surfaced in UI
+- [x] `ModelProvider` plugins: **Ollama default** + BYO-key — 8 plugins shipped
+      (ollama, anthropic, openai, gemini, deepseek, openrouter, mock, mock-agent) +
+      role-based routing (`TORSOR_MODEL_ROUTING`)
+- [x] Per-user/project key management via the existing `secrets` table (AES-GCM;
+      `{PROVIDER}_API_KEY` unlocks hosted providers per user)
+- [~] Agent loop in Go ✅ (ReAct + SSE, 9 tools incl. `verify_app` real-browser
+      self-check, plan mode, missions engine, reflection→learning, transcript
+      compaction) · diffs + accept/reject ❌ · **search/patch-edit tools ❌ (Phase 8)**
+- [x] Task history + usage tracking surfaced in UI (tasks SSE reattach, UsageTab;
+      cost-in-dollars ❌ — tokens only)
 
 **Done when:** a prompt produces working, applied changes in the live workspace, free
-with a local model and better with a BYO key.
+with a local model and better with a BYO key. ← True today.
 
 ---
 
 ## Phase 5 — Deploy + test pipeline
 **Goal:** full loop — build, test, ship — without leaving Torsor.
 
-- [ ] Promote mock `testStore` → real: run tests in-sandbox, stream results
-- [ ] Promote mock `deployStore` → real `DeployTarget` plugins (Coolify first, then
-      Fly/Render/SSH); build image + hand off to existing deploy path
-- [ ] `VCSProvider` plugins (GitHub/GitLab/Gitea): clone, commit, push, PRs
+- [~] Testing: AppTestingTab runs real in-workspace commands via exec-stream ✅;
+      structured runner/results-history ❌
+- [~] Deploy: **Torsor Cloud path is real** (secret-scan gate → build plan →
+      in-workspace prod serve at `/d/{id}` + custom domains) but it reuses the dev
+      container — no versioned artifacts/rollback; `DeployTarget` plugins ❌
+      (Coolify/SSH first — Phase 8)
+- [ ] `VCSProvider` plugins (GitHub/GitLab/Gitea): clone, repo create, push, PRs —
+      GitHub App **login** shipped; repo API integration ❌ (Phase 8)
 
 **Done when:** a project can be tested and deployed from the IDE via swappable targets.
 
@@ -148,10 +171,15 @@ with a local model and better with a BYO key.
 ## Phase 6 — Teams, collaboration, polish
 **Goal:** multi-user, production-grade.
 
-- [ ] Real-time collaboration (CRDT/Yjs): shared editing, cursors, presence
-- [ ] Orgs + RBAC (finish `admin` role), team invites, per-workspace permissions
-- [ ] Audit logs (table exists), quotas, usage limits, optional billing
-- [ ] Observability: Prometheus metrics, correlation IDs, error tracking
+- [~] Real-time collaboration: presence avatars ✅; **Yjs sidecar + authed WS proxy
+      fully built server-side with NO frontend client** — shipping the y-monaco
+      binding is Phase 8's cheapest flagship win
+- [~] Orgs + RBAC: teams/members/invites API + UI ✅ — but `projects.team_id` is never
+      read, so **teams grant zero resource access** (Phase 8); invite email delivery ❌
+- [~] Audit logs ✅ read route but only 4 write sites; quotas/usage limits **not
+      enforced** (metering only); billing ❌ by design (self-host)
+- [~] Observability: `/metrics` exists (uptime/request counters, unauthenticated);
+      workspace/queue/model metrics + correlation IDs ❌
 
 ---
 
@@ -164,6 +192,74 @@ with a local model and better with a BYO key.
 - [ ] **Theme gallery** / white-label guide
 - [ ] Example plugins: a runtime backend (Firecracker or K8s), a model provider, a
       deploy target, a UI panel — as reference implementations
+
+---
+
+## Phase 8 — Replit-class gaps, the open way (2026-07 refresh)
+
+Sourced from [COMPETITIVE-ANALYSIS.md](./COMPETITIVE-ANALYSIS.md) (Replit mid-2026 map)
+and two full code audits. Four tracks, ordered; the design counterpart lives in
+[DESIGN-UX-PLAN.md](./DESIGN-UX-PLAN.md). Positioning: **"the Replit you can own"** —
+open standards where Replit is proprietary, self-host-first where Replit is SaaS-only.
+
+### Track A — Make it true (credibility & self-host readiness)
+- [ ] Honor `projects.team_id`: team-scoped project/workspace/agent access with role
+      checks (today teams grant zero access); optional SMTP invite delivery
+- [ ] Ship co-editing: frontend Yjs client (y-monaco) on the already-built
+      `/collab/ws` proxy + sidecar — free multiplayer where Replit charges
+- [ ] Persistent volumes (snapshot-aware design exists) + idle-stop/TTL +
+      per-user workspace caps + disk quotas
+- [ ] Quota enforcement from `usage_events` (admin-set plans become meaningful) —
+      prerequisite for open signups
+- [ ] Audit coverage: auth/deploy/secrets/admin/exec events (4 write sites today)
+- [ ] Custom-domain ownership verification (DNS TXT) — today any hostname can be claimed
+- [ ] SecurityScanTab → real OSS scanners in-workspace (osv-scanner, npm audit,
+      govulncheck)
+- [ ] Abuse report endpoint + admin takedown queue; Playwright E2E happy path
+
+### Track B — Platform services, the open way (built apps become real products)
+- [ ] **Agent tool upgrade** (cheapest, highest leverage): `search_files` (grep),
+      `edit_file` (targeted patch — today write_file is full-overwrite), delete/move
+- [ ] Multi-port workspaces (docker-runtime + preview proxy) — unblocks
+      frontend+backend+DB apps
+- [ ] **Torsor DB**: per-project Postgres on the platform's own PG (dev/prod separation
+      at deploy) + DatabaseTab upgrade — *your* Postgres, no vendor
+- [ ] **Torsor Auth**: the `auth` preview tab becomes a real standards-based (JWT/OIDC)
+      drop-in auth service for user-built apps
+- [ ] Real deployments: versioned release images on the `docker commit` substrate,
+      separate deploy container, logs, rollback; then `DeployTarget` plugin proto —
+      **Coolify + SSH before Fly/Vercel**
+- [ ] `StorageProvider` plugin (local + S3/MinIO) for app object storage
+- [ ] Cron substrate: scheduled deploys + scheduled agent automations
+- [ ] Templates: expand the hardcoded 3 → Python/Go/Next/full-stack;
+      `torsor.template.yaml` + git-backed community templates
+- [ ] **Connectors = open MCP catalog** on `internal/mcpx` (Replit added MCP;
+      we make it the whole connector story)
+
+### Track C — Agent leverage (the Agent-4 wave, our way)
+- [ ] Parallel missions in isolated copies (snapshot/fork substrate exists) +
+      git-assisted merge
+- [ ] Honor the latent autonomy prefs (`user_agent_prefs`, `agent_engine_config.
+      default_model`) in actual runs — the autonomy dial
+- [ ] Visual element-select → targeted agent edit (sourceLocator + visual-edit overlay
+      already exist)
+- [ ] Mission board UI (Kanban over existing mission/task statuses)
+- [ ] Checkpoint time-travel UI (timeline + diff + restore)
+- [ ] Model variant picker (catalog beyond Ollama; per-request choice)
+- [ ] Opt-in `web_fetch`/search tool (self-hostable backend, e.g. SearXNG)
+
+### Track D — Reach & ecosystem (open-source flavored)
+- [ ] GitHub import: `/new?repo=<url>` clone-on-create (top onboarding path), then
+      VCSProvider plugin (repo create, push, PRs) on the existing GitHub App
+- [ ] Publish the Plugin SDK: gRPC + contribution contracts as versioned public API
+      (Replit deprecated extensions — extensibility is our moat)
+- [ ] Theme gallery (3–5 first-party token packs) + white-label guide;
+      template registry UI
+- [ ] OpenAPI spec for the control plane
+
+**Deliberately not copying:** domain reselling, native mobile apps, slides/video
+artifacts, effort-based billing, proprietary connector marketplace — rationale in
+COMPETITIVE-ANALYSIS §4.
 
 ---
 
