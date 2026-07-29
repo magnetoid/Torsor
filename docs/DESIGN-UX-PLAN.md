@@ -78,8 +78,12 @@ radius + Inter Variable/JetBrains Mono; per-surface skeletons; sonner toasts; �
 - [ ] **Responsive minimum**: breakpoint-prefix the unguarded `grid-cols-3/4`
       (BillingPage, UsageTab, BillingModal, OnboardingStep4); dismissible
       "best on desktop" notice for the IDE below 768px.
-- [ ] **Primitive adoption pass** on top-traffic surfaces (Home, Projects, Auth,
-      Settings shell): raw `<button>` → shared `Button`/`IconButton`.
+- [ ] **Primitive adoption pass** — finding from the Stage-1 attempt (2026-07-30):
+      the top-traffic surfaces (Home, Projects, Auth) already carry consistent
+      focus-ring/aria patterns and deliberate custom controls (segmented toggles,
+      tab strips, dropdown triggers); blind `<button>` → `Button` swaps there are
+      regression risk without payoff. The raw-button debt worth converting lives in
+      the IDE tabs — fold this into the Stage-2 sweep with visual verification.
 
 ## Stage 2 — consolidation
 

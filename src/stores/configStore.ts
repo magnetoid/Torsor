@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { migratePersistKey } from '../lib/utils';
+
+// Legacy persist key rename (pre-rebrand residue): tesseract-* -> torsor-*.
+migratePersistKey('tesseract-config-storage', 'torsor-config-storage');
 
 export interface Secret {
   key: string;
@@ -79,7 +83,7 @@ export const useConfigStore = create<ConfigState>()(
       })),
     }),
     {
-      name: 'tesseract-config-storage',
+      name: 'torsor-config-storage',
     }
   )
 );

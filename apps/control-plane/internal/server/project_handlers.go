@@ -21,15 +21,17 @@ type project struct {
 	Vibe        *string   `json:"vibe"`
 	IsPublic    bool      `json:"isPublic"`
 	Template    *string   `json:"template"`
+	Starred     bool      `json:"starred"`
+	Archived    bool      `json:"archived"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-const projectCols = `id, user_id, name, description, vibe, is_public, template, created_at, updated_at`
+const projectCols = `id, user_id, name, description, vibe, is_public, template, starred, archived, created_at, updated_at`
 
 func scanProject(row pgx.Row) (project, error) {
 	var p project
-	err := row.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Vibe, &p.IsPublic, &p.Template, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.UserID, &p.Name, &p.Description, &p.Vibe, &p.IsPublic, &p.Template, &p.Starred, &p.Archived, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -162,6 +164,8 @@ func (s *Server) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
 		Description *string `json:"description"`
 		Vibe        *string `json:"vibe"`
 		IsPublic    *bool   `json:"isPublic"`
+		Starred     *bool   `json:"starred"`
+		Archived    *bool   `json:"archived"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -184,11 +188,19 @@ func (s *Server) handleUpdateProject(w http.ResponseWriter, r *http.Request) {
 	if body.IsPublic != nil {
 		isPublic = *body.IsPublic
 	}
+	starred := current.Starred
+	if body.Starred != nil {
+		starred = *body.Starred
+	}
+	archived := current.Archived
+	if body.Archived != nil {
+		archived = *body.Archived
+	}
 
 	p, err := scanProject(s.pool.QueryRow(r.Context(),
-		`UPDATE projects SET name = $3, description = $4, vibe = $5, is_public = $6, updated_at = NOW()
+		`UPDATE projects SET name = $3, description = $4, vibe = $5, is_public = $6, starred = $7, archived = $8, updated_at = NOW()
 		 WHERE id = $1 AND user_id = $2 RETURNING `+projectCols,
-		projectID, userID(r), name, desc, vibe, isPublic))
+		projectID, userID(r), name, desc, vibe, isPublic, starred, archived))
 	if err != nil {
 		s.fail(w, r, err)
 		return

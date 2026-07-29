@@ -5,7 +5,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import { OnboardingStep1 } from './steps/OnboardingStep1';
 import { OnboardingStep2 } from './steps/OnboardingStep2';
-import { OnboardingStep4 } from './steps/OnboardingStep4';
+import { OnboardingStep3 } from './steps/OnboardingStep3';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -51,10 +51,13 @@ export function OnboardingPage() {
     }
 
     if (currentData.prompt || currentData.templateId) {
+      // The chosen starter template is passed through so the workspace actually
+      // provisions from it (it used to be silently discarded here).
       const projectId = await createProject({
         name: currentData.prompt?.slice(0, 32) || currentData.templateId || 'My first project',
         description: currentData.prompt || 'Created from onboarding',
         type: 'website',
+        ...(currentData.templateId ? { template: currentData.templateId } : {}),
       }, 'server-default');
       navigate(`/project/${projectId}`);
     } else {
@@ -111,7 +114,7 @@ export function OnboardingPage() {
                 />
               )}
               {step === 3 && (
-                <OnboardingStep4
+                <OnboardingStep3
                   data={data}
                   updateData={updateData}
                   onComplete={handleComplete}

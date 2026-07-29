@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { migratePersistKey } from '../lib/utils';
+
+// Legacy persist key rename (pre-rebrand residue): tesseract-* -> torsor-*.
+migratePersistKey('tesseract-editor-storage', 'torsor-editor-storage');
 
 export interface SearchResult {
   id: string;
@@ -84,7 +88,7 @@ export const useEditorStore = create<EditorState>()(
       })),
     }),
     {
-      name: 'tesseract-editor-storage',
+      name: 'torsor-editor-storage',
     }
   )
 );

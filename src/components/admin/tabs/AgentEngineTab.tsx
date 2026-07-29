@@ -6,11 +6,34 @@ interface Cfg { enabled: boolean; defaultModel: string; maxTasks: number; maxRet
 export default function AgentEngineTab() {
   const [cfg, setCfg] = useState<Cfg | null>(null);
   const [missions, setMissions] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    void apiRequest<Cfg>('/api/v1/admin/agent/config', { auth: true }).then(setCfg);
-    void apiRequest<{ items: any[] }>('/api/v1/admin/agent/missions', { auth: true }).then((r) => setMissions(r.items));
+    // Both fetches handle failure — a 403/500 used to leave this tab on
+    // "Loading…" forever with no way to tell.
+    apiRequest<Cfg>('/api/v1/admin/agent/config', { auth: true })
+      .then(setCfg)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load agent config'));
+    apiRequest<{ items: any[] }>('/api/v1/admin/agent/missions', { auth: true })
+      .then((r) => setMissions(r.items))
+      .catch(() => {
+        // Mission list failing shouldn't blank the whole tab.
+      });
   }, []);
-  const save = async () => { if (cfg) setCfg(await apiRequest<Cfg>('/api/v1/admin/agent/config', { method: 'PATCH', auth: true, body: JSON.stringify(cfg) })); };
+  const save = async () => {
+    if (!cfg) return;
+    try {
+      setCfg(await apiRequest<Cfg>('/api/v1/admin/agent/config', { method: 'PATCH', auth: true, body: JSON.stringify(cfg) }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save agent config');
+    }
+  };
+  if (error) {
+    return (
+      <div className="p-6">
+        <p className="text-xs text-error rounded-lg border border-error/20 bg-error/10 p-3">{error}</p>
+      </div>
+    );
+  }
   if (!cfg) return <div className="p-6 text-secondary text-sm">Loading…</div>;
   return (
     <div className="p-6 max-w-3xl space-y-6">

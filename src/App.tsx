@@ -306,6 +306,9 @@ function RouteTitleManager() {
     else if (path === '/notifications') title = 'Notifications | Torsor';
     else if (path === '/marketplace') title = 'Marketplace | Torsor';
     else if (path === '/help') title = 'Help | Torsor';
+    else if (path === '/about') title = 'About | Torsor';
+    else if (path === '/updates') title = "What's New | Torsor";
+    else if (path === '/feedback') title = 'Feedback | Torsor';
     else if (path.startsWith('/admin')) title = 'Admin | Torsor';
     else if (path === '/onboarding') title = 'Onboarding | Torsor';
     else if (path === '/recent') title = 'Recent Projects | Torsor';
