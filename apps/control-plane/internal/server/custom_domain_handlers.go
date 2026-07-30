@@ -95,6 +95,7 @@ func (s *Server) handleAddDomain(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	s.auditFromRequest(r, "domain_add", "project", projectID, domain, "Attached domain "+domain)
 	writeJSON(w, http.StatusCreated, d)
 }
 

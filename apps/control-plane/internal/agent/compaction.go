@@ -77,8 +77,10 @@ func digestObservation(tool, obs string) string {
 	case tool == "run":
 		// exit code is the first line ("exit=N").
 		return firstLineOf(obs, 40)
-	case tool == "write_file":
-		return firstLineOf(obs, 60) // "wrote N bytes to path"
+	case tool == "write_file", tool == "edit_file", tool == "delete_file", tool == "move_file":
+		return firstLineOf(obs, 60) // e.g. "wrote N bytes to path" / "edited path (…)"
+	case tool == "search_files":
+		return firstLineOf(obs, 80) // first match line is the useful signal
 	case tool == "verify_app":
 		return firstLineOf(obs, 80) // verdict line leads the report
 	default:

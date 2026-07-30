@@ -232,6 +232,9 @@ func (s *Server) handleAdminUpdateUserRole(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Privilege changes are the highest-value audit events on the platform.
+	s.auditFromRequest(r, "role_change", "user", id, email, "Set role to "+string(role))
+
 	effective := auth.RoleUser
 	if dbRole != nil {
 		effective = auth.Role(*dbRole)

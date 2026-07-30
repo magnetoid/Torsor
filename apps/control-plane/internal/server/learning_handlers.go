@@ -230,7 +230,7 @@ func (s *Server) reflectAsync(projectID, uid string, model agent.Model, apiKey, 
 		// reflection, use it (with the user's key for THAT provider) instead of the
 		// run's provider — reflection is summarization, a cheap-model job.
 		if routed := routedProviderName("reflect"); routed != "" {
-			if p, name, ok := s.pickModelProvider(routed); ok {
+			if p, name, ok := s.pickModelProvider(ctx, routed); ok {
 				model, apiKey = p, s.providerAPIKey(ctx, uid, name)
 			}
 		}

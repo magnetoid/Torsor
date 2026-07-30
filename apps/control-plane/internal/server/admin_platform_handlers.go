@@ -179,5 +179,10 @@ func (s *Server) handleUpdatePlatformSettings(w http.ResponseWriter, r *http.Req
 	s.maint.mu.Lock()
 	s.maint.fetchedAt = time.Time{}
 	s.maint.mu.Unlock()
+	mode := "off"
+	if b.MaintenanceMode {
+		mode = "on"
+	}
+	s.auditFromRequest(r, "settings_update", "platform", "", "platform_settings", "Maintenance mode "+mode)
 	writeJSON(w, http.StatusOK, b)
 }

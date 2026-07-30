@@ -197,6 +197,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	// Sign-ins are security-relevant events, so they belong in the audit trail (which
+	// previously recorded only project/team actions).
+	s.writeAudit(r.Context(), id, "login", "user", id, body.Email, "Signed in with a password", clientIP(r))
 	writeJSON(w, http.StatusOK, resp)
 }
 

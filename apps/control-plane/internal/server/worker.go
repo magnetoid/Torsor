@@ -135,7 +135,7 @@ func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.M
 		return
 	}
 
-	provider, providerName, ok := s.pickModelProviderFor("step", "")
+	provider, providerName, ok := s.pickModelProviderFor(parent, "step", "")
 	if !ok {
 		s.finishTaskRow(id, "failed", "", "no model provider available", 0, "", 0, 0)
 		s.publishTaskDone(id)

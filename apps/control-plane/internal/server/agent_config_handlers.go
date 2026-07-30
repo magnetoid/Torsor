@@ -3,8 +3,6 @@ package server
 import (
 	"context"
 	"net/http"
-
-	"github.com/jackc/pgx/v5"
 )
 
 type engineConfig struct {
@@ -86,17 +84,21 @@ type agentPrefs struct {
 	PlanningEnabled bool   `json:"planningEnabled"`
 }
 
-func (s *Server) handleGetAgentPrefs(w http.ResponseWriter, r *http.Request) {
+// loadAgentPrefs reads a user's agent preferences, falling back to the schema defaults
+// for a user who has never saved any (or on a read error — preferences must never be
+// the reason a run fails to start). These are honored by the agent run path: the
+// settings used to be persisted and then ignored.
+func (s *Server) loadAgentPrefs(ctx context.Context, uid string) agentPrefs {
 	p := agentPrefs{DefaultAutonomy: "approve_plan", MaxSteps: 12, PlanningEnabled: true}
-	err := s.pool.QueryRow(r.Context(),
+	_ = s.pool.QueryRow(ctx,
 		`SELECT default_autonomy, max_steps, preferred_model, planning_enabled
-		   FROM user_agent_prefs WHERE user_id = $1`, userID(r)).
+		   FROM user_agent_prefs WHERE user_id = $1`, uid).
 		Scan(&p.DefaultAutonomy, &p.MaxSteps, &p.PreferredModel, &p.PlanningEnabled)
-	if err != nil && err != pgx.ErrNoRows {
-		s.fail(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, p)
+	return p
+}
+
+func (s *Server) handleGetAgentPrefs(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, s.loadAgentPrefs(r.Context(), userID(r)))
 }
 
 func (s *Server) handleUpdateAgentPrefs(w http.ResponseWriter, r *http.Request) {

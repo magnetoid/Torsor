@@ -85,7 +85,8 @@ const BUILTIN_TABS: BuiltinTab[] = [
   { type: 'storage', label: 'App Storage', component: AppStorageTab, icon: HardDrive, group: 'labs', order: 1 },
   { type: 'auth', label: 'Authentication', component: AuthTab, icon: UserCheck, group: 'labs', order: 2, maturity: 'preview', previewFeature: 'the Authentication manager' },
   { type: 'git', label: 'Git', component: GitTab, icon: GitBranch, group: 'build', order: 3 },
-  { type: 'security', label: 'Security Scan', component: SecurityScanTab, icon: Shield, group: 'labs', order: 4, maturity: 'preview', previewFeature: 'the Security Scan' },
+  // Real as of the scan endpoint: secret detectors + workspace OSS scanners (no banner).
+  { type: 'security', label: 'Security Scan', component: SecurityScanTab, icon: Shield, group: 'labs', order: 4 },
   { type: 'testing', label: 'App Testing', component: AppTestingTab, icon: FlaskConical, group: 'project', order: 5 },
   { type: 'integrations', label: 'Integrations', component: IntegrationsTab, icon: Puzzle, group: 'labs', order: 7 },
   { type: 'skills', label: 'Agent Skills', component: AgentSkillsTab, icon: Sparkles, group: 'agent', order: 3 },

@@ -235,12 +235,22 @@ or, when the task is complete:
 Available tools (all args are strings):
 - list_files   {"path": "<dir, empty for root>"}          -> lists files/dirs
 - read_file    {"path": "<file>"}                          -> returns file contents
-- write_file   {"path": "<file>", "content": "<content>"}  -> creates/overwrites the file
+- search_files {"query": "<text>", "path": "<dir, optional>"} -> greps the workspace, returns path:line:text matches
+- write_file   {"path": "<file>", "content": "<content>"}  -> creates/overwrites the WHOLE file
+- edit_file    {"path": "<file>", "find": "<exact snippet>", "replace": "<new snippet>"} -> replaces one exact occurrence
+- delete_file  {"path": "<file>"}                          -> deletes a file
+- move_file    {"from": "<path>", "to": "<path>"}          -> moves/renames a file
 - run          {"command": "<shell command>"}              -> runs a command, returns output+exit code
 
 Rules:
 - Respond with ONE JSON object only. Do not wrap it in code fences.
 - Take the smallest useful step; inspect before editing.
+- To find code, prefer search_files over listing and reading directories one by one.
+- To change part of an existing file, prefer edit_file — write_file replaces the entire
+  file and will destroy content you did not include. Use write_file for new files.
+- edit_file needs "find" to match EXACTLY once (copy it from read_file output, including
+  indentation). If it reports no match or several, read the file and retry with more
+  surrounding context.
 - After a build/test command fails, read the error and fix it, then re-run.
 - VERIFY your work before finishing: if the project has tests, run them; if it has a dev
   server or build, run it and (with the run tool) curl the app's local port to confirm it
@@ -314,7 +324,7 @@ Rules:
 type RunResult struct {
 	Final     string   // the final user-facing message
 	Steps     int      // model turns taken
-	Mutations int      // count of workspace-mutating tool calls (write_file / run) this run
+	Mutations int      // count of workspace-mutating tool calls this run (see mutatingTools)
 	Model     string   // model id reported by the provider
 	TokensIn  int32    // summed across all model calls
 	TokensOut int32    // summed across all model calls
@@ -467,7 +477,7 @@ func (r *Runner) Run(ctx context.Context, task string, onEvent func(Event)) (Run
 
 		emit(Event{Kind: EventToolCall, Step: i, Tool: st.Action.Tool, Args: st.Action.Args})
 		obs := r.runTool(ctx, *st.Action)
-		if st.Action.Tool == "write_file" || st.Action.Tool == "run" {
+		if mutatingTools[st.Action.Tool] {
 			result.Mutations++
 		}
 		// Scrub BEFORE truncating: truncation could split a secret value in half and let
@@ -529,6 +539,45 @@ func skillsPrompt(skills []Skill) string {
 // runTool executes one tool action against the workspace and returns a text observation.
 // Tool errors are returned as observation text (not Go errors) so the agent can react and
 // recover rather than aborting the whole run.
+// mutatingTools are the tool calls that change the workspace. Reflection uses the count
+// to decide whether a run is worth learning from, so every write path must be listed.
+var mutatingTools = map[string]bool{
+	"write_file":  true,
+	"edit_file":   true,
+	"delete_file": true,
+	"move_file":   true,
+	"run":         true,
+}
+
+// IsMutatingTool reports whether a tool call changes the workspace. Exported so the
+// server's streaming path classifies runs the same way the runner does.
+func IsMutatingTool(tool string) bool { return mutatingTools[tool] }
+
+// execCollect runs a command in the workspace and gathers its complete output plus exit
+// code — the synchronous form the file tools need (the `run` tool streams inline).
+func (r *Runner) execCollect(ctx context.Context, cmd ...string) (string, int, error) {
+	var out strings.Builder
+	exit := 0
+	err := r.ws.Exec(ctx, plugin.ExecSpec{
+		WorkspaceID: r.cfg.WorkspaceID,
+		Command:     cmd,
+	}, func(c plugin.ExecChunk) error {
+		out.WriteString(c.Stdout)
+		out.WriteString(c.Stderr)
+		if c.Done {
+			exit = int(c.ExitCode)
+		}
+		return nil
+	})
+	return out.String(), exit, err
+}
+
+// shellQuote wraps a value in single quotes for `sh -c`, so model-supplied paths can't
+// break out of the argument (the file tools that need a shell build commands with it).
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 func (r *Runner) runTool(ctx context.Context, a action) string {
 	// External (MCP) tools are dispatched through the ToolRouter before the built-ins.
 	if r.extNames[a.Tool] {
@@ -567,6 +616,83 @@ func (r *Runner) runTool(ctx context.Context, a action) string {
 			return "error: " + err.Error()
 		}
 		return string(content)
+
+	case "search_files":
+		query := strings.TrimSpace(a.Args["query"])
+		if query == "" {
+			return "error: search_files requires a non-empty query"
+		}
+		dir := strings.TrimSpace(a.Args["path"])
+		if dir == "" {
+			dir = "."
+		}
+		// Fixed-string, case-insensitive, line-numbered; vendored/build dirs excluded and
+		// per-file matches capped so one noisy file can't fill the observation budget.
+		out, _, err := r.execCollect(ctx, "grep", "-rIn", "-i", "-F", "-m", "10",
+			"--exclude-dir=node_modules", "--exclude-dir=.git", "--exclude-dir=dist",
+			"--exclude-dir=build", "--exclude-dir=.next", "--exclude-dir=vendor",
+			"--", query, dir)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		if strings.TrimSpace(out) == "" {
+			return "no matches for " + query
+		}
+		return out
+
+	case "edit_file":
+		path := strings.TrimSpace(a.Args["path"])
+		find := a.Args["find"]
+		if path == "" || find == "" {
+			return "error: edit_file requires a path and a non-empty find"
+		}
+		content, err := r.ws.ReadFile(ctx, r.cfg.WorkspaceID, path)
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		// Exactly-once matching keeps the edit unambiguous: zero matches means the model
+		// guessed at the text, several means the replacement site is undetermined. Both
+		// come back as observations so the loop can widen the context and retry.
+		switch n := strings.Count(string(content), find); {
+		case n == 0:
+			return fmt.Sprintf("error: no match for the given find text in %s — read the file and copy the exact snippet (including indentation)", path)
+		case n > 1:
+			return fmt.Sprintf("error: the find text matches %d times in %s — include more surrounding context so it matches exactly once", n, path)
+		}
+		replace, missing := expandSecrets(ctx, r.cfg.Secrets, a.Args["replace"])
+		updated := strings.Replace(string(content), find, replace, 1)
+		if err := r.ws.WriteFile(ctx, r.cfg.WorkspaceID, path, []byte(updated), true); err != nil {
+			return "error: " + err.Error()
+		}
+		return fmt.Sprintf("edited %s (%d bytes -> %d bytes)", path, len(content), len(updated)) + missingSecretsNote(missing)
+
+	case "delete_file":
+		path := strings.TrimSpace(a.Args["path"])
+		if path == "" {
+			return "error: delete_file requires a non-empty path"
+		}
+		if _, exit, err := r.execCollect(ctx, "rm", "-f", "--", path); err != nil {
+			return "error: " + err.Error()
+		} else if exit != 0 {
+			return fmt.Sprintf("error: could not delete %s (exit=%d)", path, exit)
+		}
+		return "deleted " + path
+
+	case "move_file":
+		from := strings.TrimSpace(a.Args["from"])
+		to := strings.TrimSpace(a.Args["to"])
+		if from == "" || to == "" {
+			return "error: move_file requires both from and to"
+		}
+		out, exit, err := r.execCollect(ctx, "sh", "-c",
+			fmt.Sprintf("mkdir -p \"$(dirname %s)\" && mv -f %s %s", shellQuote(to), shellQuote(from), shellQuote(to)))
+		if err != nil {
+			return "error: " + err.Error()
+		}
+		if exit != 0 {
+			return fmt.Sprintf("error: could not move %s to %s (exit=%d)\n%s", from, to, exit, out)
+		}
+		return fmt.Sprintf("moved %s -> %s", from, to)
 
 	case "write_file":
 		if a.Args["path"] == "" {

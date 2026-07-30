@@ -1,301 +1,242 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  ShieldAlert, 
-  ShieldCheck, 
-  Play, 
-  RotateCcw, 
-  Loader2, 
-  ChevronRight, 
-  ExternalLink, 
-  AlertTriangle, 
-  Info, 
+import React, { useState } from 'react';
+import {
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Play,
+  RotateCcw,
+  Loader2,
+  AlertTriangle,
+  Info,
   CheckCircle2,
   XCircle,
-  Zap
+  Zap,
+  MinusCircle,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useChatStore } from '../../stores/chatStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { useEditorStore } from '../../stores/editorStore';
+import { useAppStore } from '../../useAppStore';
+import { apiRequest } from '../../lib/api';
 
-type ScanState = 'idle' | 'scanning' | 'results';
+/**
+ * Real security scanning. This tab used to fake a progress animation and display three
+ * hardcoded findings; it now runs actual scanners inside the project's workspace via
+ * POST /workspace/scan — the same secret detectors that gate publishing, plus whichever
+ * OSS dependency scanners the workspace image provides. Scanners that aren't installed
+ * are reported as unavailable rather than quietly skipped, so "no issues" is honest.
+ */
 
-interface ScanCheck {
-  id: string;
-  label: string;
-  status: 'pending' | 'checking' | 'pass' | 'fail';
-}
+type ScanState = 'idle' | 'scanning' | 'results' | 'error';
 
 interface SecurityIssue {
-  id: string;
   severity: 'critical' | 'warning' | 'info';
   title: string;
   file: string;
-  line: number;
+  line?: number;
   description: string;
+  source: string;
 }
 
-const INITIAL_CHECKS: ScanCheck[] = [
-  { id: 'deps', label: 'Checking dependencies for known vulnerabilities...', status: 'pending' },
-  { id: 'secrets', label: 'Scanning for exposed secrets...', status: 'pending' },
-  { id: 'auth', label: 'Analyzing auth implementation...', status: 'pending' },
-  { id: 'injection', label: 'Checking API routes for injection risks...', status: 'pending' },
-  { id: 'errors', label: 'Reviewing error handling...', status: 'pending' },
-];
+interface ScannerResult {
+  name: string;
+  ran: boolean;
+  available: boolean;
+  detail: string;
+}
 
-const MOCK_ISSUES: SecurityIssue[] = [
-  {
-    id: 'issue-1',
-    severity: 'critical',
-    title: 'Exposed API key in client-side code',
-    file: 'src/lib/api.ts',
-    line: 12,
-    description: 'A hardcoded Stripe secret key was found in a client-side file. This key should be moved to environment variables and accessed only from the server.'
-  },
-  {
-    id: 'issue-2',
-    severity: 'warning',
-    title: 'Missing CSRF protection',
-    file: 'server.ts',
-    line: 45,
-    description: 'The Express server does not appear to have CSRF protection middleware enabled for POST/PUT/DELETE routes.'
-  },
-  {
-    id: 'issue-3',
-    severity: 'info',
-    title: 'Insecure cookie configuration',
-    file: 'src/stores/authStore.ts',
-    line: 88,
-    description: 'Cookies are being set without the "Secure" attribute. This is acceptable for development but should be enabled in production.'
-  }
-];
+const SEVERITY_STYLE: Record<SecurityIssue['severity'], { icon: React.ElementType; cls: string; label: string }> = {
+  critical: { icon: XCircle, cls: 'text-error bg-error/10 border-error/20', label: 'Critical' },
+  warning: { icon: AlertTriangle, cls: 'text-warning bg-warning/10 border-warning/20', label: 'Warning' },
+  info: { icon: Info, cls: 'text-info bg-info/10 border-info/20', label: 'Info' },
+};
 
 export default function SecurityScanTab() {
   const [scanState, setScanState] = useState<ScanState>('idle');
-  const [checks, setChecks] = useState<ScanCheck[]>(INITIAL_CHECKS);
-  const [progress, setProgress] = useState(0);
+  const [issues, setIssues] = useState<SecurityIssue[]>([]);
+  const [scanners, setScanners] = useState<ScannerResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const { openFile } = useEditorStore();
+  const workspaceProjectId = useAppStore((s) => s.workspaceProjectId);
 
-  const startScan = () => {
+  const startScan = async () => {
+    if (!workspaceProjectId) return;
     setScanState('scanning');
-    setProgress(0);
-    setChecks(INITIAL_CHECKS.map(c => ({ ...c, status: 'pending' })));
+    setError(null);
+    try {
+      const res = await apiRequest<{ issues: SecurityIssue[]; scanners: ScannerResult[] }>(
+        `/api/v1/projects/${workspaceProjectId}/workspace/scan`,
+        { method: 'POST', auth: true },
+      );
+      setIssues(res.issues ?? []);
+      setScanners(res.scanners ?? []);
+      setScanState('results');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Scan failed');
+      setScanState('error');
+    }
   };
 
-  useEffect(() => {
-    if (scanState !== 'scanning') return;
-
-    let currentCheckIndex = 0;
-    const interval = setInterval(() => {
-      setChecks(prev => {
-        const next = [...prev];
-        if (currentCheckIndex < next.length) {
-          // Finish previous check
-          if (currentCheckIndex > 0) {
-            next[currentCheckIndex - 1].status = currentCheckIndex === 1 ? 'fail' : 'pass';
-          }
-          // Start current check
-          next[currentCheckIndex].status = 'checking';
-          setProgress(((currentCheckIndex + 1) / next.length) * 100);
-          currentCheckIndex++;
-          return next;
-        } else {
-          // Finish last check
-          next[next.length - 1].status = 'pass';
-          clearInterval(interval);
-          setTimeout(() => setScanState('results'), 500);
-          return next;
-        }
-      });
-    }, 1200);
-
-    return () => clearInterval(interval);
-  }, [scanState]);
-
+  // Handing a finding to the agent is the one thing that was already real here.
   const handleFix = (issue: SecurityIssue) => {
-    const projectId = useProjectStore.getState().activeProjectId;
-    if (!projectId) return;
+    if (!workspaceProjectId) return;
+    const where = issue.line ? `${issue.file} at line ${issue.line}` : issue.file;
     void useChatStore.getState().runAgent(
-      projectId,
-      `Fix the following security issue in ${issue.file} at line ${issue.line}: ${issue.title}. ${issue.description}`
+      workspaceProjectId,
+      `Fix the following security issue in ${where}: ${issue.title}. ${issue.description}`,
     );
   };
 
-  if (scanState === 'idle') {
+  if (!workspaceProjectId) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-page p-8 text-center">
+        <Shield size={32} className="text-tertiary opacity-40 mb-3" />
+        <p className="text-sm text-secondary">No workspace</p>
+        <p className="text-xs text-tertiary mt-1 max-w-sm">
+          Open a project workspace to scan its files and dependencies.
+        </p>
+      </div>
+    );
+  }
+
+  if (scanState === 'idle' || scanState === 'error') {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-page p-8 animate-in fade-in duration-500">
-        <div className="w-20 h-20 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-6 shadow-2xl shadow-accent/10">
+        <div className="w-20 h-20 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mb-6">
           <Shield size={40} className="text-accent" />
         </div>
         <h2 className="text-xl font-bold text-primary mb-2">Security Scanner</h2>
         <p className="text-sm text-secondary mb-8 text-center max-w-md">
-          Scan your project for vulnerabilities, exposed secrets, and insecure patterns using Torsor's AI security engine.
+          Scans this workspace for committed secrets (the same check that blocks publishing)
+          and for known-vulnerable dependencies using the OSS scanners available in your
+          workspace image.
         </p>
-        <button 
-          onClick={startScan}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent text-white font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20"
+        {error && (
+          <div className="mb-6 rounded-lg border border-error/20 bg-error/10 px-3 py-2 text-xs text-error max-w-md">
+            {error}
+          </div>
+        )}
+        <button
+          onClick={() => void startScan()}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent text-white font-bold hover:bg-accent-hover transition-all shadow-lg shadow-accent/20 focus-ring"
         >
           <Play size={16} fill="currentColor" />
-          Run Scan
+          {scanState === 'error' ? 'Try again' : 'Run scan'}
         </button>
-        <p className="mt-6 text-xs text-tertiary uppercase tracking-widest font-bold">
-          Powered by Torsor Agent · Balanced mode
-        </p>
       </div>
     );
   }
 
   if (scanState === 'scanning') {
     return (
-      <div className="flex-1 flex flex-col bg-page p-8 max-w-2xl mx-auto w-full">
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-accent uppercase tracking-widest">Scanning Project...</span>
-            <span className="text-xs font-mono text-secondary"> {Math.round(progress)}%</span>
-          </div>
-          <div className="h-1.5 w-full bg-inset rounded-full overflow-hidden border border-default">
-            <div 
-              className="h-full bg-accent transition-all duration-300 ease-out shadow-[0_0_10px_rgba(123,106,238,0.5)]" 
-              style={{ width: `${progress}%` }} 
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {checks.map((check) => (
-            <div key={check.id} className="flex items-center gap-3 animate-in slide-in-from-left-2 duration-300">
-              {check.status === 'pending' && <div className="w-2 h-2 rounded-full bg-inset" />}
-              {check.status === 'checking' && <Loader2 size={14} className="text-warning animate-spin" />}
-              {check.status === 'pass' && <CheckCircle2 size={14} className="text-success" />}
-              {check.status === 'fail' && <XCircle size={14} className="text-error" />}
-              <span className={cn(
-                "text-sm transition-colors",
-                check.status === 'checking' ? "text-primary font-medium" : 
-                check.status === 'pending' ? "text-tertiary" : "text-secondary"
-              )}>
-                {check.label}
-              </span>
-            </div>
-          ))}
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center bg-page p-8">
+        <Loader2 size={32} className="text-accent animate-spin mb-4" />
+        <p className="text-sm font-semibold text-primary">Scanning workspace…</p>
+        <p className="text-xs text-tertiary mt-2 text-center max-w-sm">
+          Walking the file tree for secrets and querying dependency advisories. This runs
+          inside your container and can take a moment on a large project.
+        </p>
       </div>
     );
   }
 
+  const counts = {
+    critical: issues.filter((i) => i.severity === 'critical').length,
+    warning: issues.filter((i) => i.severity === 'warning').length,
+    info: issues.filter((i) => i.severity === 'info').length,
+  };
+
   return (
-    <div className="flex-1 flex flex-col bg-page overflow-y-auto custom-scrollbar p-6">
-      {/* SUMMARY HEADER */}
-      <div className="flex items-start justify-between mb-8 max-w-4xl mx-auto w-full">
-        <div className="flex-1 bg-surface rounded-xl border border-default p-6 mr-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-5">
-            <ShieldAlert size={120} />
-          </div>
-          <div className="relative z-10">
-            <h2 className="text-lg font-bold text-primary mb-1">Scan Results</h2>
-            <p className="text-sm text-error font-medium mb-4 flex items-center gap-2">
-              <AlertTriangle size={14} />
-              3 issues found in your project
-            </p>
-            <div className="flex gap-4">
-              <div className="px-3 py-1.5 rounded-lg bg-error/10 border border-error/20">
-                <span className="text-xs font-bold text-error uppercase tracking-wider block">Critical</span>
-                <span className="text-xl font-bold text-primary">1</span>
-              </div>
-              <div className="px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20">
-                <span className="text-xs font-bold text-warning uppercase tracking-wider block">Warning</span>
-                <span className="text-xl font-bold text-primary">1</span>
-              </div>
-              <div className="px-3 py-1.5 rounded-lg bg-info/10 border border-info/20">
-                <span className="text-xs font-bold text-info uppercase tracking-wider block">Info</span>
-                <span className="text-xl font-bold text-primary">1</span>
-              </div>
-            </div>
-          </div>
+    <div className="flex-1 flex flex-col bg-page overflow-hidden">
+      {/* HEADER */}
+      <div className="h-12 px-4 flex items-center justify-between border-b border-default bg-surface shrink-0">
+        <div className="flex items-center gap-2">
+          {counts.critical > 0 ? (
+            <ShieldAlert size={16} className="text-error" />
+          ) : (
+            <ShieldCheck size={16} className="text-success" />
+          )}
+          <h2 className="text-sm font-bold text-primary">Security scan</h2>
+          <span className="text-xs text-tertiary">
+            {issues.length === 0
+              ? 'no issues found'
+              : `${counts.critical} critical · ${counts.warning} warning · ${counts.info} info`}
+          </span>
         </div>
-
-        <div className="w-48 bg-surface rounded-xl border border-default p-6 flex flex-col items-center justify-center shrink-0">
-          <div className="relative w-20 h-20 flex items-center justify-center mb-2">
-            <svg className="w-full h-full -rotate-90">
-              <circle 
-                cx="40" cy="40" r="36" 
-                className="stroke-inset fill-none" 
-                strokeWidth="6" 
-              />
-              <circle 
-                cx="40" cy="40" r="36" 
-                className="stroke-warning fill-none" 
-                strokeWidth="6" 
-                strokeDasharray="226" 
-                strokeDashoffset="45" 
-                strokeLinecap="round"
-              />
-            </svg>
-            <span className="absolute text-2xl font-black text-warning">B+</span>
-          </div>
-          <span className="text-xs font-bold text-secondary uppercase tracking-widest">Security Score</span>
-        </div>
-      </div>
-
-      {/* ACTION BAR */}
-      <div className="flex items-center justify-between mb-4 max-w-4xl mx-auto w-full">
-        <h3 className="text-xs font-bold text-secondary uppercase tracking-widest">Vulnerabilities</h3>
-        <button 
-          onClick={startScan}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-elevated text-primary text-xs font-medium hover:bg-surface transition-colors border border-subtle"
+        <button
+          onClick={() => void startScan()}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-default text-xs font-bold text-secondary hover:text-primary hover:border-accent transition-colors focus-ring"
         >
-          <RotateCcw size={14} />
-          Re-scan
+          <RotateCcw size={13} />
+          Rescan
         </button>
       </div>
 
-      {/* ISSUES LIST */}
-      <div className="space-y-3 max-w-4xl mx-auto w-full">
-        {MOCK_ISSUES.map((issue) => (
-          <div 
-            key={issue.id}
-            className={cn(
-              "bg-surface rounded-xl border border-default p-4 border-l-4 transition-all hover:bg-elevated",
-              issue.severity === 'critical' ? "border-l-error" : 
-              issue.severity === 'warning' ? "border-l-warning" : "border-l-info"
-            )}
-          >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider",
-                  issue.severity === 'critical' ? "bg-error/10 text-error" : 
-                  issue.severity === 'warning' ? "bg-warning/10 text-warning" : "bg-info/10 text-info"
-                )}>
-                  {issue.severity}
-                </div>
-                <h4 className="text-sm font-bold text-primary">{issue.title}</h4>
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+        {/* What actually ran — the honest part: a clean report means "we looked". */}
+        <div className="rounded-xl border border-default bg-surface p-3">
+          <h3 className="text-xs font-bold text-secondary uppercase tracking-wider mb-2">Scanners</h3>
+          <div className="space-y-1.5">
+            {scanners.map((sc) => (
+              <div key={sc.name} className="flex items-center gap-2 text-xs">
+                {sc.available ? (
+                  <CheckCircle2 size={12} className="text-success shrink-0" />
+                ) : (
+                  <MinusCircle size={12} className="text-tertiary shrink-0" />
+                )}
+                <span className={cn('font-mono', sc.available ? 'text-primary' : 'text-tertiary')}>{sc.name}</span>
+                <span className="text-tertiary">— {sc.detail}</span>
               </div>
-              <button 
-                onClick={() => openFile(issue.file)}
-                className="flex items-center gap-1.5 text-xs text-secondary hover:text-accent transition-colors"
-              >
-                <span className="font-mono">{issue.file}:{issue.line}</span>
-                <ExternalLink size={10} />
-              </button>
-            </div>
-            <p className="text-xs text-secondary leading-relaxed mb-4 max-w-2xl">
-              {issue.description}
-            </p>
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => handleFix(issue)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-wider hover:bg-accent-hover transition-colors shadow-lg shadow-accent/10"
-              >
-                <Zap size={12} fill="currentColor" />
-                Fix with Agent
-              </button>
-              <button className="text-xs text-tertiary hover:text-secondary font-bold uppercase tracking-widest transition-colors">
-                Ignore
-              </button>
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {issues.length === 0 ? (
+          <div className="rounded-xl border border-default bg-surface p-10 flex flex-col items-center gap-2 text-center">
+            <ShieldCheck size={28} className="text-success" />
+            <p className="text-sm text-primary font-semibold">No issues found</p>
+            <p className="text-xs text-tertiary max-w-sm">
+              The scanners listed above reported nothing. Scanners marked unavailable did not
+              run — install them in your workspace image for deeper coverage.
+            </p>
+          </div>
+        ) : (
+          issues.map((issue, i) => {
+            const style = SEVERITY_STYLE[issue.severity] ?? SEVERITY_STYLE.info;
+            const Icon = style.icon;
+            return (
+              <div key={`${issue.source}-${issue.file}-${i}`} className="rounded-xl border border-default bg-surface overflow-hidden">
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className={cn('px-2 py-0.5 rounded border text-xs font-bold uppercase tracking-wider shrink-0 flex items-center gap-1', style.cls)}>
+                      <Icon size={11} />
+                      {style.label}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-bold text-primary">{issue.title}</h3>
+                      <button
+                        onClick={() => issue.file && openFile(issue.file)}
+                        className="text-xs text-accent hover:text-accent-hover font-mono focus-ring rounded"
+                      >
+                        {issue.file}
+                        {issue.line ? `:${issue.line}` : ''}
+                      </button>
+                    </div>
+                    <span className="text-[10px] uppercase tracking-wider text-tertiary shrink-0">{issue.source}</span>
+                  </div>
+                  <p className="text-xs text-secondary leading-relaxed">{issue.description}</p>
+                  <button
+                    onClick={() => handleFix(issue)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-bold hover:bg-accent hover:text-white transition-colors focus-ring"
+                  >
+                    <Zap size={12} />
+                    Ask the agent to fix this
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

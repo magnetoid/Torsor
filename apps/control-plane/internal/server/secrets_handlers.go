@@ -91,6 +91,8 @@ func (s *Server) handleCreateSecret(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	// Audit the key name only — never the value (it is encrypted at rest and never logged).
+	s.auditFromRequest(r, "secret_create", "secret", "", body.KeyName, "Saved secret "+body.KeyName)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "keyName": body.KeyName})
 }
 
@@ -107,6 +109,7 @@ func (s *Server) handleDeleteSecret(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Secret not found")
 		return
 	}
+	s.auditFromRequest(r, "secret_delete", "secret", "", name, "Deleted secret "+name)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

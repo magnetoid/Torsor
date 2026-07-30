@@ -103,13 +103,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
  *  previews to host mode: each project served at its own origin (<id>.<previewDomain>),
  *  where root-absolute asset URLs, module imports, and the HMR WebSocket all work. */
 let previewDomain = '';
+let collabEnabled = false;
 export async function loadRuntimeConfig(): Promise<void> {
   try {
-    const cfg = await apiRequest<{ previewDomain?: string }>('/api/v1/config');
+    const cfg = await apiRequest<{ previewDomain?: string; collab?: { enabled?: boolean } }>('/api/v1/config');
     previewDomain = cfg.previewDomain ?? '';
+    collabEnabled = Boolean(cfg.collab?.enabled);
   } catch {
     /* config is an enhancement; path-mode previews work without it */
   }
+}
+
+/** Whether the co-editing sidecar is configured on this instance (TORSOR_COLLAB_URL).
+ *  The IDE only opens a Yjs connection when it is. */
+export function isCollabEnabled(): boolean {
+  return collabEnabled;
 }
 
 /** Build the live-preview URL for a project's workspace. The token rides as a query param
@@ -874,4 +882,15 @@ export async function apiUpdateGitHubSettings(patch: GitHubSettingsPatch): Promi
     auth: true,
     body: JSON.stringify(patch),
   });
+}
+
+/** Base ws:// or wss:// origin (no path, no token) — for clients like the Yjs provider
+ *  that build their own URL and carry the token as a separate query param. */
+export function wsOrigin(): string {
+  if (!API_URL) {
+    const proto = typeof location !== 'undefined' && location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = typeof location !== 'undefined' ? location.host : '';
+    return `${proto}//${host}`;
+  }
+  return API_URL.replace(/^http/, 'ws');
 }

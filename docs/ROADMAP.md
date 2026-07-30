@@ -212,21 +212,27 @@ open standards where Replit is proprietary, self-host-first where Replit is SaaS
 - [ ] Read-only enforcement so `viewer` means "can see, can't change" (today viewers
       are excluded from project access entirely)
 - [ ] SMTP invite delivery (invite rows must be shared out-of-band today)
-- [ ] Ship co-editing: frontend Yjs client (y-monaco) on the already-built
-      `/collab/ws` proxy + sidecar — free multiplayer where Replit charges
+- [x] Ship co-editing: frontend Yjs client (y-monaco) on the already-built
+      `/collab/ws` proxy + sidecar — free multiplayer where Replit charges.
+      Shipped: `src/lib/collab.ts` + `useCollabEditor` + a Live/peer-count status in
+      the editor; activates only when `TORSOR_COLLAB_URL` is set (`/api/v1/config`).
 - [ ] Persistent volumes (snapshot-aware design exists) + idle-stop/TTL +
       per-user workspace caps + disk quotas
 - [ ] Quota enforcement from `usage_events` (admin-set plans become meaningful) —
       prerequisite for open signups
-- [ ] Audit coverage: auth/deploy/secrets/admin/exec events (4 write sites today)
+- [x] Audit coverage: login, secret create/delete, deploy stop, domain add, role change
+      and maintenance-mode toggles now write audit rows (was 4 project/team sites; exec
+      auditing still open)
 - [ ] Custom-domain ownership verification (DNS TXT) — today any hostname can be claimed
-- [ ] SecurityScanTab → real OSS scanners in-workspace (osv-scanner, npm audit,
-      govulncheck)
+- [x] SecurityScanTab → real scanners in-workspace: `POST /workspace/scan` runs the
+      deploy-gating secret detectors plus npm audit / osv-scanner / govulncheck when the
+      image has them, and reports unavailable scanners honestly (preview banner removed)
 - [ ] Abuse report endpoint + admin takedown queue; Playwright E2E happy path
 
 ### Track B — Platform services, the open way (built apps become real products)
-- [ ] **Agent tool upgrade** (cheapest, highest leverage): `search_files` (grep),
-      `edit_file` (targeted patch — today write_file is full-overwrite), delete/move
+- [x] **Agent tool upgrade**: `search_files` (bounded grep), `edit_file` (exactly-once
+      find/replace — no more full-file rewrites), `delete_file`, `move_file`; prompt
+      guidance, compaction digests and mutation accounting updated, unit-tested
 - [ ] Multi-port workspaces (docker-runtime + preview proxy) — unblocks
       frontend+backend+DB apps
 - [ ] **Torsor DB**: per-project Postgres on the platform's own PG (dev/prod separation
@@ -246,8 +252,10 @@ open standards where Replit is proprietary, self-host-first where Replit is SaaS
 ### Track C — Agent leverage (the Agent-4 wave, our way)
 - [ ] Parallel missions in isolated copies (snapshot/fork substrate exists) +
       git-assisted merge
-- [ ] Honor the latent autonomy prefs (`user_agent_prefs`, `agent_engine_config.
-      default_model`) in actual runs — the autonomy dial
+- [x] Honor the latent autonomy prefs in actual runs — the agent SSE path applies
+      `preferred_model`, `max_steps`, and `planning_enabled` + `default_autonomy`
+      (approve-plan vs autonomous); the model picker consults
+      `agent_engine_config.default_model` before the env default
 - [ ] Visual element-select → targeted agent edit (sourceLocator + visual-edit overlay
       already exist)
 - [ ] Mission board UI (Kanban over existing mission/task statuses)
