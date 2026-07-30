@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
 import { WorkspacePlan } from '../../types/workspace';
-import { PLANS } from '../../lib/constants';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 
@@ -32,7 +31,6 @@ interface PlanFeature {
 interface PlanCardProps {
   id: WorkspacePlan;
   name: string;
-  price: string;
   description: string;
   features: PlanFeature[];
   icon: React.ElementType;
@@ -42,7 +40,7 @@ interface PlanCardProps {
   isPopular?: boolean;
 }
 
-function PlanCard({ id, name, price, description, features, icon: Icon, isCurrent, onSelect, accentColor, isPopular }: PlanCardProps) {
+function PlanCard({ id, name, description, features, icon: Icon, isCurrent, onSelect, accentColor, isPopular }: PlanCardProps) {
   return (
     <div className={cn(
       "flex flex-col p-5 rounded-xl border transition-all relative overflow-hidden flex-1 min-w-[240px]",
@@ -63,11 +61,7 @@ function PlanCard({ id, name, price, description, features, icon: Icon, isCurren
       </div>
       
       <div className="mb-6">
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold text-primary">{price}</span>
-          {price !== 'Custom' && <span className="text-secondary text-xs">/mo</span>}
-        </div>
-        <p className="text-xs text-secondary mt-1 h-8 line-clamp-2">{description}</p>
+        <p className="text-xs text-secondary mt-1 line-clamp-3">{description}</p>
       </div>
       
       <div className="flex-1 space-y-2.5 mb-8">
@@ -96,7 +90,7 @@ function PlanCard({ id, name, price, description, features, icon: Icon, isCurren
               : "bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20"
         )}
       >
-        {isCurrent ? 'Current Plan' : id === 'enterprise' ? 'Contact Sales' : `Upgrade to ${name}`}
+        {isCurrent ? 'Current Plan' : `Select ${name}`}
       </button>
     </div>
   );
@@ -104,16 +98,16 @@ function PlanCard({ id, name, price, description, features, icon: Icon, isCurren
 
 const FAQ_ITEMS = [
   {
-    question: "Can I downgrade my plan?",
-    answer: "Yes, you can downgrade at any time. Your new limits will take effect at the end of your current billing cycle."
+    question: "Do I pay for a plan on this instance?",
+    answer: "No. This is a self-hosted Torsor instance with no payment processor. Plans are tiers your instance admin assigns to workspaces; model costs are whatever your own keys or local models cost you."
   },
   {
-    question: "What happens to my data if I hit a limit?",
-    answer: "Your data remains safe. You'll simply be unable to create new projects or use certain features until you upgrade or free up space."
+    question: "Who can change a workspace's plan?",
+    answer: "Only an instance admin (admin or super-admin role). If you need a different tier, ask whoever operates this Torsor install."
   },
   {
-    question: "Do you offer annual billing?",
-    answer: "Yes! Annual billing is available for Pro and Team plans with a 20% discount. Contact support to switch."
+    question: "Are the limits enforced?",
+    answer: "Limits are currently informational — quota enforcement from real usage metering is on the roadmap. Token usage shown in Billing and Usage is real."
   }
 ];
 
@@ -122,34 +116,28 @@ export function UpgradeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const activeWorkspace = getActiveWorkspace();
   const [isUpgrading, setIsUpgrading] = useState(false);
   
+  // Plan changes persist via PATCH /api/v1/teams/{id}. The control plane only accepts
+  // a plan change from an instance admin (self-hosted Torsor has no payment path), so
+  // for everyone else this surfaces the server's honest 403 instead of faking success.
   const handleUpgrade = async (plan: WorkspacePlan) => {
     if (!activeWorkspace || plan === activeWorkspace.plan) return;
-    
-    if (plan === 'enterprise') {
-      toast.info('Redirecting to sales contact form...');
-      return;
-    }
 
     setIsUpgrading(true);
-    
-    // Mock upgrade delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    updateWorkspace(activeWorkspace.id, { 
-      plan,
-      limits: PLANS[plan].limits
-    });
-    
-    toast.success(`Upgraded to ${plan.charAt(0).toUpperCase() + plan.slice(1)}!`);
-    setIsUpgrading(false);
-    onOpenChange(false);
+    try {
+      await updateWorkspace(activeWorkspace.id, { plan });
+      toast.success(`Plan set to ${plan.charAt(0).toUpperCase() + plan.slice(1)}`);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Plan changes are managed by an instance admin');
+    } finally {
+      setIsUpgrading(false);
+    }
   };
 
   const plans = [
     {
       id: 'free' as WorkspacePlan,
       name: 'Free',
-      price: '$0',
       description: 'Perfect for hobbyists and side projects.',
       icon: Rocket,
       accentColor: 'bg-secondary',
@@ -165,7 +153,6 @@ export function UpgradeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     {
       id: 'pro' as WorkspacePlan,
       name: 'Pro',
-      price: '$25',
       description: 'For power users and professional developers.',
       icon: Zap,
       accentColor: 'bg-accent',
@@ -184,7 +171,6 @@ export function UpgradeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     {
       id: 'team' as WorkspacePlan,
       name: 'Team',
-      price: '$49',
       description: 'Collaborate with your team at scale.',
       icon: Users,
       accentColor: 'bg-success',
@@ -202,7 +188,6 @@ export function UpgradeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     {
       id: 'enterprise' as WorkspacePlan,
       name: 'Enterprise',
-      price: 'Custom',
       description: 'Custom infrastructure and dedicated support.',
       icon: ShieldCheck,
       accentColor: 'bg-primary',
@@ -235,7 +220,8 @@ export function UpgradeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                   )}
                 </Dialog.Title>
                 <Dialog.Description className="text-secondary mt-1">
-                  Scale your development with the right tools and limits.
+                  Plans are tiers assigned by your instance admin — no payment is connected on
+                  self-hosted Torsor.
                 </Dialog.Description>
               </div>
               <Dialog.Close className="p-2 hover:bg-elevated rounded-full text-tertiary hover:text-primary transition-colors">
@@ -249,7 +235,6 @@ export function UpgradeDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                   key={plan.id}
                   id={plan.id}
                   name={plan.name}
-                  price={plan.price}
                   description={plan.description}
                   features={plan.features}
                   icon={plan.icon}

@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { migratePersistKey } from '../lib/utils';
+
+// Legacy persist key rename (pre-rebrand residue): tesseract-* -> torsor-*.
+migratePersistKey('tesseract-settings', 'torsor-settings');
 
 export interface RoutingRule {
   id: string;
@@ -92,8 +96,9 @@ export const useSettingsStore = create<SettingsState>()(
         requireAdminApproval: true,
         forceReauthOnModelChange: false,
       },
+      // Honest defaults: nothing is connected until a real integration exists.
       integrations: {
-        github: { connected: true, repos: ['acme-web', 'acme-api', 'tesseract-core'] },
+        github: { connected: false, repos: [] },
         gitlab: { connected: false, repos: [] },
         supabase: { url: '', key: '' },
         vercel: { connected: false },
@@ -115,7 +120,7 @@ export const useSettingsStore = create<SettingsState>()(
       })),
     }),
     {
-      name: 'tesseract-settings',
+      name: 'torsor-settings',
       version: 1,
       migrate: (persisted, version) => {
         // v0 → v1: scrub the abandoned plaintext BYOK block from localStorage.

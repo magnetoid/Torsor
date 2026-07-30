@@ -71,7 +71,7 @@ export default function UsageTab() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Stat label="Tokens in" value={compact(data.totals.tokensIn)} />
               <Stat label="Tokens out" value={compact(data.totals.tokensOut)} />
               <Stat label="Model calls" value={compact(data.totals.events)} />

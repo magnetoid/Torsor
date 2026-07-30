@@ -55,7 +55,7 @@ const MOCK_ELEMENTS: Record<string, CanvasElement> = {
   'logo': {
     id: 'logo',
     type: 'Text',
-    content: 'TESSERACT',
+    content: 'TORSOR',
     classes: ['text-xl', 'font-black', 'tracking-tighter', 'text-accent'],
     props: {},
     parentId: 'header'

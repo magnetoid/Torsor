@@ -50,6 +50,13 @@ export default function LibraryView() {
         <span className="text-xs font-bold uppercase tracking-wider text-secondary">Library</span>
       </div>
 
+      {/* Honest preview label: the items below are illustrative until a real
+          artifact/template/package registry backs this panel. */}
+      <div className="px-3 py-2 border-b border-subtle text-[11px] text-tertiary">
+        Preview — sample items. A real library (project artifacts, templates, packages)
+        isn&apos;t wired yet.
+      </div>
+
       {/* INPUT */}
       <div className="p-3 border-b border-subtle">
         <div className="relative">

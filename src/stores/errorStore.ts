@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { migratePersistKey } from '../lib/utils';
+
+// Legacy persist key rename (pre-rebrand residue): tesseract-* -> torsor-*.
+migratePersistKey('tesseract-errors', 'torsor-errors');
 
 export interface AppError {
   id: string;
@@ -64,7 +68,7 @@ export const useErrorStore = create<ErrorState>()(
       clearErrors: () => set({ errors: [] }),
     }),
     {
-      name: 'tesseract-errors',
+      name: 'torsor-errors',
     }
   )
 );

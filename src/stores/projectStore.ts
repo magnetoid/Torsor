@@ -71,7 +71,7 @@ const fromApiProject = (project: any): Project => ({
   type: 'website',
   vibe: project.vibe,
   isPublished: Boolean(project.isPublic || project.is_public),
-  isArchived: false,
+  isArchived: Boolean(project.archived),
   teamAvatars: [],
   teamMembers: [],
   techStack: [],
@@ -90,36 +90,25 @@ const fromApiFile = (file: any): ProjectFile => ({
   updatedAt: file.updatedAt || file.updated_at,
 });
 
-// Local star list (pin-style). Kept in plain localStorage — the rest of this store is
-// server-backed, so wrapping the whole thing in `persist` for one field would be noise.
-const STARRED_KEY = 'torsor-starred-projects';
-const readStarred = (): string[] => {
-  try {
-    const raw = localStorage.getItem(STARRED_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
-  } catch {
-    return [];
-  }
-};
-
 export const useProjectStore = create<ProjectState>()((set, get) => ({
   projects: [],
   filesByProject: {},
   currentProject: null,
   activeProjectId: null,
   setActiveProject: (id) => set({ activeProjectId: id }),
-  starredIds: readStarred(),
+  // Stars are server-side (projects.starred, migration 0023) — they used to be a
+  // per-browser localStorage illusion that silently reset on another device.
+  starredIds: [],
   toggleStar: (id) => {
-    const next = get().starredIds.includes(id)
-      ? get().starredIds.filter((s) => s !== id)
-      : [...get().starredIds, id];
-    try {
-      localStorage.setItem(STARRED_KEY, JSON.stringify(next));
-    } catch {
-      // Storage unavailable (private mode) — stars still work for the session.
-    }
-    set({ starredIds: next });
+    const prev = get().starredIds;
+    const starred = !prev.includes(id);
+    // Optimistic flip; revert if the server rejects it.
+    set({ starredIds: starred ? [...prev, id] : prev.filter((s) => s !== id) });
+    apiRequest(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify({ starred }),
+    }).catch(() => set({ starredIds: prev }));
   },
   isLoading: false,
   error: null,
@@ -127,7 +116,11 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await apiRequest<{ items: any[] }>('/api/v1/projects', { auth: true });
-      set({ projects: response.items.map(fromApiProject), isLoading: false });
+      set({
+        projects: response.items.map(fromApiProject),
+        starredIds: response.items.filter((p) => p.starred).map((p) => p.id),
+        isLoading: false,
+      });
     } catch (error) {
       set({ isLoading: false, error: error instanceof Error ? error.message : 'Failed to load projects' });
       throw error;
@@ -183,8 +176,16 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
     }, project.workspaceId);
   },
   archiveProject: async (id) => {
+    // Persisted server-side (projects.archived) — this used to be a local-only
+    // state flip that vanished on reload.
+    const updated = await apiRequest<any>(`/api/v1/projects/${id}`, {
+      method: 'PATCH',
+      auth: true,
+      body: JSON.stringify({ archived: true }),
+    });
+    const normalized = fromApiProject(updated);
     set((state) => ({
-      projects: state.projects.map((p) => (p.id === id ? { ...p, isArchived: true } : p)),
+      projects: state.projects.map((p) => (p.id === id ? { ...p, ...normalized } : p)),
     }));
   },
   fetchProject: async (id) => {

@@ -9,6 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/magnetoid/torsor/control-plane/internal/auth"
 )
 
 type team struct {
@@ -160,6 +162,7 @@ func (s *Server) handleUpdateTeam(w http.ResponseWriter, r *http.Request) {
 		Name    *string `json:"name"`
 		Slug    *string `json:"slug"`
 		LogoURL *string `json:"logoUrl"`
+		Plan    *string `json:"plan"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -185,10 +188,31 @@ func (s *Server) handleUpdateTeam(w http.ResponseWriter, r *http.Request) {
 	if body.LogoURL != nil {
 		logo = body.LogoURL
 	}
+	plan := t.Plan
+	if body.Plan != nil && *body.Plan != t.Plan {
+		// Plan changes are instance-admin only: self-hosted Torsor has no payment
+		// path, so the plan field is an admin-assigned tier, never self-service.
+		requester, err := s.auth.SanitizeUserByID(r.Context(), userID(r))
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		if requester == nil || roleRank[s.resolveRole(requester.Email, requester.Role)] < roleRank[auth.RoleAdmin] {
+			writeError(w, http.StatusForbidden, "Plan changes are managed by an instance admin")
+			return
+		}
+		switch *body.Plan {
+		case "free", "pro", "team", "enterprise":
+			plan = *body.Plan
+		default:
+			writeError(w, http.StatusBadRequest, "Unknown plan")
+			return
+		}
+	}
 
 	updated, err := scanTeam(s.pool.QueryRow(r.Context(),
-		`UPDATE teams SET name = $2, slug = $3, logo_url = $4, updated_at = NOW() WHERE id = $1 RETURNING `+teamCols,
-		teamID, name, slug, logo))
+		`UPDATE teams SET name = $2, slug = $3, logo_url = $4, plan = $5, updated_at = NOW() WHERE id = $1 RETURNING `+teamCols,
+		teamID, name, slug, logo, plan))
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {

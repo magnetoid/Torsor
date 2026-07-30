@@ -55,6 +55,12 @@ export function CommandPalette() {
       <Dialog.Portal>
         <Dialog.Overlay className={cn('fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]', overlayMotion)} />
         <Dialog.Content className={cn('fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-lg bg-surface border border-default rounded-xl shadow-2xl z-[101] overflow-hidden', dialogMotion)}>
+          {/* Screen-reader name for the palette — the only dialog that was missing one
+              (Radix warned and assistive tech announced an unnamed modal). */}
+          <Dialog.Title className="sr-only">Command palette</Dialog.Title>
+          <Dialog.Description className="sr-only">
+            Search for a command and press Enter to run it.
+          </Dialog.Description>
           <Command className="flex flex-col h-full">
             <div className="flex items-center px-4 border-b border-default">
               <Search className="mr-3 text-tertiary" size={18} />

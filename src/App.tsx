@@ -27,6 +27,7 @@ import { useAuthStore } from './stores/authStore';
 import { loadRuntimeConfig } from './lib/api';
 import { useWorkspaceStore } from './stores/workspaceStore';
 import { useNotificationStore } from './stores/notificationStore';
+import { MaintenanceBanner } from './components/shared/MaintenanceBanner';
 
 export default function App() {
   const { toggleTheme, theme } = useThemeStore();
@@ -65,6 +66,7 @@ export default function App() {
     <ErrorBoundary name="App">
       <BrowserRouter>
         <RouteTitleManager />
+        <MaintenanceBanner />
         <Routes>
           {/* Public Routes */}
           <Route 
@@ -304,6 +306,9 @@ function RouteTitleManager() {
     else if (path === '/notifications') title = 'Notifications | Torsor';
     else if (path === '/marketplace') title = 'Marketplace | Torsor';
     else if (path === '/help') title = 'Help | Torsor';
+    else if (path === '/about') title = 'About | Torsor';
+    else if (path === '/updates') title = "What's New | Torsor";
+    else if (path === '/feedback') title = 'Feedback | Torsor';
     else if (path.startsWith('/admin')) title = 'Admin | Torsor';
     else if (path === '/onboarding') title = 'Onboarding | Torsor';
     else if (path === '/recent') title = 'Recent Projects | Torsor';

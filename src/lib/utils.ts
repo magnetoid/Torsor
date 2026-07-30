@@ -20,3 +20,20 @@ export function formatDistanceToNow(date: string | Date) {
   const diffInMonths = Math.floor(diffInDays / 30);
   return `${diffInMonths}mo ago`;
 }
+
+/**
+ * One-time localStorage key rename for zustand persist stores (legacy `tesseract-*`
+ * → `torsor-*`). Copies the old value to the new key if the new key is empty, then
+ * removes the old key. Call before the store is created so hydration sees the data.
+ */
+export function migratePersistKey(oldKey: string, newKey: string) {
+  try {
+    const old = localStorage.getItem(oldKey);
+    if (old !== null) {
+      if (localStorage.getItem(newKey) === null) localStorage.setItem(newKey, old);
+      localStorage.removeItem(oldKey);
+    }
+  } catch {
+    // Storage unavailable (SSR/private mode) — nothing to migrate.
+  }
+}

@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { contributions } from '../kernel/contributions';
+import { migratePersistKey } from '../lib/utils';
+
+// Legacy persist key rename (pre-rebrand residue): tesseract-* -> torsor-*.
+migratePersistKey('tesseract-layout-storage', 'torsor-layout-storage');
 
 export type TabType = 'preview' | 'code' | 'terminal' | 'database' | 'security' | 'integrations' | 'skills' | 'settings' | 'secrets' | 'storage' | 'auth' | 'publishing' | 'git' | 'canvas' | 'testing' | 'checkpoints' | 'runs' | 'usage' | 'mcp' | 'memory' | 'learning';
 
@@ -185,7 +189,7 @@ export const useLayoutStore = create<LayoutState>()(
       },
     }),
     {
-      name: 'tesseract-layout-storage',
+      name: 'torsor-layout-storage',
       version: 2,
       migrate: (persisted, version) => {
         // v1: the home sidebar now defaults to expanded. Correct the old collapsed

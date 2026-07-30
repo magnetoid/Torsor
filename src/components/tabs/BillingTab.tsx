@@ -1,99 +1,119 @@
-import React, { useState } from 'react';
-import { 
-  CreditCard, 
-  Sparkles, 
-  Zap, 
-  Grid, 
-  Database, 
-  Users, 
-  TrendingUp, 
-  Download, 
-  Check, 
+import React, { useEffect, useState } from 'react';
+import {
+  Zap,
+  Users,
+  Activity,
+  TrendingUp,
+  Receipt,
+  ShieldCheck,
   ChevronRight,
-  ArrowUpRight,
-  DollarSign,
-  Plus
+  Loader2,
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
 } from 'recharts';
 import { useActiveWorkspace } from '../../stores/workspaceStore';
+import { apiUsageSummary, type UsageSummary } from '../../lib/api';
 import { cn } from '../../lib/utils';
-import { toast } from 'sonner';
 import { UpgradeDialog } from '../shared/UpgradeDialog';
 
-const MOCK_CHART_DATA = [
-  { date: 'Mar 01', claude: 45000, gpt: 32000, deepseek: 12000, gemini: 8000 },
-  { date: 'Mar 05', claude: 52000, gpt: 28000, deepseek: 15000, gemini: 12000 },
-  { date: 'Mar 10', claude: 48000, gpt: 35000, deepseek: 18000, gemini: 15000 },
-  { date: 'Mar 15', claude: 65000, gpt: 42000, deepseek: 25000, gemini: 22000 },
-  { date: 'Mar 20', claude: 58000, gpt: 38000, deepseek: 22000, gemini: 18000 },
-  { date: 'Mar 21', claude: 72000, gpt: 45000, deepseek: 30000, gemini: 25000 },
-];
+/**
+ * Billing is honest on self-hosted Torsor: real token usage from usage_events,
+ * a real (admin-assigned) plan, and explicit empty states for the payment surface
+ * that does not exist. Nothing here fabricates invoices, cards, or costs.
+ */
 
-const MOCK_INVOICES = [
-  { id: 'inv-1', date: 'Mar 01, 2026', amount: '$20.00', status: 'paid' },
-  { id: 'inv-2', date: 'Feb 01, 2026', amount: '$20.00', status: 'paid' },
-  { id: 'inv-3', date: 'Jan 01, 2026', amount: '$20.00', status: 'paid' },
-];
+function compact(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'k';
+  return String(n);
+}
 
 export function BillingTab() {
   const activeWorkspace = useActiveWorkspace();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const usage = [
-    { label: 'Tokens', icon: Zap, current: '1.2M', limit: '2M', percentage: 60, color: 'bg-accent' },
-    { label: 'Projects', icon: Grid, current: '8', limit: '25', percentage: 32, color: 'bg-success' },
-    { label: 'Storage', icon: Database, current: '340MB', limit: '5GB', percentage: 7, color: 'bg-success' },
-    { label: 'Members', icon: Users, current: '4', limit: '5', percentage: 80, color: 'bg-warning' },
+  useEffect(() => {
+    let active = true;
+    apiUsageSummary()
+      .then((d) => active && setUsage(d))
+      .catch((e) => active && setError(e instanceof Error ? e.message : 'Failed to load usage'))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const totalTokens = (usage?.totals.tokensIn ?? 0) + (usage?.totals.tokensOut ?? 0);
+  const tokenLimit = activeWorkspace?.limits?.maxTokensPerMonth ?? 0;
+  const tokenPct = tokenLimit > 0 ? Math.min(100, Math.round((totalTokens / tokenLimit) * 100)) : 0;
+
+  const stats = [
+    { label: 'Tokens in', icon: Zap, value: compact(usage?.totals.tokensIn ?? 0) },
+    { label: 'Tokens out', icon: TrendingUp, value: compact(usage?.totals.tokensOut ?? 0) },
+    { label: 'Model calls', icon: Activity, value: compact(usage?.totals.events ?? 0) },
+    { label: 'Members', icon: Users, value: String(activeWorkspace?.usage?.memberCount ?? 1) },
   ];
-
-  const handleBuyTokens = (amount: string) => {
-    toast.success(`${amount} tokens added to your balance!`);
-  };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      {/* Current Plan Card */}
-      <div className="p-6 bg-gradient-to-br from-accent to-indigo-600 rounded-xl text-white relative overflow-hidden shadow-xl shadow-accent/20">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-4">
+      {/* Current plan — real, admin-assigned; no payment surface exists on self-hosted */}
+      <div className="p-6 bg-surface border border-default rounded-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider border border-white/30">
-                {activeWorkspace?.plan} Plan
+              <div className="px-3 py-1 bg-accent/10 text-accent rounded-full text-xs font-bold uppercase tracking-wider border border-accent/20">
+                {activeWorkspace?.plan ?? 'free'} plan
               </div>
-              <div className="text-2xl font-bold">$20/mo</div>
+              <ShieldCheck size={16} className="text-success" />
             </div>
-            <div>
-              <h2 className="text-3xl font-bold">Pro Workspace</h2>
-              <p className="text-sm mt-2 opacity-90 max-w-md">
-                Next billing date: <span className="font-bold">April 1, 2026</span> via Visa •••• 4242
-              </p>
-            </div>
+            <p className="text-sm text-secondary max-w-xl">
+              This is a self-hosted Torsor instance — there is no payment processor connected.
+              Plans are tiers assigned by your instance admin; limits are informational until
+              quota enforcement ships.
+            </p>
           </div>
-          <button 
+          <button
             onClick={() => setUpgradeOpen(true)}
-            className="bg-white text-accent px-6 py-3 rounded-xl font-bold text-sm hover:bg-opacity-90 transition-all shadow-lg flex items-center gap-2 w-fit"
+            className="bg-elevated border border-default text-primary px-5 py-2.5 rounded-xl font-bold text-sm hover:border-accent transition-all flex items-center gap-2 w-fit focus-ring"
           >
-            Change Plan
-            <ChevronRight size={18} />
+            Compare plans
+            <ChevronRight size={16} />
           </button>
         </div>
-        <Sparkles className="absolute right-[-20px] bottom-[-20px] w-64 h-64 opacity-10 rotate-12" />
+        {tokenLimit > 0 && (
+          <div className="mt-5 space-y-1.5">
+            <div className="flex justify-between text-xs font-bold text-secondary uppercase tracking-wider">
+              <span>Token usage this period</span>
+              <span>
+                {compact(totalTokens)} / {compact(tokenLimit)}
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-elevated rounded-full overflow-hidden">
+              <div
+                className={cn(
+                  'h-full transition-all duration-500',
+                  tokenPct > 85 ? 'bg-error' : tokenPct > 60 ? 'bg-warning' : 'bg-success',
+                )}
+                style={{ width: `${tokenPct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Usage Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {usage.map((item) => (
+      {/* Real usage stats from usage_events */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((item) => (
           <div key={item.label} className="p-4 bg-surface border border-default rounded-xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="w-8 h-8 rounded-lg bg-elevated flex items-center justify-center text-secondary">
@@ -101,201 +121,119 @@ export function BillingTab() {
               </div>
               <span className="text-xs font-bold text-secondary uppercase tracking-wider">{item.label}</span>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-end">
-                <div className="text-lg font-bold text-primary">{item.current}</div>
-                <div className="text-xs text-tertiary font-bold uppercase">/ {item.limit}</div>
-              </div>
-              <div className="h-1.5 w-full bg-elevated rounded-full overflow-hidden">
-                <div 
-                  className={cn(
-                    "h-full transition-all duration-500",
-                    item.percentage > 85 ? "bg-error" : item.percentage > 60 ? "bg-warning" : "bg-success"
-                  )} 
-                  style={{ width: `${item.percentage}%` }} 
-                />
-              </div>
+            <div className="text-lg font-bold text-primary">
+              {loading ? <Loader2 size={16} className="animate-spin text-tertiary" /> : item.value}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Token Usage Chart */}
+      {/* Token usage chart — real byDay series */}
       <div className="p-6 bg-surface border border-default rounded-xl space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="text-accent" size={20} />
-            <h3 className="text-sm font-bold uppercase tracking-wider">Token Usage (30 Days)</h3>
-            {/* Honest label: this chart + the invoices below are not backend-driven yet
-                (real usage lives in the Usage tab / Billing page summary). */}
-            <span className="text-xs font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-accent" />
-              <span className="text-xs font-bold text-secondary uppercase">Claude</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-info" />
-              <span className="text-xs font-bold text-secondary uppercase">GPT</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-warning" />
-              <span className="text-xs font-bold text-secondary uppercase">DeepSeek</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-success" />
-              <span className="text-xs font-bold text-secondary uppercase">Gemini</span>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <TrendingUp className="text-accent" size={20} />
+          <h3 className="text-sm font-bold uppercase tracking-wider">Token usage (30 days)</h3>
         </div>
-
-        <div className="h-[240px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={MOCK_CHART_DATA}>
-              <defs>
-                <linearGradient id="colorClaude" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="var(--accent)" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
-              <XAxis 
-                dataKey="date" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} 
-                dy={10}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }} 
-              />
-              <RechartsTooltip 
-                contentStyle={{ 
-                  backgroundColor: 'var(--bg-elevated)', 
-                  borderColor: 'var(--border-default)',
-                  borderRadius: '12px',
-                  fontSize: '12px'
-                }}
-              />
-              <Area type="monotone" dataKey="claude" stackId="1" stroke="var(--accent)" fill="url(#colorClaude)" />
-              <Area type="monotone" dataKey="gpt" stackId="1" stroke="var(--info)" fill="var(--info)" fillOpacity={0.1} />
-              <Area type="monotone" dataKey="deepseek" stackId="1" stroke="var(--warning)" fill="var(--warning)" fillOpacity={0.1} />
-              <Area type="monotone" dataKey="gemini" stackId="1" stroke="var(--success)" fill="var(--success)" fillOpacity={0.1} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        {error ? (
+          <div className="rounded-lg border border-error/20 bg-error/10 p-3 text-xs text-error">{error}</div>
+        ) : loading ? (
+          <div className="flex items-center gap-2 text-xs text-tertiary h-[200px]">
+            <Loader2 size={14} className="animate-spin" /> Loading usage…
+          </div>
+        ) : !usage || usage.byDay.length === 0 ? (
+          <div className="h-[200px] flex items-center justify-center text-xs text-tertiary">
+            No usage recorded yet — run the agent to see tokens here.
+          </div>
+        ) : (
+          <div className="h-[240px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={usage.byDay}>
+                <defs>
+                  <linearGradient id="billingIn" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="billingOut" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--success)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--success)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }}
+                  tickFormatter={(d: string) => d.slice(5)}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: 'var(--text-tertiary)' }}
+                  tickFormatter={(v: number) => compact(v)}
+                />
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--bg-elevated)',
+                    borderColor: 'var(--border-default)',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                  }}
+                />
+                <Area type="monotone" dataKey="tokensIn" name="Tokens in" stroke="var(--accent)" fill="url(#billingIn)" />
+                <Area type="monotone" dataKey="tokensOut" name="Tokens out" stroke="var(--success)" fill="url(#billingOut)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
-      {/* Cost Breakdown & Buy Tokens */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 p-6 bg-surface border border-default rounded-xl space-y-4">
-          <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Cost Breakdown</h3>
+      {/* By-model breakdown — real tokens, no fabricated dollar costs */}
+      <div className="p-6 bg-surface border border-default rounded-xl space-y-4">
+        <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Usage by model</h3>
+        {loading ? (
+          <div className="flex items-center gap-2 text-xs text-tertiary">
+            <Loader2 size={14} className="animate-spin" /> Loading…
+          </div>
+        ) : !usage || usage.byModel.length === 0 ? (
+          <p className="text-xs text-tertiary">No model usage yet.</p>
+        ) : (
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="text-xs font-bold text-tertiary uppercase tracking-wider border-b border-default">
                 <th className="pb-3">Model</th>
-                <th className="pb-3">Tokens Used</th>
-                <th className="pb-3">Cost</th>
-                <th className="pb-3 text-right">% of Total</th>
+                <th className="pb-3">Provider</th>
+                <th className="pb-3 text-right">Tokens in</th>
+                <th className="pb-3 text-right">Tokens out</th>
+                <th className="pb-3 text-right">Calls</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-default">
-              {[
-                { model: 'Claude 3.5 Sonnet', tokens: '640K', cost: '$9.60', percent: 48 },
-                { model: 'GPT-4o', tokens: '320K', cost: '$4.80', percent: 24 },
-                { model: 'DeepSeek V3', tokens: '180K', cost: '$1.20', percent: 6 },
-                { model: 'Gemini 1.5 Pro', tokens: '60K', cost: '$0.90', percent: 4.5 },
-              ].map((row) => (
-                <tr key={row.model} className="text-sm">
-                  <td className="py-3 font-medium text-primary">{row.model}</td>
-                  <td className="py-3 text-secondary">{row.tokens}</td>
-                  <td className="py-3 text-primary font-bold">{row.cost}</td>
-                  <td className="py-3 text-right text-tertiary">{row.percent}%</td>
+              {usage.byModel.map((m, i) => (
+                <tr key={i} className="text-sm">
+                  <td className="py-3 font-mono text-primary">{m.model}</td>
+                  <td className="py-3 text-secondary">{m.provider}</td>
+                  <td className="py-3 text-right text-secondary">{compact(m.tokensIn)}</td>
+                  <td className="py-3 text-right text-secondary">{compact(m.tokensOut)}</td>
+                  <td className="py-3 text-right text-tertiary">{m.events}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot>
-              <tr className="text-sm font-bold border-t border-default">
-                <td className="pt-3 text-primary">Total</td>
-                <td className="pt-3 text-secondary">1.2M</td>
-                <td className="pt-3 text-accent">$16.50</td>
-                <td className="pt-3 text-right text-tertiary">100%</td>
-              </tr>
-            </tfoot>
           </table>
-        </div>
-
-        <div className="p-6 bg-accent/5 border border-accent/10 rounded-xl space-y-6">
-          <div className="flex items-center gap-2">
-            <DollarSign className="text-accent" size={20} />
-            <h3 className="text-sm font-bold uppercase tracking-wider">Buy More Tokens</h3>
-          </div>
-          <p className="text-xs text-secondary leading-relaxed">
-            Running low? Purchase additional token credits to keep your agent running without interruption.
-          </p>
-          <div className="space-y-3">
-            {[
-              { amount: '100K', price: '$5' },
-              { amount: '500K', price: '$20' },
-              { amount: '1M', price: '$35' },
-            ].map((pkg) => (
-              <button 
-                key={pkg.amount}
-                onClick={() => handleBuyTokens(pkg.amount)}
-                className="w-full flex items-center justify-between p-3 bg-surface border border-default rounded-xl hover:border-accent hover:bg-accent/5 transition-all group"
-              >
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-bold text-primary">{pkg.amount} Tokens</span>
-                  <span className="text-xs text-tertiary uppercase font-bold tracking-wider">{pkg.price} One-time</span>
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all">
-                  <Plus size={16} />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Invoice History */}
+      {/* Invoices — honest empty state: no billing backend exists on this instance */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Invoice History</h3>
-          <span className="text-xs font-medium text-tertiary border border-default rounded px-1.5 py-0.5 uppercase tracking-wider">Sample data</span>
-        </div>
-        <div className="bg-surface border border-default rounded-xl overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-default bg-elevated/50">
-                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Amount</th>
-                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-xs font-bold text-secondary uppercase tracking-wider text-right">Invoice</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-default">
-              {MOCK_INVOICES.map((invoice) => (
-                <tr key={invoice.id} className="hover:bg-elevated/30 transition-colors">
-                  <td className="px-6 py-3 text-sm text-primary">{invoice.date}</td>
-                  <td className="px-6 py-3 text-sm font-bold text-primary">{invoice.amount}</td>
-                  <td className="px-6 py-3">
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-success/10 text-success text-xs font-bold uppercase w-fit">
-                      <Check size={10} />
-                      {invoice.status}
-                    </div>
-                  </td>
-                  <td className="px-6 py-3 text-right">
-                    <button className="p-2 hover:bg-elevated rounded-lg text-tertiary hover:text-accent transition-colors">
-                      <Download size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">Invoice history</h3>
+        <div className="bg-surface border border-default rounded-xl p-10 flex flex-col items-center gap-2 text-center">
+          <Receipt size={28} className="text-tertiary opacity-40" />
+          <p className="text-sm text-secondary">No invoices</p>
+          <p className="text-xs text-tertiary max-w-sm">
+            Billing isn&apos;t connected on this instance — Torsor is free and self-hostable by
+            default. Bring your own model keys in the API Keys tab.
+          </p>
         </div>
       </div>
 

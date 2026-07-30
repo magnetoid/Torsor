@@ -1,18 +1,12 @@
 import React, { useState } from 'react';
-import { SectionPreviewNotice } from '../shared/PreviewBanner';
 import * as Select from '@radix-ui/react-select';
-import { 
-  History, 
-  ChevronDown, 
-  Check, 
-  Download, 
-  Search, 
-  Calendar, 
-  ChevronLeft, 
-  ChevronRight,
+import {
+  ChevronDown,
+  Check,
+  Download,
+  Search,
   Filter,
   User,
-  Info,
   Terminal
 } from 'lucide-react';
 import { useWorkspaceStore } from '../../stores/workspaceStore';
@@ -29,7 +23,26 @@ export function AuditLogTab() {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [filterAction, setFilterAction] = useState('all');
   const [filterUser, setFilterUser] = useState('all');
+  const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+
+  // The rows are real server-written events; filters operate on the loaded set.
+  const userOptions = React.useMemo(
+    () => ['all', ...Array.from(new Set(auditLog.map((l) => l.userName).filter(Boolean)))],
+    [auditLog],
+  );
+  const filteredLog = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return auditLog.filter((log) => {
+      if (filterAction !== 'all' && !log.action.startsWith(filterAction)) return false;
+      if (filterUser !== 'all' && log.userName !== filterUser) return false;
+      if (q) {
+        const hay = `${log.userName} ${log.action} ${log.resource} ${log.details ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [auditLog, filterAction, filterUser, search]);
 
   // Load the real audit log (server-written events) for the current user.
   React.useEffect(() => {
@@ -55,21 +68,41 @@ export function AuditLogTab() {
     }
   };
 
+  // Real CSV export of the currently filtered rows (client-side; the data is already real).
   const handleExport = () => {
-    toast.success('Audit log exported to CSV');
+    if (filteredLog.length === 0) {
+      toast.info('No audit events to export');
+      return;
+    }
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const rows = [
+      ['timestamp', 'user', 'action', 'resource', 'details', 'ip'].join(','),
+      ...filteredLog.map((l) =>
+        [l.timestamp, l.userName, l.action, l.resource, l.details ?? '', l.ipAddress ?? ''].map(esc).join(','),
+      ),
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `torsor-audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filteredLog.length} events`);
   };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <SectionPreviewNotice>Sample audit data — the audit_logs backend isn&apos;t wired yet, so these rows are illustrative.</SectionPreviewNotice>
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-[200px]">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" size={16} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search logs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-surface border border-default rounded-xl pl-10 pr-4 py-2 text-sm text-primary outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -114,7 +147,7 @@ export function AuditLogTab() {
           <Select.Portal>
             <Select.Content className="bg-elevated border border-default rounded-xl p-1 shadow-2xl z-[100] animate-in fade-in zoom-in-95 duration-100">
               <Select.Viewport>
-                {['all', 'Marko Tiosavljevic', 'Jane Doe', 'Bob Smith'].map((item) => (
+                {userOptions.map((item) => (
                   <Select.Item 
                     key={item} 
                     value={item}
@@ -131,12 +164,7 @@ export function AuditLogTab() {
           </Select.Portal>
         </Select.Root>
 
-        <div className="flex items-center gap-2 px-3 py-2 bg-surface border border-default rounded-xl text-xs font-medium text-primary hover:border-accent transition-colors cursor-pointer">
-          <Calendar size={14} className="text-tertiary" />
-          <span>Date Range</span>
-        </div>
-
-        <Button 
+        <Button
           onClick={handleExport}
           variant="secondary"
           size="sm"
@@ -168,8 +196,8 @@ export function AuditLogTab() {
                 <MemberRowSkeleton />
                 <MemberRowSkeleton />
               </>
-            ) : auditLog.length > 0 ? (
-              auditLog.map((log) => (
+            ) : filteredLog.length > 0 ? (
+              filteredLog.map((log) => (
                 <React.Fragment key={log.id}>
                   <tr 
                     onClick={() => setExpandedRow(expandedRow === log.id ? null : log.id)}
@@ -239,32 +267,10 @@ export function AuditLogTab() {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-2">
-        <div className="text-xs text-secondary">
-          Showing <span className="font-bold text-primary">1-20</span> of <span className="font-bold text-primary">156</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-elevated rounded-lg text-tertiary hover:text-primary transition-colors disabled:opacity-30" disabled>
-            <ChevronLeft size={18} />
-          </button>
-          <div className="flex items-center gap-1">
-            {[1, 2, 3, '...', 8].map((page, i) => (
-              <button 
-                key={i}
-                className={cn(
-                  "w-8 h-8 rounded-lg text-xs font-bold transition-all",
-                  page === 1 ? "bg-accent text-white" : "text-secondary hover:bg-elevated"
-                )}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-          <button className="p-2 hover:bg-elevated rounded-lg text-tertiary hover:text-primary transition-colors">
-            <ChevronRight size={18} />
-          </button>
-        </div>
+      {/* Honest footer: real counts for the loaded set (server pagination comes later) */}
+      <div className="px-2 text-xs text-secondary">
+        Showing <span className="font-bold text-primary">{filteredLog.length}</span> of{' '}
+        <span className="font-bold text-primary">{auditLog.length}</span> events
       </div>
     </div>
   );

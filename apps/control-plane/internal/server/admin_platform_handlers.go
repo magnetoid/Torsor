@@ -1,8 +1,13 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
+
+	"github.com/magnetoid/torsor/control-plane/internal/auth"
 )
 
 // Real super-admin observability + settings, replacing the fabricated admin dashboards.
@@ -101,6 +106,55 @@ type platformSettings struct {
 	Announcement    string `json:"announcement"`
 }
 
+// maintCache memoizes platform_settings so the maintenance middleware doesn't hit
+// Postgres on every request (in-process, single backend today — same trade-off as
+// the mission counters). Refreshes every 10s; updates invalidate it immediately.
+type maintCache struct {
+	mu        sync.Mutex
+	fetchedAt time.Time
+	on        bool
+	message   string
+}
+
+func (s *Server) maintenanceSnapshot(ctx context.Context) (bool, string) {
+	s.maint.mu.Lock()
+	defer s.maint.mu.Unlock()
+	if time.Since(s.maint.fetchedAt) > 10*time.Second {
+		var on bool
+		var msg string
+		_ = s.pool.QueryRow(ctx,
+			`SELECT maintenance_mode, announcement FROM platform_settings WHERE id = TRUE`).
+			Scan(&on, &msg)
+		s.maint.on, s.maint.message, s.maint.fetchedAt = on, msg, time.Now()
+	}
+	return s.maint.on, s.maint.message
+}
+
+// requireNotMaintenance makes the admin maintenance toggle real: while it's on,
+// non-admin API requests get 503 + the announcement. Auth routes are registered
+// outside the guarded group so admins can still log in and turn it off.
+func (s *Server) requireNotMaintenance(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		on, msg := s.maintenanceSnapshot(r.Context())
+		if !on || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		user, err := s.auth.SanitizeUserByID(r.Context(), userID(r))
+		if err == nil && user != nil && roleRank[s.resolveRole(user.Email, user.Role)] >= roleRank[auth.RoleAdmin] {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if msg == "" {
+			msg = "Torsor is briefly down for maintenance. Please try again soon."
+		}
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+			"error":   "maintenance",
+			"message": msg,
+		})
+	})
+}
+
 func (s *Server) handleGetPlatformSettings(w http.ResponseWriter, r *http.Request) {
 	var ps platformSettings
 	_ = s.pool.QueryRow(r.Context(),
@@ -121,5 +175,9 @@ func (s *Server) handleUpdatePlatformSettings(w http.ResponseWriter, r *http.Req
 		s.fail(w, r, err)
 		return
 	}
+	// Invalidate the middleware's cache so the toggle takes effect immediately.
+	s.maint.mu.Lock()
+	s.maint.fetchedAt = time.Time{}
+	s.maint.mu.Unlock()
 	writeJSON(w, http.StatusOK, b)
 }

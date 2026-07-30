@@ -47,6 +47,10 @@ type Server struct {
 	// from the live preview, readable by the agent (in-process; single backend today).
 	previewErrs sync.Map
 
+	// maint caches platform_settings for the maintenance-mode middleware
+	// (in-process; single backend today).
+	maint maintCache
+
 	// browser is the lazily-located headless browser for the verify_app tool (nil when the
 	// host has none — the tool degrades honestly). Guarded by browserOnce.
 	browserOnce sync.Once
@@ -115,6 +119,10 @@ func (s *Server) Handler() http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.auth.Require)
+			// Maintenance mode (admin toggle in platform_settings) blocks non-admin API
+			// traffic with 503 + the announcement; /api/v1/auth/* stays reachable so
+			// admins can log in and turn it off.
+			r.Use(s.requireNotMaintenance)
 			r.Post("/auth/logout", s.handleLogout)
 			r.Get("/auth/me", s.handleMe)
 			r.Patch("/auth/me", s.handleUpdateMe)
@@ -238,6 +246,8 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/projects/{projectID}/workspace/stop", s.handleStopProjectWorkspace)
 			r.Post("/projects/{projectID}/workspace/destroy", s.handleDestroyProjectWorkspace)
 			r.Post("/projects/{projectID}/workspace/exec/stream", s.handleExecProjectWorkspace)
+			// Workspace-wide grep for the IDE's global search (⌘⇧F).
+			r.Post("/projects/{projectID}/workspace/search", s.handleWorkspaceSearch)
 			r.Get("/projects/{projectID}/workspace/files", s.handleListProjectWorkspaceFiles)
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
@@ -397,11 +407,13 @@ func (s *Server) handleRoot(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-func (s *Server) handleConfig(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
+	maintOn, maintMsg := s.maintenanceSnapshot(r.Context())
 	payload := map[string]any{
 		"appUrl":        s.cfg.AppURL,
 		"apiUrl":        s.cfg.APIURL,
 		"previewDomain": s.cfg.PreviewDomain,
+		"maintenance":   map[string]any{"active": maintOn, "message": maintMsg},
 		"features": map[string]string{
 			"auth":           "jwt-password",
 			"projects":       "db-backed",
