@@ -27,7 +27,7 @@ func (s *Server) handlePrepareWorkspace(w http.ResponseWriter, r *http.Request) 
 
 	var templateID *string
 	if err := s.pool.QueryRow(r.Context(),
-		`SELECT template FROM projects WHERE id = $1 AND user_id = $2`, projectID, userID(r)).Scan(&templateID); err != nil {
+		`SELECT template FROM projects WHERE id = $1 AND `+projectAccessSQL("", 2), projectID, userID(r)).Scan(&templateID); err != nil {
 		s.fail(w, r, err)
 		return
 	}

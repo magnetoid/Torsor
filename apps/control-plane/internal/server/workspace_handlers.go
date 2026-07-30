@@ -38,7 +38,7 @@ func scanWorkspace(row pgx.Row) (workspace, error) {
 // returns ok=false.
 func (s *Server) requireOwnedProject(w http.ResponseWriter, r *http.Request) (string, bool) {
 	projectID := chi.URLParam(r, "projectID")
-	owns, err := s.ownsProject(r, projectID)
+	owns, err := s.canAccessProject(r, projectID)
 	if err != nil {
 		s.fail(w, r, err)
 		return "", false

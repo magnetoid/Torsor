@@ -203,8 +203,15 @@ and two full code audits. Four tracks, ordered; the design counterpart lives in
 open standards where Replit is proprietary, self-host-first where Replit is SaaS-only.
 
 ### Track A — Make it true (credibility & self-host readiness)
-- [ ] Honor `projects.team_id`: team-scoped project/workspace/agent access with role
-      checks (today teams grant zero access); optional SMTP invite delivery
+- [x] Honor `projects.team_id`: every project-scoped route now authorizes via
+      `projectAccessSQL` (owner **or** active non-viewer team member) — one predicate
+      behind `canAccessProject`/`loadWorkspace`, plus migration `0024` (owner
+      membership rows, team backfill, team-scoped name uniqueness), `teamId` on
+      create/move, and a role allowlist. **Viewers currently get no project access**
+      (no read-only layer yet) and delete/move stay owner-only
+- [ ] Read-only enforcement so `viewer` means "can see, can't change" (today viewers
+      are excluded from project access entirely)
+- [ ] SMTP invite delivery (invite rows must be shared out-of-band today)
 - [ ] Ship co-editing: frontend Yjs client (y-monaco) on the already-built
       `/collab/ws` proxy + sidecar — free multiplayer where Replit charges
 - [ ] Persistent volumes (snapshot-aware design exists) + idle-stop/TTL +

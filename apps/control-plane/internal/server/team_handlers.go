@@ -26,6 +26,19 @@ type team struct {
 
 const teamCols = `id, name, slug, logo_url, owner_id, plan, created_at, updated_at`
 
+// validTeamRole is the allowlist for assignable member roles. 'owner' is deliberately
+// excluded — it exists only on the creator's row and cannot be granted or reassigned.
+// Roles used to be arbitrary client-supplied strings; project access treats anything
+// except 'viewer' as write-capable, so this list is security-relevant.
+func validTeamRole(role string) bool {
+	switch role {
+	case "admin", "developer", "viewer":
+		return true
+	default:
+		return false
+	}
+}
+
 func scanTeam(row pgx.Row) (team, error) {
 	var t team
 	err := row.Scan(&t.ID, &t.Name, &t.Slug, &t.LogoURL, &t.OwnerID, &t.Plan, &t.CreatedAt, &t.UpdatedAt)
@@ -37,7 +50,7 @@ func (s *Server) handleListTeams(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.pool.Query(r.Context(),
 		`SELECT t.id, t.name, t.slug, t.logo_url, t.owner_id, t.plan, t.created_at, t.updated_at 
 		 FROM teams t
-		 LEFT JOIN team_members tm ON t.id = tm.team_id
+		 LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.status = 'active'
 		 WHERE t.owner_id = $1 OR tm.user_id = $1
 		 GROUP BY t.id
 		 ORDER BY t.updated_at DESC`, userID(r))
@@ -126,7 +139,7 @@ func (s *Server) handleGetTeam(w http.ResponseWriter, r *http.Request) {
 	err := s.pool.QueryRow(r.Context(),
 		`SELECT t.id, t.name, t.slug, t.logo_url, t.owner_id, t.plan, t.created_at, t.updated_at 
 		 FROM teams t
-		 LEFT JOIN team_members tm ON t.id = tm.team_id
+		 LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.status = 'active'
 		 WHERE t.id = $1 AND (t.owner_id = $2 OR tm.user_id = $2)
 		 GROUP BY t.id`, teamID, userID(r)).Scan(&t.ID, &t.Name, &t.Slug, &t.LogoURL, &t.OwnerID, &t.Plan, &t.CreatedAt, &t.UpdatedAt)
 	if err == pgx.ErrNoRows {
@@ -260,7 +273,7 @@ func (s *Server) handleListTeamMembers(w http.ResponseWriter, r *http.Request) {
 	var hasAccess bool
 	err := s.pool.QueryRow(r.Context(),
 		`SELECT EXISTS(
-			SELECT 1 FROM teams t LEFT JOIN team_members tm ON t.id = tm.team_id 
+			SELECT 1 FROM teams t LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.status = 'active'
 			WHERE t.id = $1 AND (t.owner_id = $2 OR tm.user_id = $2)
 		)`, teamID, userID(r)).Scan(&hasAccess)
 	if err != nil {
@@ -327,6 +340,10 @@ func (s *Server) handleCreateTeamInvite(w http.ResponseWriter, r *http.Request) 
 	}
 	if body.Email == "" || body.Role == "" {
 		writeError(w, http.StatusBadRequest, "Email and role are required")
+		return
+	}
+	if !validTeamRole(body.Role) {
+		writeError(w, http.StatusBadRequest, "Unknown role — use admin, developer, or viewer")
 		return
 	}
 
@@ -440,6 +457,10 @@ func (s *Server) handleUpdateTeamMemberRole(w http.ResponseWriter, r *http.Reque
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if !validTeamRole(body.Role) {
+		writeError(w, http.StatusBadRequest, "Unknown role — use admin, developer, or viewer")
 		return
 	}
 

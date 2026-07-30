@@ -53,7 +53,7 @@ func (s *Server) handleListTasks(w http.ResponseWriter, r *http.Request) {
 		`SELECT `+taskSelectT+`
 		   FROM ai_tasks t
 		   INNER JOIN projects p ON p.id = t.project_id
-		  WHERE p.user_id = $1
+		  WHERE (p.user_id = $1 OR p.team_id IN (SELECT team_id FROM team_members WHERE user_id = $1 AND status = 'active' AND role <> 'viewer'))
 		  ORDER BY t.created_at DESC
 		  LIMIT 50`, userID(r))
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
 		taskType = "generate"
 	}
 
-	owns, err := s.ownsProject(r, body.ProjectID)
+	owns, err := s.canAccessProject(r, body.ProjectID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -173,7 +173,7 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
 		`SELECT `+taskSelectT+`, t.events
 		   FROM ai_tasks t
 		   INNER JOIN projects p ON p.id = t.project_id
-		  WHERE t.id = $1 AND p.user_id = $2`, taskID, userID(r)).
+		  WHERE t.id = $1 AND (p.user_id = $2 OR p.team_id IN (SELECT team_id FROM team_members WHERE user_id = $2 AND status = 'active' AND role <> 'viewer'))`, taskID, userID(r)).
 		Scan(&t.ID, &t.ProjectID, &t.TaskType, &t.Status, &t.Prompt, &t.Result, &t.Error,
 			&t.Steps, &t.Model, &t.TokensIn, &t.TokensOut, &t.CreatedAt, &t.UpdatedAt, &eventsJSON)
 	if err == pgx.ErrNoRows {
@@ -195,7 +195,7 @@ func (s *Server) ownsTask(ctx context.Context, taskID, uid string) (string, bool
 	err := s.pool.QueryRow(ctx,
 		`SELECT t.project_id FROM ai_tasks t
 		   INNER JOIN projects p ON p.id = t.project_id
-		  WHERE t.id = $1 AND p.user_id = $2`, taskID, uid).Scan(&projectID)
+		  WHERE t.id = $1 AND (p.user_id = $2 OR p.team_id IN (SELECT team_id FROM team_members WHERE user_id = $2 AND status = 'active' AND role <> 'viewer'))`, taskID, uid).Scan(&projectID)
 	if err == pgx.ErrNoRows {
 		return "", false, nil
 	}
@@ -223,7 +223,7 @@ func (s *Server) handleTaskEventsSSE(w http.ResponseWriter, r *http.Request) {
 	err := s.pool.QueryRow(r.Context(),
 		`SELECT t.status, t.events FROM ai_tasks t
 		   INNER JOIN projects p ON p.id = t.project_id
-		  WHERE t.id = $1 AND p.user_id = $2`, taskID, userID(r)).Scan(&status0, &eventsJSON)
+		  WHERE t.id = $1 AND (p.user_id = $2 OR p.team_id IN (SELECT team_id FROM team_members WHERE user_id = $2 AND status = 'active' AND role <> 'viewer'))`, taskID, userID(r)).Scan(&status0, &eventsJSON)
 	if err == pgx.ErrNoRows {
 		writeError(w, http.StatusNotFound, "Task not found")
 		return

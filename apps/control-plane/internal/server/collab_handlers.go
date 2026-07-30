@@ -28,9 +28,7 @@ func (s *Server) handleCollabWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	projectID := chi.URLParam(r, "projectID")
-	var owned string
-	if err := s.pool.QueryRow(r.Context(),
-		`SELECT id FROM projects WHERE id = $1 AND user_id = $2`, projectID, claims.UserID).Scan(&owned); err != nil {
+	if ok, err := s.canAccessProjectAs(r.Context(), projectID, claims.UserID); err != nil || !ok {
 		writeError(w, http.StatusNotFound, "Project not found")
 		return
 	}

@@ -32,7 +32,7 @@ func scanFile(row pgx.Row) (projectFile, error) {
 
 func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "projectID")
-	owns, err := s.ownsProject(r, projectID)
+	owns, err := s.canAccessProject(r, projectID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -83,7 +83,7 @@ func (s *Server) handleUpsertFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owns, err := s.ownsProject(r, projectID)
+	owns, err := s.canAccessProject(r, projectID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -136,7 +136,7 @@ func (s *Server) handleUpdateFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owns, err := s.ownsProject(r, projectID)
+	owns, err := s.canAccessProject(r, projectID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -194,7 +194,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "projectID")
 	fileID := chi.URLParam(r, "fileID")
 
-	owns, err := s.ownsProject(r, projectID)
+	owns, err := s.canAccessProject(r, projectID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
