@@ -149,18 +149,18 @@ func routedProviderName(role string) string {
 
 // pickModelProviderFor resolves a provider for a routing role: explicit name > routed
 // role > default resolution (sole provider / TORSOR_DEFAULT_MODEL).
-func (s *Server) pickModelProviderFor(role, explicit string) (plugin.ModelProvider, string, bool) {
+func (s *Server) pickModelProviderFor(ctx context.Context, role, explicit string) (plugin.ModelProvider, string, bool) {
 	if explicit != "" {
-		return s.pickModelProvider(explicit)
+		return s.pickModelProvider(ctx, explicit)
 	}
 	if routed := routedProviderName(role); routed != "" {
-		if p, name, ok := s.pickModelProvider(routed); ok {
+		if p, name, ok := s.pickModelProvider(ctx, routed); ok {
 			return p, name, ok
 		}
 		// A routed-but-unloaded provider falls back to the default rather than failing
 		// the run — routing is an optimization, not a gate.
 	}
-	return s.pickModelProvider("")
+	return s.pickModelProvider(ctx, "")
 }
 
 // agentBody is the request for an agent run: a task plus an optional provider override.
@@ -175,16 +175,18 @@ type agentBody struct {
 }
 
 // pickModelProvider resolves the model provider for an agent run:
-//  1. the explicitly named provider (frontend dropdown), else
+//  1. the explicitly named provider (frontend dropdown / user preference), else
 //  2. the sole loaded provider, else
-//  3. TORSOR_DEFAULT_MODEL if it names a loaded provider (the free-local default is
+//  3. the admin's agent_engine_config.default_model, else
+//  4. TORSOR_DEFAULT_MODEL if it names a loaded provider (the free-local default is
 //     "ollama"), else
-//  4. failure.
+//  5. failure.
 //
-// Step 3 is essential: background/delegated runs (worker.go) and any run where the user
-// hasn't picked a provider pass name=="" — without a default they'd fail whenever more
-// than one provider plugin is loaded (the shipped image loads six).
-func (s *Server) pickModelProvider(name string) (plugin.ModelProvider, string, bool) {
+// Steps 3–4 are essential: background/delegated runs (worker.go) and any run where the
+// user hasn't picked a provider pass name=="" — without a default they'd fail whenever
+// more than one provider plugin is loaded (the shipped image loads six). Step 3 makes the
+// admin-facing engine setting real; it used to be stored and never read.
+func (s *Server) pickModelProvider(ctx context.Context, name string) (plugin.ModelProvider, string, bool) {
 	if name != "" {
 		p, ok := s.host.ModelProvider(name)
 		return p, name, ok
@@ -193,6 +195,11 @@ func (s *Server) pickModelProvider(name string) (plugin.ModelProvider, string, b
 	if len(infos) == 1 {
 		p, ok := s.host.ModelProvider(infos[0].Name)
 		return p, infos[0].Name, ok
+	}
+	if def := strings.TrimSpace(s.loadEngineConfig(ctx).DefaultModel); def != "" {
+		if p, ok := s.host.ModelProvider(def); ok {
+			return p, def, true
+		}
 	}
 	if def := strings.TrimSpace(os.Getenv("TORSOR_DEFAULT_MODEL")); def != "" {
 		if p, ok := s.host.ModelProvider(def); ok {
@@ -268,7 +275,7 @@ func (s *Server) resolveAgentRun(ctx context.Context, r *http.Request, projectID
 // *http.Request; resolveAgentRun wraps it for the request path. Like resolveAgentRun it does
 // NOT check ownership — callers must have verified that uid owns projectID first.
 func (s *Server) resolveAgentRunCtx(ctx context.Context, projectID, uid, providerName, role string) (agent.Model, plugin.WorkspaceRuntime, workspace, string, string, error) {
-	provider, resolvedName, ok := s.pickModelProviderFor(role, providerName)
+	provider, resolvedName, ok := s.pickModelProviderFor(ctx, role, providerName)
 	if !ok {
 		return nil, nil, workspace{}, "", "", runtimeUnavailableError{"No model provider available (specify 'provider')"}
 	}
@@ -303,6 +310,23 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	// Per-user agent preferences (Settings → Agent) fill in anything the request left
+	// unspecified. The request always wins — these are defaults, not overrides.
+	prefs := s.loadAgentPrefs(r.Context(), userID(r))
+	if body.Provider == "" {
+		body.Provider = strings.TrimSpace(prefs.PreferredModel)
+	}
+	if body.MaxSteps <= 0 && prefs.MaxSteps > 0 {
+		body.MaxSteps = prefs.MaxSteps
+	}
+	// Autonomy dial: with planning enabled and "approve_plan" autonomy, an unqualified
+	// run proposes a plan and waits for approval instead of editing immediately.
+	// Executing an already-approved plan is never re-planned.
+	if body.Mode == "" && len(body.ApprovedPlan) == 0 && prefs.PlanningEnabled && prefs.DefaultAutonomy == "approve_plan" {
+		body.Mode = "plan"
+	}
+
 	provider, rt, ws, apiKey, providerName, err := s.resolveAgentRun(r.Context(), r, projectID, body.Provider, "step")
 	if err != nil {
 		var rue runtimeUnavailableError
@@ -331,7 +355,7 @@ func (s *Server) handleAgentRunSSE(w http.ResponseWriter, r *http.Request) {
 	mutated := false
 	send := func(e agent.Event) {
 		if e.Kind == agent.EventToolCall {
-			if e.Tool == "write_file" || e.Tool == "run" {
+			if agent.IsMutatingTool(e.Tool) {
 				mutated = true
 			}
 			if actionLog.Len() < 3000 {

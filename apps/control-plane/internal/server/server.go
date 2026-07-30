@@ -248,6 +248,8 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/projects/{projectID}/workspace/exec/stream", s.handleExecProjectWorkspace)
 			// Workspace-wide grep for the IDE's global search (⌘⇧F).
 			r.Post("/projects/{projectID}/workspace/search", s.handleWorkspaceSearch)
+			// Real security scan: secret detectors + whatever OSS scanners the workspace has.
+			r.Post("/projects/{projectID}/workspace/scan", s.handleWorkspaceScan)
 			r.Get("/projects/{projectID}/workspace/files", s.handleListProjectWorkspaceFiles)
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
@@ -414,6 +416,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"apiUrl":        s.cfg.APIURL,
 		"previewDomain": s.cfg.PreviewDomain,
 		"maintenance":   map[string]any{"active": maintOn, "message": maintMsg},
+		// Co-editing is opt-in infrastructure (the torsor-collab sidecar). The IDE only
+		// attempts a Yjs connection when the sidecar is actually configured.
+		"collab": map[string]any{"enabled": strings.TrimSpace(s.cfg.CollabURL) != ""},
 		"features": map[string]string{
 			"auth":           "jwt-password",
 			"projects":       "db-backed",

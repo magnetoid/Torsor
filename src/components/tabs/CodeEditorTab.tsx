@@ -14,18 +14,24 @@ import {
   Search,
   Zap
 } from 'lucide-react';
+import type * as monacoNS from 'monaco-editor';
+import { Users } from 'lucide-react';
 import { useAppStore } from '../../useAppStore';
 import { useEditorStore } from '../../stores/editorStore';
 import { useChatStore } from '../../stores/chatStore';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { cn } from '../../lib/utils';
 import { useThemeColors, useThemeStore } from '../../lib/theme';
+import { isCollabEnabled } from '../../lib/api';
+import { useCollabEditor } from '../../hooks/useCollabEditor';
 
 export default function CodeEditorTab() {
   const { files, updateFileContent, saveFile, saveStatus, workspaceProjectId } = useAppStore();
   const { openFileIds, activeFileId, setActiveFile, closeFile } = useEditorStore();
   const [editorValue, setEditorValue] = useState('');
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+  // Held in state (not a ref) so the collab hook re-runs once the editor exists.
+  const [editorInstance, setEditorInstance] = useState<monacoNS.editor.IStandaloneCodeEditor | null>(null);
 
   const { theme } = useThemeStore();
   const colors = useThemeColors();
@@ -120,6 +126,7 @@ export default function CodeEditorTab() {
   };
 
   const handleEditorMount: OnMount = (editor, monaco) => {
+    setEditorInstance(editor);
 
     // Add custom context menu items
     editor.addAction({
@@ -158,6 +165,17 @@ export default function CodeEditorTab() {
       setCursorPos({ line: e.position.lineNumber, col: e.position.column });
     });
   };
+
+  // Real-time co-editing: binds the open model to the project's shared Yjs document
+  // (the control plane's /collab/ws proxy + torsor-collab sidecar). Inactive unless the
+  // instance has the sidecar configured, so single-user installs are unaffected.
+  const { status: collabStatus, peers } = useCollabEditor({
+    projectId: workspaceProjectId,
+    filePath: activeFileId,
+    editor: editorInstance,
+    initialContent: activeFile?.content || '',
+    enabled: isCollabEnabled(),
+  });
 
   const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop();
@@ -293,6 +311,24 @@ export default function CodeEditorTab() {
           <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
           <span>Spaces: 2</span>
           <span>UTF-8</span>
+          {collabStatus !== 'off' && (
+            <span
+              className={cn(
+                'flex items-center gap-1',
+                collabStatus === 'connected' ? 'text-success' : 'text-tertiary',
+              )}
+              title={
+                collabStatus === 'connected'
+                  ? peers > 0
+                    ? `${peers} other ${peers === 1 ? 'person' : 'people'} editing this project`
+                    : 'Live editing on — you are the only one here'
+                  : 'Connecting to the co-editing session…'
+              }
+            >
+              <Users size={11} />
+              {collabStatus === 'connected' ? (peers > 0 ? `Live · ${peers}` : 'Live') : 'Connecting…'}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {!workspaceProjectId ? (

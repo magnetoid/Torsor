@@ -233,6 +233,7 @@ func (s *Server) handleStopDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logDeploymentEvent(r.Context(), projectID, userID(r), "stop", "stopped", "")
+	s.auditFromRequest(r, "deploy_stop", "project", projectID, "", "Stopped the deployment")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "stopped"})
 }
 
