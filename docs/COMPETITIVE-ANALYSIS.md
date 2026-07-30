@@ -78,7 +78,7 @@ billing, pluggable kernel, token-pack theming.
 | Deployment types + rollback | 🟡 deploy = proxy into dev container | Versioned release images (on `docker commit` substrate), rollback; `DeployTarget` plugins: **Coolify/SSH first**, PaaS later |
 | GitHub import / repo / PRs | ❌ (OAuth login only) | `/new?repo=<url>` import, then VCSProvider plugin |
 | Multiplayer editing | 🟡 backend + sidecar built, no frontend client | Ship Yjs client — **free where Replit charges** |
-| Teams/orgs | 🟡 API exists; `projects.team_id` never read | Honor team scoping with role checks |
+| Teams/orgs | ✅ Team members share project access (owner or active non-viewer member); viewer read-only layer pending | Honor team scoping with role checks |
 | Security scanning | 🟡 mock tab | OSS scanners in-workspace (`osv-scanner`, `npm audit`, `govulncheck`) |
 | Templates ecosystem | 🟡 3 hardcoded | `torsor.template.yaml` + git-backed community templates |
 | Mobile app, voice-to-build | ❌ | **Not copying** (see below) |

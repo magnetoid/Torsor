@@ -111,7 +111,7 @@ func (s *Server) handleListCheckpoints(w http.ResponseWriter, r *http.Request) {
 		`SELECT c.id, c.label, c.file_count, c.created_at
 		   FROM checkpoints c
 		   JOIN projects p ON p.id = c.project_id
-		  WHERE c.project_id = $1 AND p.user_id = $2
+		  WHERE c.project_id = $1 AND `+projectAccessSQL("p.", 2)+`
 		  ORDER BY c.created_at DESC`, projectID, userID(r))
 	if err != nil {
 		s.fail(w, r, err)
@@ -145,9 +145,12 @@ func (s *Server) handleRestoreCheckpoint(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	var filesJSON []byte
+	// No creator (user_id) filter: loadWorkspace already authorized project access, and
+	// scoping to the creator would silently block teammates from restoring each other's
+	// checkpoints. checkpoints.user_id stays as provenance only.
 	err := s.pool.QueryRow(r.Context(),
-		`SELECT files FROM checkpoints WHERE id = $1 AND project_id = $2 AND user_id = $3`,
-		checkpointID, ws.ProjectID, userID(r)).Scan(&filesJSON)
+		`SELECT files FROM checkpoints WHERE id = $1 AND project_id = $2`,
+		checkpointID, ws.ProjectID).Scan(&filesJSON)
 	if err == pgx.ErrNoRows {
 		writeError(w, http.StatusNotFound, "Checkpoint not found")
 		return

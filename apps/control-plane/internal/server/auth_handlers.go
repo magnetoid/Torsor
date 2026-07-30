@@ -143,9 +143,14 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create default personal team for the user
+	// Create default personal team for the user, with an explicit owner membership row —
+	// project access is authorized via team_members (see projectAccessSQL).
 	if _, err := s.pool.Exec(r.Context(),
-		`INSERT INTO teams (name, slug, owner_id) VALUES ($1, $2, $3)`,
+		`WITH t AS (
+			INSERT INTO teams (name, slug, owner_id) VALUES ($1, $2, $3) RETURNING id
+		 )
+		 INSERT INTO team_members (team_id, user_id, role, status)
+		 SELECT id, $3, 'owner', 'active' FROM t`,
 		"Personal Workspace", "personal-"+id[:8], id); err != nil {
 		s.fail(w, r, err)
 		return

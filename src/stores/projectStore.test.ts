@@ -14,6 +14,7 @@ const rawProject = (over: Record<string, unknown> = {}) => ({
   vibe: 'builder',
   is_public: true,
   template: 'vite-react',
+  teamId: 'team-1',
   created_at: '2026-07-19T00:00:00Z',
   updated_at: '2026-07-19T00:00:00Z',
   ...over,
@@ -31,10 +32,13 @@ describe('projectStore.fetchProjects', () => {
 
     const projects = useProjectStore.getState().projects;
     expect(projects).toHaveLength(2);
+    // workspaceId now mirrors the project's real team (migration 0024) instead of the
+    // old hardcoded 'server-default' placeholder.
     expect(projects[0]).toMatchObject({
       id: 'p1',
       name: 'My App',
-      workspaceId: 'server-default',
+      workspaceId: 'team-1',
+      teamId: 'team-1',
       isPublished: true,
       template: 'vite-react',
     });
@@ -63,11 +67,27 @@ describe('projectStore.createProject', () => {
     expect(id).toBe('new');
     const state = useProjectStore.getState();
     expect(state.projects[0].id).toBe('new');
-    expect(state.projects[0].workspaceId).toBe('ws-1');
+    // The server's team id wins over the requested workspace.
+    expect(state.projects[0].workspaceId).toBe('team-1');
     expect(state.currentProject?.id).toBe('new');
     const body = JSON.parse(mockApi.mock.calls[0][1].body);
     expect(body.template).toBe('vite-react');
     expect(body.name).toBe('Fresh');
+    // The requested workspace is forwarded so the project is created in it.
+    expect(body.teamId).toBe('ws-1');
+  });
+
+  it('falls back to the requested workspace when the response carries no team id', async () => {
+    mockApi.mockResolvedValueOnce(rawProject({ id: 'orphan', teamId: null }));
+    await useProjectStore.getState().createProject({ name: 'Orphan' }, 'ws-9');
+    expect(useProjectStore.getState().projects[0].workspaceId).toBe('ws-9');
+  });
+
+  it('omits teamId for the legacy server-default placeholder', async () => {
+    mockApi.mockResolvedValueOnce(rawProject({ id: 'legacy' }));
+    await useProjectStore.getState().createProject({ name: 'Legacy' }, 'server-default');
+    const body = JSON.parse(mockApi.mock.calls[0][1].body);
+    expect('teamId' in body).toBe(false);
   });
 
   it('omits the template key when none is given', async () => {
