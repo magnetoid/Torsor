@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -215,5 +216,46 @@ func TestBuildCreateArgsPublishHost(t *testing.T) {
 	args2, _ := buildCreateArgs("torsor-q", plugin.WorkspaceSpec{ID: "q", Image: "node:20-alpine"}, lim2)
 	if s := argString(args2); !strings.Contains(s, " -p 127.0.0.1::3000 ") {
 		t.Errorf("expected default publish on 127.0.0.1, got: %s", s)
+	}
+}
+
+func TestClassifyTagsStoppedContainerFailures(t *testing.T) {
+	// Real daemon replies, as they arrive on stderr, for each way a workspace can be down.
+	stopped := []string{
+		"docker exec torsor-p1 sh -c ls: Error response from daemon: container 83a55dbe7cdc is not running",
+		"docker exec torsor-p1 sh -c ls: Error response from daemon: No such container: torsor-p1",
+		"docker exec torsor-p1 sh -c ls: Error response from daemon: container torsor-p1 is paused",
+		"docker exec torsor-p1 sh -c ls: Error response from daemon: cannot exec in a stopped state",
+	}
+	for _, msg := range stopped {
+		if got := classify(errors.New(msg)); !plugin.IsNotRunning(got) {
+			t.Errorf("classify(%q) was not tagged as not-running", msg)
+		}
+	}
+}
+
+func TestClassifyPassesThroughRealFailures(t *testing.T) {
+	// A genuine fault must keep its 500: mislabelling it "stopped" would send the user to
+	// press Start forever on a workspace that is up.
+	other := []string{
+		"docker exec torsor-p1 sh -c ls: permission denied",
+		"docker inspect torsor-p1: Cannot connect to the Docker daemon at unix:///var/run/docker.sock",
+		"docker exec torsor-p1 cat missing.txt: No such file or directory",
+	}
+	for _, msg := range other {
+		err := errors.New(msg)
+		got := classify(err)
+		if plugin.IsNotRunning(got) {
+			t.Errorf("classify(%q) was wrongly tagged as not-running", msg)
+		}
+		if got != err {
+			t.Errorf("classify(%q) rewrapped an unrelated error", msg)
+		}
+	}
+}
+
+func TestClassifyNilIsNil(t *testing.T) {
+	if got := classify(nil); got != nil {
+		t.Fatalf("classify(nil) = %v, want nil", got)
 	}
 }

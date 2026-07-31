@@ -43,7 +43,7 @@ func (s *Server) handleWorkspaceSearch(w http.ResponseWriter, r *http.Request) {
 		"--exclude-dir=build", "--exclude-dir=.next", "--exclude-dir=vendor",
 		"--", query, ".")
 	if err != nil {
-		s.fail(w, r, err)
+		s.failRuntime(w, r, ws, err)
 		return
 	}
 
