@@ -76,6 +76,27 @@ func (s *Server) loadWorkspace(w http.ResponseWriter, r *http.Request) (workspac
 	return ws, rt, true
 }
 
+// failRuntime answers a workspace-runtime error. A stopped container is the one failure
+// mode that is not a server fault: the request was valid, the workspace just isn't up. It
+// earns 409 and a sentence the UI can show verbatim, instead of the 500 + raw daemon text
+// ("container 83a55d… is not running") users used to get. Everything else falls through to
+// the normal 500 path.
+//
+// The workspace row is corrected on the way out: reaching here means the stored status was
+// stale (a container that died on its own, or a daemon restart), and a row that still reads
+// "running" would keep the UI lying about it.
+func (s *Server) failRuntime(w http.ResponseWriter, r *http.Request, ws workspace, err error) {
+	if !plugin.IsNotRunning(err) {
+		s.fail(w, r, err)
+		return
+	}
+	s.logger.Info("workspace not running", "path", r.URL.Path, "project_id", ws.ProjectID)
+	if ws.Status != "stopped" {
+		s.persistStatus(r, ws, plugin.WorkspaceStatus{Status: "stopped"})
+	}
+	writeError(w, http.StatusConflict, "This workspace is stopped. Start it and try again.")
+}
+
 // persistStatus updates a workspace row's status (and container id when present).
 func (s *Server) persistStatus(r *http.Request, ws workspace, st plugin.WorkspaceStatus) {
 	containerID := ws.ContainerID
@@ -255,7 +276,7 @@ func (s *Server) handleListProjectWorkspaceFiles(w http.ResponseWriter, r *http.
 	}
 	entries, err := rt.ListFiles(r.Context(), ws.ProjectID, r.URL.Query().Get("path"))
 	if err != nil {
-		s.fail(w, r, err)
+		s.failRuntime(w, r, ws, err)
 		return
 	}
 	type fileEntry struct {
@@ -283,7 +304,7 @@ func (s *Server) handleReadProjectWorkspaceFile(w http.ResponseWriter, r *http.R
 	}
 	content, err := rt.ReadFile(r.Context(), ws.ProjectID, p)
 	if err != nil {
-		s.fail(w, r, err)
+		s.failRuntime(w, r, ws, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -322,7 +343,7 @@ func (s *Server) handleWriteProjectWorkspaceFile(w http.ResponseWriter, r *http.
 		return
 	}
 	if err := rt.WriteFile(r.Context(), ws.ProjectID, body.Path, content, body.CreateDirs); err != nil {
-		s.fail(w, r, err)
+		s.failRuntime(w, r, ws, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "path": body.Path})
