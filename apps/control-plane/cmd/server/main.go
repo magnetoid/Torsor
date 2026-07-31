@@ -72,6 +72,7 @@ func main() {
 	retryForever(logger, "migrations", func() error { return migrations.Run(ctx, pool) })
 	retryForever(logger, "super-admin sync", func() error { return syncSuperAdmins(ctx, pool, cfg.SuperAdminEmails) })
 	retryForever(logger, "dev seed", func() error { return ensureDevSeed(ctx, pool, cfg) })
+	warnLeftoverDevSeed(ctx, logger, pool, cfg)
 
 	// Load capability plugins out-of-process (best-effort: a bad plugin must not stop
 	// the control plane from serving).
@@ -195,6 +196,31 @@ func syncSuperAdmins(ctx context.Context, pool *pgxpool.Pool, emails []string) e
 		`UPDATE users SET role = 'super_admin', updated_at = NOW()
 		 WHERE LOWER(email) = ANY($1::text[]) AND role <> 'super_admin'`, emails)
 	return err
+}
+
+// warnLeftoverDevSeed shouts about a dev-seed account that outlived the environment that
+// created it. ensureDevSeed is gated on NODE_ENV=development, so a production instance can
+// never *create* the demo user — but it can inherit one: run an instance in development,
+// flip it to production, and the row survives with the documented dev password, reachable
+// by anyone who has read the README. The seeder cannot clean that up (deleting a user with
+// real projects is the operator's call), so the least we can do is say so on every boot.
+func warnLeftoverDevSeed(ctx context.Context, logger *slog.Logger, pool *pgxpool.Pool, cfg config.Config) {
+	if cfg.IsDevelopment() {
+		return
+	}
+	var id string
+	err := pool.QueryRow(ctx,
+		`SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`, cfg.DevSeedEmail).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return
+	}
+	if err != nil {
+		// Best-effort: a failed advisory check must never block startup.
+		logger.Warn("dev-seed leftover check failed", "err", err)
+		return
+	}
+	logger.Warn("SECURITY: dev-seed account exists on a non-development instance — it may still carry the documented default password. Delete it or rotate its password.",
+		"email", cfg.DevSeedEmail, "user_id", id, "env", cfg.Env)
 }
 
 func ensureDevSeed(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) error {
