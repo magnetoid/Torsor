@@ -51,6 +51,19 @@ const eventToDeployment = (environment: Environment) => (e: DeploymentEvent): De
   logs: [],
 });
 
+/** A custom hostname attached to the project, plus the DNS challenge that proves ownership.
+ *  Only a verified domain is routable — the control plane will not serve an unproven claim. */
+export interface CustomDomain {
+  id: string;
+  domain: string;
+  verified: boolean;
+  verifiedAt: string | null;
+  /** The TXT record the owner must publish, e.g. _torsor-challenge.app.example.com */
+  recordName: string;
+  recordType: string;
+  recordValue: string;
+}
+
 interface DeployState {
   currentDeployment: Deployment | null;
   history: Deployment[];
@@ -61,7 +74,7 @@ interface DeployState {
     outputDir: string;
     nodeVersion: string;
   };
-  customDomains: { id: string; domain: string }[];
+  customDomains: CustomDomain[];
   isDeploying: boolean;
 
   // Actions
@@ -73,6 +86,7 @@ interface DeployState {
   connectTarget: (target: DeployTarget, config: Record<string, string>) => void;
   updateSettings: (settings: Partial<DeployState['settings']>) => void;
   addDomain: (domain: string) => Promise<void>;
+  verifyDomain: (id: string) => Promise<{ verified: boolean; reason?: string }>;
   removeDomain: (id: string) => Promise<void>;
   rollback: (id: string) => void;
 }
@@ -265,11 +279,11 @@ export const useDeployStore = create<DeployState>()(
           return;
         }
         try {
-          const res = await apiRequest<{ items: { id: string; domain: string }[] }>(
+          const res = await apiRequest<{ items: CustomDomain[] }>(
             `/api/v1/projects/${projectId}/domains`,
             { auth: true },
           );
-          set({ customDomains: res.items.map((d) => ({ id: d.id, domain: d.domain })) });
+          set({ customDomains: res.items });
         } catch {
           // No project / not reachable — leave the list as-is.
         }
@@ -277,11 +291,26 @@ export const useDeployStore = create<DeployState>()(
       addDomain: async (domain) => {
         const projectId = useProjectStore.getState().activeProjectId;
         if (!projectId) throw new Error('No active project selected');
-        const created = await apiRequest<{ id: string; domain: string }>(
+        const created = await apiRequest<CustomDomain>(
           `/api/v1/projects/${projectId}/domains`,
           { method: 'POST', auth: true, body: JSON.stringify({ domain }) },
         );
-        set((state) => ({ customDomains: [{ id: created.id, domain: created.domain }, ...state.customDomains] }));
+        set((state) => ({ customDomains: [created, ...state.customDomains] }));
+      },
+      // Re-runnable by design: DNS propagation means the first attempts routinely fail, so a
+      // negative result is a state to show, not an error to throw. Returns the server's reason
+      // so the UI can distinguish "not propagated yet" from "we couldn't read your DNS".
+      verifyDomain: async (id) => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) return { verified: false, reason: 'No active project selected' };
+        const res = await apiRequest<{ domain: CustomDomain; verified: boolean; reason?: string }>(
+          `/api/v1/projects/${projectId}/domains/${id}/verify`,
+          { method: 'POST', auth: true },
+        );
+        set((state) => ({
+          customDomains: state.customDomains.map((d) => (d.id === id ? res.domain : d)),
+        }));
+        return { verified: res.verified, reason: res.reason };
       },
       removeDomain: async (id) => {
         const projectId = useProjectStore.getState().activeProjectId;

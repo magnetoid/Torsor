@@ -250,8 +250,13 @@ func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCustomDomainProxy(w http.ResponseWriter, r *http.Request) {
 	host := stripPort(r.Host)
 	var projectID string
+	// verified_at IS NOT NULL is the security boundary: attaching a hostname is only a claim,
+	// and an unproven claim must never make this instance answer for someone else's domain.
+	// An unverified row is indistinguishable from "no such domain" here, deliberately — it
+	// leaks nothing about which hostnames other users have attached.
 	if err := s.pool.QueryRow(r.Context(),
-		`SELECT project_id FROM custom_domains WHERE domain = $1`, host).Scan(&projectID); err != nil {
+		`SELECT project_id FROM custom_domains WHERE domain = $1 AND verified_at IS NOT NULL`,
+		host).Scan(&projectID); err != nil {
 		// Not a custom domain → the ordinary "no route matched" 404 (same shape as before).
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not Found", "path": r.URL.Path})
 		return

@@ -223,7 +223,11 @@ open standards where Replit is proprietary, self-host-first where Replit is SaaS
 - [x] Audit coverage: login, secret create/delete, deploy stop, domain add, role change
       and maintenance-mode toggles now write audit rows (was 4 project/team sites; exec
       auditing still open)
-- [ ] Custom-domain ownership verification (DNS TXT) — today any hostname can be claimed
+- [x] Custom-domain ownership verification (DNS TXT): attaching a hostname is now only a
+      claim — each row carries a random challenge that must appear at
+      `_torsor-challenge.<domain>` before `verified_at` is set, and the host-routing proxy
+      serves **verified rows only** (migration `0025`, `POST …/domains/{id}/verify`, DNS
+      instructions + Verify button in PublishingTab)
 - [x] SecurityScanTab → real scanners in-workspace: `POST /workspace/scan` runs the
       deploy-gating secret detectors plus npm audit / osv-scanner / govulncheck when the
       image has them, and reports unavailable scanners honestly (preview banner removed)
