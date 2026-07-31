@@ -56,6 +56,7 @@ export default function PublishingTab() {
     customDomains,
     fetchDomains,
     addDomain,
+    verifyDomain,
     removeDomain,
     rollback
   } = useDeployStore();
@@ -63,6 +64,8 @@ export default function PublishingTab() {
   const [logsOpen, setLogsOpen] = useState(true);
   const [newDomain, setNewDomain] = useState('');
   const [domainError, setDomainError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ id: string; ok: boolean; message: string } | null>(null);
 
   // Sync the real deployment state + custom domains for the active project on mount.
   useEffect(() => {
@@ -83,6 +86,31 @@ export default function PublishingTab() {
       setNewDomain('');
     } catch (err) {
       setDomainError(err instanceof Error ? err.message : 'Could not add domain');
+    }
+  };
+
+  // A failed check is an expected state (DNS propagation), so it is reported inline rather
+  // than thrown — only a transport failure counts as an error.
+  const handleVerify = async (id: string) => {
+    setVerifying(id);
+    setVerifyResult(null);
+    try {
+      const res = await verifyDomain(id);
+      setVerifyResult({
+        id,
+        ok: res.verified,
+        message: res.verified
+          ? 'Verified — this domain now serves your deployment.'
+          : res.reason ?? 'Not verified yet.',
+      });
+    } catch (err) {
+      setVerifyResult({
+        id,
+        ok: false,
+        message: err instanceof Error ? err.message : 'Verification failed',
+      });
+    } finally {
+      setVerifying(null);
     }
   };
 
@@ -315,18 +343,77 @@ export default function PublishingTab() {
 
               <div className="space-y-2">
                 {customDomains.map((domain) => (
-                  <div key={domain.id} className="flex items-center justify-between p-3 bg-page border border-default rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Globe size={14} className="text-secondary" />
-                      <span className="text-xs font-medium text-primary">{domain.domain}</span>
+                  <div key={domain.id} className="p-3 bg-page border border-default rounded-lg space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Globe size={14} className="text-secondary shrink-0" />
+                        <span className="text-xs font-medium text-primary truncate">{domain.domain}</span>
+                        {/* The badge is the honest bit: an attached domain is only a claim
+                            until the TXT record proves it, and it is not served until then. */}
+                        {domain.verified ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success bg-success/10 px-1.5 py-0.5 rounded shrink-0">
+                            <CheckCircle2 size={10} />
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-warning bg-warning/10 px-1.5 py-0.5 rounded shrink-0">
+                            <AlertCircle size={10} />
+                            Unverified
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => void removeDomain(domain.id)}
+                        title="Remove domain"
+                        className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all shrink-0 focus-ring"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => void removeDomain(domain.id)}
-                      title="Remove domain"
-                      className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+
+                    {!domain.verified && (
+                      <div className="space-y-2 pl-7">
+                        <p className="text-xs text-secondary leading-relaxed">
+                          Add this DNS record to prove you own <span className="font-medium">{domain.domain}</span>.
+                          Until it resolves, this instance will not serve the domain.
+                        </p>
+                        <dl className="text-[11px] font-mono bg-surface border border-default rounded-md p-2 space-y-1 overflow-x-auto">
+                          <div className="flex gap-2">
+                            <dt className="text-tertiary w-12 shrink-0">Type</dt>
+                            <dd className="text-primary">{domain.recordType}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="text-tertiary w-12 shrink-0">Name</dt>
+                            <dd className="text-primary break-all">{domain.recordName}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="text-tertiary w-12 shrink-0">Value</dt>
+                            <dd className="text-primary break-all">{domain.recordValue}</dd>
+                          </div>
+                        </dl>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => void handleVerify(domain.id)}
+                            disabled={verifying === domain.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-bold hover:bg-accent hover:text-white transition-colors disabled:opacity-60 focus-ring"
+                          >
+                            {verifying === domain.id ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                            {verifying === domain.id ? 'Checking DNS…' : 'Verify'}
+                          </button>
+                          <button
+                            onClick={() => void navigator.clipboard?.writeText(domain.recordValue)}
+                            className="px-2.5 py-1.5 rounded-lg border border-default text-xs font-bold text-secondary hover:text-primary hover:border-accent transition-colors focus-ring"
+                          >
+                            Copy value
+                          </button>
+                        </div>
+                        {verifyResult?.id === domain.id && (
+                          <p className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-warning')}>
+                            {verifyResult.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {customDomains.length === 0 && (
@@ -340,9 +427,10 @@ export default function PublishingTab() {
                   <span className="text-xs font-bold uppercase tracking-wider">Setup Instructions</span>
                 </div>
                 <p className="text-xs text-secondary leading-relaxed">
-                  Attach a domain here, then point its DNS (A/CNAME) at this Torsor instance and route
-                  it to the app in your reverse proxy. Once it resolves here, the domain serves this
-                  project's deployment. DNS &amp; TLS are managed at your hosting layer.
+                  Attach a domain, publish the TXT record shown above, then click Verify — this proves
+                  the domain is yours, so nobody else can point it at their project. After it verifies,
+                  aim the domain's DNS (A/CNAME) at this Torsor instance and route it to the app in your
+                  reverse proxy. DNS &amp; TLS are managed at your hosting layer.
                 </p>
               </div>
             </div>

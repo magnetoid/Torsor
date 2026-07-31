@@ -43,6 +43,10 @@ type Server struct {
 	// metrics holds in-process request counters exposed at /metrics (per-instance).
 	metrics *serverMetrics
 
+	// txtLookup resolves the custom-domain ownership challenge. Nil means the process
+	// resolver; tests substitute a fake so verification needs no network or live zone.
+	txtLookup txtResolver
+
 	// previewErrs maps projectID → *previewErrRing: recent console errors the IDE captured
 	// from the live preview, readable by the agent (in-process; single backend today).
 	previewErrs sync.Map
@@ -298,6 +302,7 @@ func (s *Server) Handler() http.Handler {
 			// Custom domains attached to the project's deployment (host-based routing).
 			r.Get("/projects/{projectID}/domains", s.handleListDomains)
 			r.Post("/projects/{projectID}/domains", s.handleAddDomain)
+			r.Post("/projects/{projectID}/domains/{domainID}/verify", s.handleVerifyDomain)
 			r.Delete("/projects/{projectID}/domains/{domainID}", s.handleDeleteDomain)
 
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
