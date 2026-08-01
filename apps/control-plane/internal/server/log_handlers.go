@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -41,17 +43,47 @@ func (w pgLogWriter) Write(ctx context.Context, batch []applog.Entry) error {
 	return err
 }
 
+// truncate caps a value at n CHARACTERS so it fits a VARCHAR(n) column.
+//
+// Three things have to be right at once, and the first version got all three wrong:
+//   - Postgres VARCHAR(n) counts characters, not bytes, so the limit must be measured in runes.
+//   - The ellipsis is part of the result, so it must fit INSIDE n, not be appended after
+//     slicing to n (that returned n+1 characters and overflowed every column it "protected").
+//   - Slicing a UTF-8 string at a byte offset can split a rune and produce invalid UTF-8,
+//     which Postgres rejects outright (SQLSTATE 22021).
+//
+// Getting this wrong is not a cosmetic bug: these values go through CopyFrom, so one oversized
+// or malformed field aborts the whole batch of up to 64 log entries — and the failure is
+// swallowed by design, so logging would silently stop working.
 func truncate(s string, n int) string {
-	if len(s) <= n {
+	if n <= 0 {
+		return ""
+	}
+	if utf8.RuneCountInString(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	if n == 1 {
+		return "…"
+	}
+	// Reserve the last character for the ellipsis.
+	count, cut := 0, len(s)
+	for i := range s {
+		if count == n-1 {
+			cut = i
+			break
+		}
+		count++
+	}
+	return s[:cut] + "…"
 }
 
-// nullUUID keeps a malformed or absent id from failing the whole batch: the log line is worth
-// more than the foreign key. Anything that isn't a UUID becomes NULL.
+// nullUUID rejects anything that is not a real UUID, so a malformed id becomes NULL instead of
+// killing the batch it rides in on. Length alone is not enough: a 36-character string of
+// arbitrary text passes a length check and then fails the uuid column, taking every other log
+// entry in the same CopyFrom with it. Both fields it guards (user_id, project_id) are
+// attacker-influenced via POST /api/v1/logs.
 func nullUUID(s string) any {
-	if len(s) != 36 {
+	if _, err := uuid.Parse(s); err != nil {
 		return nil
 	}
 	return s

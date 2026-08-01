@@ -77,15 +77,24 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	// the workspace can be stopped, restarted, or edited without taking the site down — and
 	// the snapshot makes rollback possible.
 	if templated {
+		// One deploy at a time per project: concurrent deploys shared a container name and a
+		// deployments row, so the release recorded as live could disagree with what was serving.
+		done, ok := s.beginDeploy(pid)
+		if !ok {
+			writeError(w, http.StatusConflict, "A deploy is already running for this project. Wait for it to finish, then try again.")
+			return
+		}
 		rel, err := s.createRelease(r.Context(), pid, uid, ws.Runtime, "Deploy")
 		if err != nil {
+			done()
 			s.fail(w, r, err)
 			return
 		}
 		go func() {
+			defer done()
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 			defer cancel()
-			s.launchRelease(ctx, rt, pid, uid, rel.ID, tmpl)
+			s.launchRelease(ctx, rt, pid, uid, rel.ID, rel.Number, tmpl)
 		}()
 		// 202: the artifact is not live yet. Reporting 200/"running" here is what used to make
 		// the UI claim success before the build had even started.
@@ -99,13 +108,19 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 
 	// Nothing buildable was detected: keep the legacy behaviour of publishing whatever the
 	// workspace is already serving. No artifact, so no release row and no rollback.
+	//
+	// Crucially this must NOT clear an existing release_id. Detection reads the workspace over
+	// `docker exec`, so a stopped or unreachable container makes a perfectly buildable project
+	// look unbuildable — and unconditionally nulling release_id would silently demote a working
+	// release to the legacy path and repoint traffic at the dev workspace. Keep serving the
+	// release we already have; only a project that never had one falls through to legacy.
 	if st, err := rt.StartWorkspace(r.Context(), pid); err == nil {
 		s.persistStatus(r, ws, st)
 	}
 	var updatedAt time.Time
 	if err := s.pool.QueryRow(r.Context(),
 		`INSERT INTO deployments (project_id, user_id, status, release_id) VALUES ($1, $2, 'running', NULL)
-		 ON CONFLICT (project_id) DO UPDATE SET status = 'running', release_id = NULL, updated_at = NOW()
+		 ON CONFLICT (project_id) DO UPDATE SET status = 'running', updated_at = NOW()
 		 RETURNING updated_at`, pid, uid).Scan(&updatedAt); err != nil {
 		s.fail(w, r, err)
 		return
@@ -293,7 +308,7 @@ func (s *Server) handleGetRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if rel.Status == "building" {
-		if live, ok := s.liveBuildLog(r.Context(), projectID); ok && live != "" {
+		if live, ok := s.liveBuildLog(r.Context(), projectID, rel.Number); ok && live != "" {
 			rel.BuildLog = live
 		}
 	}
@@ -335,19 +350,42 @@ func (s *Server) handleRollbackRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Rollback contends for the same container names and deployments row as a deploy, so it
+	// takes the same exclusive claim.
+	done, ok := s.beginDeploy(ws.ProjectID)
+	if !ok {
+		writeError(w, http.StatusConflict, "A deploy is already running for this project. Wait for it to finish, then try again.")
+		return
+	}
+
 	pid, uid, snap := ws.ProjectID, userID(r), target.SnapshotID
-	relID := target.ID
+	relID, relNum := target.ID, target.Number
+	relWS := releaseWorkspaceID(pid, relNum)
 	go func() {
+		defer done()
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 		defer cancel()
-		if err := s.bootReleaseContainer(ctx, rt, pid, releaseWorkspaceID(pid), snap, tmpl); err != nil {
-			s.updateReleaseStatus(ctx, relID, "failed", "Rollback failed: "+err.Error())
+		// Same discipline as a deploy: boot the target release beside the live one, prove the
+		// build and the port, and only then move traffic. A rollback that silently lands on a
+		// dead container is worse than no rollback — it is reached for during an incident.
+		if err := s.bootReleaseContainer(ctx, rt, pid, relWS, snap, tmpl); err != nil {
+			s.failRelease(ctx, rt, pid, relID, relWS, "Rollback failed: "+err.Error())
 			return
 		}
+		if err := s.awaitBuild(ctx, rt, relWS, relID); err != nil {
+			s.failRelease(ctx, rt, pid, relID, relWS, "Rollback failed: "+err.Error())
+			return
+		}
+		if err := s.awaitServing(ctx, rt, relWS); err != nil {
+			s.failRelease(ctx, rt, pid, relID, relWS, "Rollback failed: "+err.Error())
+			return
+		}
+		previous := s.liveReleaseNumber(ctx, pid)
 		if err := s.activateRelease(ctx, pid, uid, relID); err != nil {
 			s.logger.Warn("rollback activate failed", "err", err, "project", pid)
 			return
 		}
+		s.reapRelease(ctx, rt, pid, previous, relNum)
 		s.logDeploymentEventRelease(ctx, pid, uid, "rollback", "running", deployPath(pid), relID)
 	}()
 
