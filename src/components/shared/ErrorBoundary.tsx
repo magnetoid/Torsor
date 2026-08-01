@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '../../lib/utils';
+import { reportClientLog } from '../../lib/logger';
 
 interface Props {
   children?: ReactNode;
@@ -28,6 +29,16 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error(`Uncaught error in ${this.props.name || 'App'}:`, error, errorInfo);
+    // Also send it to the control plane. A console message dies with the tab; an operator
+    // needs to know this happened, and the component stack is what makes it actionable.
+    reportClientLog({
+      level: 'error',
+      message: error.message || 'Component crashed',
+      logger: `ErrorBoundary:${this.props.name || 'App'}`,
+      error: error.name,
+      stack: error.stack,
+      fields: { componentStack: errorInfo.componentStack?.slice(0, 4000) },
+    });
   }
 
   private handleReload = () => {

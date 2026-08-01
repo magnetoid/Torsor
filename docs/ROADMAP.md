@@ -231,6 +231,10 @@ open standards where Replit is proprietary, self-host-first where Replit is SaaS
 - [x] SecurityScanTab → real scanners in-workspace: `POST /workspace/scan` runs the
       deploy-gating secret detectors plus npm audit / osv-scanner / govulncheck when the
       image has them, and reports unavailable scanners honestly (preview banner removed)
+- [x] Durable, queryable logging: a slog tee persists every backend warn/error to `app_logs`
+      (migration `0027`) with redaction, plus browser error/rejection/boundary reporting via
+      `POST /logs`, correlated by request id and read through the super-admin **Logs** console
+      (filters, stats, stack traces, request tracing, retention + purge)
 - [ ] Abuse report endpoint + admin takedown queue; Playwright E2E happy path
 
 ### Track B — Platform services, the open way (built apps become real products)
