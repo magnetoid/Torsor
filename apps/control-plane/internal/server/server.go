@@ -302,6 +302,10 @@ func (s *Server) Handler() http.Handler {
 			// Custom domains attached to the project's deployment (host-based routing).
 			r.Get("/projects/{projectID}/domains", s.handleListDomains)
 			r.Post("/projects/{projectID}/domains", s.handleAddDomain)
+			// Release history: versioned deploy artifacts, their build logs, and rollback.
+			r.Get("/projects/{projectID}/releases", s.handleListReleases)
+			r.Get("/projects/{projectID}/releases/{releaseID}", s.handleGetRelease)
+			r.Post("/projects/{projectID}/releases/{releaseID}/rollback", s.handleRollbackRelease)
 			r.Post("/projects/{projectID}/domains/{domainID}/verify", s.handleVerifyDomain)
 			r.Delete("/projects/{projectID}/domains/{domainID}", s.handleDeleteDomain)
 

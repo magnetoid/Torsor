@@ -64,6 +64,23 @@ export interface CustomDomain {
   recordValue: string;
 }
 
+/** A versioned deploy artifact. A release pins a runtime snapshot of the workspace and runs
+ *  in its own container, so the live site survives editing (or stopping) the workspace, and
+ *  rolling back re-forks an earlier snapshot instead of rebuilding. */
+export interface Release {
+  id: string;
+  projectId: string;
+  number: number;
+  snapshotId: string;
+  runtime: string;
+  status: 'building' | 'live' | 'failed' | 'superseded';
+  message: string;
+  buildLog: string;
+  createdAt: string;
+  updatedAt: string;
+  live: boolean;
+}
+
 interface DeployState {
   currentDeployment: Deployment | null;
   history: Deployment[];
@@ -75,6 +92,7 @@ interface DeployState {
     nodeVersion: string;
   };
   customDomains: CustomDomain[];
+  releases: Release[];
   isDeploying: boolean;
 
   // Actions
@@ -85,6 +103,8 @@ interface DeployState {
   unpublish: () => Promise<void>;
   connectTarget: (target: DeployTarget, config: Record<string, string>) => void;
   updateSettings: (settings: Partial<DeployState['settings']>) => void;
+  fetchReleases: () => Promise<void>;
+  rollbackTo: (releaseID: string) => Promise<void>;
   addDomain: (domain: string) => Promise<void>;
   verifyDomain: (id: string) => Promise<{ verified: boolean; reason?: string }>;
   removeDomain: (id: string) => Promise<void>;
@@ -159,16 +179,38 @@ export const useDeployStore = create<DeployState>()(
             `/api/v1/projects/${projectId}/deploy`,
             { method: 'POST', auth: true }
           );
+          // A buildable project answers 202 "building": the snapshot is taken and the release
+          // container is compiling. Saying "live" here would be a lie — the artifact does not
+          // exist yet, and the build can still fail. The Releases list carries it from here.
+          const isBuilding = res.status === 'building';
           const done: Deployment = {
             ...base,
-            status: 'success',
+            status: isBuilding ? 'deploying' : 'success',
             url: res.url, // relative /d/{id}/ — resolves against the app origin
             duration: `${Math.max(1, Math.round((Date.now() - start) / 1000))}s`,
-            logs: [...base.logs, `[deploy] Live at ${res.url}`],
+            logs: [
+              ...base.logs,
+              isBuilding
+                ? '[deploy] Building the release in its own container — your workspace is free to keep editing.'
+                : `[deploy] Live at ${res.url}`,
+            ],
           };
-          set({ isDeploying: false, currentDeployment: done, history: [done, ...get().history] });
+          set({
+            isDeploying: false,
+            currentDeployment: done,
+            history: isBuilding ? get().history : [done, ...get().history],
+          });
           // Reconcile with the server's persisted history (the deploy was logged there).
           void get().fetchHistory();
+          void get().fetchReleases();
+          if (isBuilding) {
+            useNotificationStore.getState().addNotification({
+              type: 'deploy_success',
+              title: 'Build started',
+              message: 'Your release is building. You will keep serving the current version until it succeeds.',
+            });
+            return;
+          }
           useLayoutStore.getState().pushDisclosure({
             kind: 'preview-ready',
             label: 'Your app is deployed and live.',
@@ -270,6 +312,37 @@ export const useDeployStore = create<DeployState>()(
       updateSettings: (newSettings) => set((state) => ({
         settings: { ...state.settings, ...newSettings }
       })),
+
+      releases: [],
+      fetchReleases: async () => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) {
+          set({ releases: [] });
+          return;
+        }
+        try {
+          const res = await apiRequest<{ items: Release[] }>(
+            `/api/v1/projects/${projectId}/releases`,
+            { auth: true },
+          );
+          set({ releases: res.items ?? [] });
+        } catch {
+          // Older control plane, or no project — leave the list alone rather than implying
+          // "no releases" when we simply couldn't ask.
+        }
+      },
+      // Rollback re-forks the chosen release's snapshot, so what goes live is byte-identical
+      // to what was live before. The server accepts and works in the background (202), so
+      // refresh the list rather than assuming the new state.
+      rollbackTo: async (releaseID) => {
+        const projectId = useProjectStore.getState().activeProjectId;
+        if (!projectId) throw new Error('No active project selected');
+        await apiRequest(`/api/v1/projects/${projectId}/releases/${releaseID}/rollback`, {
+          method: 'POST',
+          auth: true,
+        });
+        await get().fetchReleases();
+      },
 
       // Custom domains are server-backed per active project (control-plane custom_domains).
       fetchDomains: async () => {

@@ -58,6 +58,9 @@ export default function PublishingTab() {
     addDomain,
     verifyDomain,
     removeDomain,
+    releases,
+    fetchReleases,
+    rollbackTo,
     rollback
   } = useDeployStore();
 
@@ -66,12 +69,33 @@ export default function PublishingTab() {
   const [domainError, setDomainError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [verifyResult, setVerifyResult] = useState<{ id: string; ok: boolean; message: string } | null>(null);
+  const [openLog, setOpenLog] = useState<string | null>(null);
+  const [rollingBack, setRollingBack] = useState<string | null>(null);
 
-  // Sync the real deployment state + custom domains for the active project on mount.
+  // Sync the real deployment state + releases + custom domains for the active project.
   useEffect(() => {
     void fetchDeployment();
     void fetchDomains();
-  }, [fetchDeployment, fetchDomains]);
+    void fetchReleases();
+  }, [fetchDeployment, fetchDomains, fetchReleases]);
+
+  // A build runs in the background for minutes, so poll while one is in flight. Stops as soon
+  // as nothing is building — no reason to keep hitting the API on an idle tab.
+  const building = releases.some((r) => r.status === 'building');
+  useEffect(() => {
+    if (!building) return;
+    const id = setInterval(() => void fetchReleases(), 4000);
+    return () => clearInterval(id);
+  }, [building, fetchReleases]);
+
+  const handleRollback = async (releaseID: string) => {
+    setRollingBack(releaseID);
+    try {
+      await rollbackTo(releaseID);
+    } finally {
+      setRollingBack(null);
+    }
+  };
 
   const handleDeploy = (target: DeployTarget) => {
     deploy(target);
@@ -319,6 +343,79 @@ export default function PublishingTab() {
                   <option value="22.x">22.x (Current)</option>
                 </select>
               </div>
+            </div>
+          </section>
+
+          {/* Releases — versioned artifacts, not "whatever the container is running" */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Releases</h3>
+            <div className="bg-surface border border-default rounded-xl p-5 space-y-3">
+              {releases.length === 0 ? (
+                <p className="text-xs text-tertiary">
+                  No releases yet. Publishing snapshots your workspace and runs the build in its own
+                  container, so the live site keeps serving while you keep editing.
+                </p>
+              ) : (
+                releases.map((rel) => (
+                  <div key={rel.id} className="p-3 bg-page border border-default rounded-lg space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold text-primary">v{rel.number}</span>
+                        {rel.live ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success bg-success/10 px-1.5 py-0.5 rounded">
+                            <CheckCircle2 size={10} /> Live
+                          </span>
+                        ) : rel.status === 'building' ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-info bg-info/10 px-1.5 py-0.5 rounded">
+                            <Loader2 size={10} className="animate-spin" /> Building
+                          </span>
+                        ) : rel.status === 'failed' ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-error bg-error/10 px-1.5 py-0.5 rounded">
+                            <XCircle size={10} /> Failed
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary bg-elevated px-1.5 py-0.5 rounded">
+                            Superseded
+                          </span>
+                        )}
+                        <span className="text-[11px] text-tertiary truncate">
+                          {new Date(rel.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {rel.buildLog && (
+                          <button
+                            onClick={() => setOpenLog(openLog === rel.id ? null : rel.id)}
+                            className="px-2.5 py-1 rounded-lg border border-default text-[11px] font-bold text-secondary hover:text-primary hover:border-accent transition-colors focus-ring"
+                          >
+                            {openLog === rel.id ? 'Hide log' : 'Build log'}
+                          </button>
+                        )}
+                        {/* Only a completed artifact can be rolled back to — a build that never
+                            produced a snapshot has nothing to restore. */}
+                        {!rel.live && rel.snapshotId && rel.status !== 'building' && (
+                          <button
+                            onClick={() => void handleRollback(rel.id)}
+                            disabled={rollingBack === rel.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-[11px] font-bold hover:bg-accent hover:text-white transition-colors disabled:opacity-60 focus-ring"
+                          >
+                            {rollingBack === rel.id ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
+                            Roll back
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {rel.message && rel.status === 'failed' && (
+                      <p className="text-[11px] text-error">{rel.message}</p>
+                    )}
+                    {openLog === rel.id && (
+                      <pre className="text-[11px] font-mono bg-elevated border border-default rounded-md p-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-secondary">
+                        {rel.buildLog}
+                      </pre>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
