@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,19 +25,46 @@ import (
 // back re-forks an earlier release's snapshot — no rebuild, and the artifact is byte-identical
 // to what was live before.
 
-// releaseWorkspaceID is the workspace id of a project's release container. It is derived, not
-// stored: one live release per project, so the id must be stable across restarts and rollbacks.
-// The suffix cannot collide with a project UUID, so a release container can never be mistaken
-// for (or clobber) a dev workspace.
-func releaseWorkspaceID(projectID string) string { return projectID + "-release" }
+// releaseWorkspaceID is the container id for one specific release.
+//
+// It is keyed by release NUMBER, not just the project, and that is the whole point: deploys are
+// blue/green. The new release boots in its own container while the current one keeps serving,
+// and traffic only moves after the new one proves it works. An earlier version used a single
+// per-project id and destroyed it before forking the replacement, which took the public site
+// down for the length of every build — and left it down entirely if the build failed.
+//
+// Still derived rather than stored, so the proxy, deploy and rollback all compute the same id
+// from (project, number) without a lookup. The suffix cannot occur in a project UUID, so a
+// release container can never be mistaken for a dev workspace.
+func releaseWorkspaceID(projectID string, number int) string {
+	return projectID + "-rel-" + strconv.Itoa(number)
+}
 
 // buildLogPath is where the release container's build+serve output lands, inside that
 // container. Read back via ReadFile so a failed deploy is diagnosable from the UI.
 const buildLogPath = "/tmp/torsor-release.log"
 
+// exitCodePath receives the build's exit status.
+//
+// The build has to run detached — `serve` blocks forever, so the launching Exec cannot wait for
+// it — which means the launcher's own exit code says nothing about whether the build worked.
+// The script writes the build's status here, and the control plane polls for the file. Without
+// this, "did the build succeed?" had no answer at all and every deploy was declared live after
+// a fixed three-second sleep.
+const exitCodePath = "/tmp/torsor-release.exit"
+
 // maxBuildLog bounds what is persisted. Build output is unbounded in principle (a webpack
 // build can emit megabytes); the tail is what diagnoses a failure.
 const maxBuildLog = 64 * 1024
+
+// buildTimeout caps how long we wait for the build step to report an exit code, and readyTimeout
+// how long we then wait for the app to actually listen. Both bounded so a hung build fails the
+// release instead of leaving it 'building' forever.
+const (
+	buildPollInterval = 2 * time.Second
+	buildTimeout      = 12 * time.Minute
+	readyTimeout      = 90 * time.Second
+)
 
 type release struct {
 	ID         string    `json:"id"`
@@ -97,8 +126,13 @@ func (s *Server) appendBuildLog(ctx context.Context, releaseID, log string) {
 		`UPDATE releases SET build_log = $2, updated_at = NOW() WHERE id = $1`, releaseID, log)
 }
 
-// activateRelease points the deployment at a release and demotes whatever it replaced. Done in
-// one statement pair so the window where two releases both look live is as small as possible.
+// activateRelease points the deployment at a release and demotes whatever it replaced.
+//
+// The upsert deliberately does NOT force status='running' on an existing row. A deploy takes
+// minutes and cannot be cancelled mid-flight, so an owner who clicks Unpublish while a build is
+// running would otherwise have the project silently re-published underneath them when the build
+// landed. Instead the release becomes live and the row's existing visibility is preserved:
+// "which artifact" and "is it public" are separate decisions.
 func (s *Server) activateRelease(ctx context.Context, projectID, uid, releaseID string) error {
 	if _, err := s.pool.Exec(ctx,
 		`UPDATE releases SET status = 'superseded', updated_at = NOW()
@@ -111,9 +145,24 @@ func (s *Server) activateRelease(ctx context.Context, projectID, uid, releaseID 
 	}
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO deployments (project_id, user_id, status, release_id) VALUES ($1, $2, 'running', $3)
-		 ON CONFLICT (project_id) DO UPDATE SET status = 'running', release_id = $3, updated_at = NOW()`,
+		 ON CONFLICT (project_id) DO UPDATE SET release_id = $3, updated_at = NOW()`,
 		projectID, uid, releaseID)
 	return err
+}
+
+// beginDeploy claims the exclusive right to deploy this project, or reports that one is already
+// running.
+//
+// Two concurrent deploys previously raced on the same container name and the same deployments
+// row, so the release recorded as live could disagree with the artifact actually serving. The
+// claim is in-process, matching how missionCancels and the rate limiters already scope
+// single-backend state; the UNIQUE (project_id, number) index remains the backstop if that
+// assumption ever stops holding.
+func (s *Server) beginDeploy(projectID string) (release func(), ok bool) {
+	if _, loaded := s.deployInFlight.LoadOrStore(projectID, true); loaded {
+		return nil, false
+	}
+	return func() { s.deployInFlight.Delete(projectID) }, true
 }
 
 // launchRelease is the whole deploy pipeline after the secret gate: snapshot → fork into the
@@ -121,30 +170,138 @@ func (s *Server) activateRelease(ctx context.Context, projectID, uid, releaseID 
 //
 // It runs detached from the request (a real build takes minutes), so every failure path must
 // record itself on the release row — nobody is watching a response code.
-func (s *Server) launchRelease(ctx context.Context, rt plugin.WorkspaceRuntime, projectID, uid, releaseID string, tmpl Template) {
-	relWS := releaseWorkspaceID(projectID)
+func (s *Server) launchRelease(ctx context.Context, rt plugin.WorkspaceRuntime, projectID, uid, releaseID string, number int, tmpl Template) {
+	relWS := releaseWorkspaceID(projectID, number)
 
 	// 1. Freeze the artifact. Everything after this is independent of further editing, which
 	//    is the entire point: the developer gets their workspace back immediately.
 	snap, err := rt.SnapshotWorkspace(ctx, projectID, "release "+releaseID)
 	if err != nil {
-		s.updateReleaseStatus(ctx, releaseID, "failed", "Could not snapshot the workspace: "+err.Error())
+		s.failRelease(ctx, rt, projectID, releaseID, relWS, "Could not snapshot the workspace: "+err.Error())
 		return
 	}
 	s.setReleaseSnapshot(ctx, releaseID, snap.SnapshotID)
 
+	// 2. Build in a NEW container. The currently-live release keeps serving throughout.
 	if err := s.bootReleaseContainer(ctx, rt, projectID, relWS, snap.SnapshotID, tmpl); err != nil {
-		s.updateReleaseStatus(ctx, releaseID, "failed", err.Error())
-		s.captureBuildLog(ctx, rt, relWS, releaseID)
+		s.failRelease(ctx, rt, projectID, releaseID, relWS, err.Error())
 		return
 	}
 
-	s.captureBuildLog(ctx, rt, relWS, releaseID)
-	if err := s.activateRelease(ctx, projectID, uid, releaseID); err != nil {
-		s.updateReleaseStatus(ctx, releaseID, "failed", "Built, but could not activate: "+err.Error())
+	// 3. Wait for the build to actually finish and report its status, then for the app to
+	//    accept a connection. Only a release that has proven both is allowed to take traffic.
+	if err := s.awaitBuild(ctx, rt, relWS, releaseID); err != nil {
+		s.failRelease(ctx, rt, projectID, releaseID, relWS, err.Error())
 		return
 	}
+	s.captureBuildLog(ctx, rt, relWS, releaseID)
+	if err := s.awaitServing(ctx, rt, relWS); err != nil {
+		s.failRelease(ctx, rt, projectID, releaseID, relWS, err.Error())
+		return
+	}
+
+	// 4. Cut traffic over, then reap the container the previous release was using.
+	previous := s.liveReleaseNumber(ctx, projectID)
+	if err := s.activateRelease(ctx, projectID, uid, releaseID); err != nil {
+		s.failRelease(ctx, rt, projectID, releaseID, relWS, "Built, but could not activate: "+err.Error())
+		return
+	}
+	s.reapRelease(ctx, rt, projectID, previous, number)
 	s.logDeploymentEventRelease(ctx, projectID, uid, "deploy", "running", deployPath(projectID), releaseID)
+}
+
+// failRelease records the failure, salvages whatever build output exists, and removes the
+// half-built container.
+//
+// Cleaning up matters: the live release is untouched by a failed deploy (that is what blue/green
+// buys), so the only thing left behind would be a dead container accumulating on the host.
+func (s *Server) failRelease(ctx context.Context, rt plugin.WorkspaceRuntime, projectID, releaseID, relWS, msg string) {
+	s.captureBuildLog(ctx, rt, relWS, releaseID)
+	if log, ok := s.readBuildLog(ctx, rt, relWS); ok {
+		if headline := summarizeBuildFailure(log); headline != "" {
+			msg = msg + " — " + headline
+		}
+	}
+	s.updateReleaseStatus(ctx, releaseID, "failed", msg)
+	if _, err := rt.DestroyWorkspace(ctx, relWS); err != nil && !isUnimplemented(err) {
+		s.logger.Debug("release: could not clean up failed container", "project", projectID, "err", err)
+	}
+}
+
+// awaitBuild polls for the exit-code sentinel the build script writes.
+//
+// The build must run detached (`serve` never returns), so the launching Exec's own exit code is
+// meaningless — it reports only that `nohup` started. Reading the sentinel is the only honest
+// signal available through the WorkspaceRuntime contract, which has no "wait for pid" RPC.
+func (s *Server) awaitBuild(ctx context.Context, rt plugin.WorkspaceRuntime, relWS, releaseID string) error {
+	deadline := time.Now().Add(buildTimeout)
+	for {
+		if b, err := rt.ReadFile(ctx, relWS, exitCodePath); err == nil {
+			code := strings.TrimSpace(string(b))
+			if code == "0" {
+				return nil
+			}
+			return fmt.Errorf("the build failed (exit %s)", code)
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("the build did not finish within %s", buildTimeout)
+		}
+		// Refresh the log as we go so the UI can follow a long build.
+		s.captureBuildLog(ctx, rt, relWS, releaseID)
+		select {
+		case <-ctx.Done():
+			return errors.New("deploy was cancelled")
+		case <-time.After(buildPollInterval):
+		}
+	}
+}
+
+// awaitServing waits until the runtime reports a reachable app port for the release container.
+//
+// A green build is not the same as a running app: the serve command can exit immediately, bind
+// the wrong port, or crash on boot. Without this check a release could be marked live while
+// nothing listens, which is the failure the deploy pipeline exists to prevent.
+func (s *Server) awaitServing(ctx context.Context, rt plugin.WorkspaceRuntime, relWS string) error {
+	deadline := time.Now().Add(readyTimeout)
+	for {
+		st, err := rt.StatusWorkspace(ctx, relWS)
+		if err == nil && st.PreviewHost != "" && st.PreviewPort != 0 {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("the app did not start listening within %s (does it bind the expected port?)", readyTimeout)
+		}
+		select {
+		case <-ctx.Done():
+			return errors.New("deploy was cancelled")
+		case <-time.After(buildPollInterval):
+		}
+	}
+}
+
+// liveReleaseNumber reports which release is currently serving, or 0 for none.
+func (s *Server) liveReleaseNumber(ctx context.Context, projectID string) int {
+	var n int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT r.number FROM deployments d JOIN releases r ON r.id = d.release_id
+		  WHERE d.project_id = $1`, projectID).Scan(&n); err != nil {
+		return 0
+	}
+	return n
+}
+
+// reapRelease destroys the container of the release that was just replaced.
+//
+// Only the outgoing one, and only after the cutover succeeded — the artifact itself survives as
+// a snapshot, so rollback re-forks rather than reusing a container.
+func (s *Server) reapRelease(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string, previous, current int) {
+	if previous == 0 || previous == current {
+		return
+	}
+	old := releaseWorkspaceID(projectID, previous)
+	if _, err := rt.DestroyWorkspace(ctx, old); err != nil && !isUnimplemented(err) {
+		s.logger.Debug("release: could not reap previous container", "project", projectID, "workspace", old, "err", err)
+	}
 }
 
 // bootReleaseContainer replaces any previous release container with one forked from snapshotID
@@ -154,9 +311,12 @@ func (s *Server) launchRelease(ctx context.Context, rt plugin.WorkspaceRuntime, 
 // its snapshot, and reusing a container would let the previous release's mutated filesystem
 // leak into the new one — exactly the contamination this design removes.
 func (s *Server) bootReleaseContainer(ctx context.Context, rt plugin.WorkspaceRuntime, projectID, relWS, snapshotID string, tmpl Template) error {
+	// Destroy only THIS release's container, and only in case a previous attempt at the same
+	// number left one behind. The live release runs under a different id and is untouched —
+	// that is what keeps the site up while this one builds.
 	if _, err := rt.DestroyWorkspace(ctx, relWS); err != nil && !isUnimplemented(err) {
-		// A missing container is the normal first-deploy case, not a failure.
-		s.logger.Debug("release: no previous container to destroy", "project", projectID, "err", err)
+		// Nothing to remove is the normal case, not a failure.
+		s.logger.Debug("release: no stale container for this release", "project", projectID, "err", err)
 	}
 	if _, err := rt.ForkWorkspace(ctx, projectID, snapshotID, relWS); err != nil {
 		return fmt.Errorf("could not create the release container: %w", err)
@@ -165,17 +325,32 @@ func (s *Server) bootReleaseContainer(ctx context.Context, rt plugin.WorkspaceRu
 		return fmt.Errorf("could not start the release container: %w", err)
 	}
 
-	inner := tmpl.Serve
+	// The build step and the serve step are deliberately separate. The build's exit status is
+	// written to a sentinel BEFORE serve starts, so the control plane can distinguish "the
+	// build failed" from "the build is still running" — serve blocks forever, so waiting on the
+	// whole script would never return. `set -e` alone was useless here: the launcher's exit
+	// code described nohup, not the build.
+	var b strings.Builder
+	b.WriteString("cd " + workspaceDir + "\n")
 	if tmpl.Build != "" {
-		inner = tmpl.Build + " && " + tmpl.Serve
+		b.WriteString(tmpl.Build + "\n")
+		b.WriteString("code=$?\n")
+	} else {
+		b.WriteString("code=0\n")
 	}
-	// `set -e` so a failing build does not fall through to serving a stale or empty output
-	// directory — silently serving the previous build is precisely the dishonesty to avoid.
-	script := "set -e\ncd " + workspaceDir + "\n" + inner + "\n"
-	if err := rt.WriteFile(ctx, relWS, workspaceDir+"/.torsor-release.sh", []byte(script), true); err != nil {
+	b.WriteString("echo $code > " + exitCodePath + "\n")
+	// Do not serve a failed build: an empty or stale output directory served as if it were the
+	// new release is exactly the silent-wrong-answer this pipeline exists to prevent.
+	b.WriteString("[ \"$code\" = \"0\" ] || exit $code\n")
+	b.WriteString(tmpl.Serve + "\n")
+
+	if err := rt.WriteFile(ctx, relWS, workspaceDir+"/.torsor-release.sh", []byte(b.String()), true); err != nil {
 		return fmt.Errorf("could not write the release script: %w", err)
 	}
-	launch := "nohup sh " + workspaceDir + "/.torsor-release.sh >" + buildLogPath + " 2>&1 & echo launched"
+	// Clear any sentinel inherited from the snapshot, or awaitBuild would read a stale result
+	// from the previous release and declare this build finished before it started.
+	launch := "rm -f " + exitCodePath + "; nohup sh " + workspaceDir +
+		"/.torsor-release.sh >" + buildLogPath + " 2>&1 & echo launched"
 	if err := rt.Exec(ctx, plugin.ExecSpec{
 		WorkspaceID: relWS,
 		WorkingDir:  workspaceDir,
@@ -203,14 +378,9 @@ func (s *Server) captureBuildLog(ctx context.Context, rt plugin.WorkspaceRuntime
 	s.appendBuildLog(ctx, releaseID, string(b))
 }
 
-// liveBuildLog reads the current log straight from the release container, so an in-progress
-// build streams rather than showing the three-second-old snapshot taken at launch.
-func (s *Server) liveBuildLog(ctx context.Context, projectID string) (string, bool) {
-	_, rt, ok := s.resolveWorkspaceRuntime(ctx, projectID)
-	if !ok {
-		return "", false
-	}
-	b, err := rt.ReadFile(ctx, releaseWorkspaceID(projectID), buildLogPath)
+// readBuildLog pulls the raw build output from a release container.
+func (s *Server) readBuildLog(ctx context.Context, rt plugin.WorkspaceRuntime, relWS string) (string, bool) {
+	b, err := rt.ReadFile(ctx, relWS, buildLogPath)
 	if err != nil {
 		return "", false
 	}
@@ -219,6 +389,16 @@ func (s *Server) liveBuildLog(ctx context.Context, projectID string) (string, bo
 		out = out[len(out)-maxBuildLog:]
 	}
 	return out, true
+}
+
+// liveBuildLog reads the log straight from the building release's container, so an in-progress
+// build streams rather than showing a stale snapshot.
+func (s *Server) liveBuildLog(ctx context.Context, projectID string, number int) (string, bool) {
+	_, rt, ok := s.resolveWorkspaceRuntime(ctx, projectID)
+	if !ok {
+		return "", false
+	}
+	return s.readBuildLog(ctx, rt, releaseWorkspaceID(projectID, number))
 }
 
 func (s *Server) logDeploymentEventRelease(ctx context.Context, projectID, uid, action, st, url, releaseID string) {
@@ -237,25 +417,31 @@ func (s *Server) logDeploymentEventRelease(ctx context.Context, projectID, uid, 
 // new deploys get isolation.
 func (s *Server) releaseTarget(ctx context.Context, projectID string) (workspaceID string, legacy bool, ok bool) {
 	var st string
-	var releaseID *string
+	var number *int
 	if err := s.pool.QueryRow(ctx,
-		`SELECT status, release_id FROM deployments WHERE project_id = $1`, projectID).Scan(&st, &releaseID); err != nil {
+		`SELECT d.status, r.number FROM deployments d
+		   LEFT JOIN releases r ON r.id = d.release_id
+		  WHERE d.project_id = $1`, projectID).Scan(&st, &number); err != nil {
 		return "", false, false
 	}
 	if st != "running" {
 		return "", false, false
 	}
-	if releaseID == nil {
+	if number == nil {
 		return projectID, true, true
 	}
-	return releaseWorkspaceID(projectID), false, true
+	return releaseWorkspaceID(projectID, *number), false, true
 }
 
 // stopRelease takes the public site down. The release container is stopped rather than
 // destroyed so re-publishing is instant and the artifact survives — destroying it would make
 // "unpublish" quietly equivalent to "throw away the build".
 func (s *Server) stopRelease(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string) {
-	if _, err := rt.StopWorkspace(ctx, releaseWorkspaceID(projectID), 5); err != nil && !isUnimplemented(err) {
+	number := s.liveReleaseNumber(ctx, projectID)
+	if number == 0 {
+		return
+	}
+	if _, err := rt.StopWorkspace(ctx, releaseWorkspaceID(projectID, number), 5); err != nil && !isUnimplemented(err) {
 		s.logger.Debug("release: stop container", "project", projectID, "err", err)
 	}
 }

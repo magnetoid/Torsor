@@ -61,6 +61,7 @@ export default function PublishingTab() {
     releases,
     fetchReleases,
     rollbackTo,
+    fetchHistory,
     rollback
   } = useDeployStore();
 
@@ -84,9 +85,26 @@ export default function PublishingTab() {
   const building = releases.some((r) => r.status === 'building');
   useEffect(() => {
     if (!building) return;
-    const id = setInterval(() => void fetchReleases(), 4000);
+    const id = setInterval(() => {
+      void fetchReleases();
+      // Also refresh the deployment row: the deploy request returns 202 before the artifact
+      // exists, so without this the "Current deployment" card would sit on 'deploying' forever
+      // — including when the build fails.
+      void fetchDeployment();
+    }, 4000);
     return () => clearInterval(id);
-  }, [building, fetchReleases]);
+  }, [building, fetchReleases, fetchDeployment]);
+
+  // When the last build settles, reconcile the deployment card once more so it lands on the
+  // real outcome rather than the optimistic state the deploy action left behind.
+  const wasBuilding = React.useRef(false);
+  useEffect(() => {
+    if (wasBuilding.current && !building) {
+      void fetchDeployment();
+      void fetchHistory();
+    }
+    wasBuilding.current = building;
+  }, [building, fetchDeployment, fetchHistory]);
 
   const handleRollback = async (releaseID: string) => {
     setRollingBack(releaseID);

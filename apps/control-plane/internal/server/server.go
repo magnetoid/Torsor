@@ -54,6 +54,11 @@ type Server struct {
 	// reporting fail.
 	applog *applog.Handler
 
+	// deployInFlight holds the project ids with a release currently building, so two deploys
+	// cannot race on the same release container and deployments row (in-process; single
+	// backend today, same scope as missionCancels).
+	deployInFlight sync.Map
+
 	// previewErrs maps projectID → *previewErrRing: recent console errors the IDE captured
 	// from the live preview, readable by the agent (in-process; single backend today).
 	previewErrs sync.Map
