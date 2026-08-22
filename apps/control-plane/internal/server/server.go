@@ -3,6 +3,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-chi/httprate"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/magnetoid/torsor/control-plane/internal/applog"
 	"github.com/magnetoid/torsor/control-plane/internal/auth"
 	"github.com/magnetoid/torsor/control-plane/internal/config"
 	"github.com/magnetoid/torsor/control-plane/internal/db"
@@ -43,6 +45,20 @@ type Server struct {
 	// metrics holds in-process request counters exposed at /metrics (per-instance).
 	metrics *serverMetrics
 
+	// txtLookup resolves the custom-domain ownership challenge. Nil means the process
+	// resolver; tests substitute a fake so verification needs no network or live zone.
+	txtLookup txtResolver
+
+	// applog is the durable-logging tee. Nil when the DB sink is not installed (tests), in
+	// which case ingestion accepts and discards — a client must never see its own error
+	// reporting fail.
+	applog *applog.Handler
+
+	// deployInFlight holds the project ids with a release currently building, so two deploys
+	// cannot race on the same release container and deployments row (in-process; single
+	// backend today, same scope as missionCancels).
+	deployInFlight sync.Map
+
 	// previewErrs maps projectID → *previewErrRing: recent console errors the IDE captured
 	// from the live preview, readable by the agent (in-process; single backend today).
 	previewErrs sync.Map
@@ -59,6 +75,27 @@ type Server struct {
 
 func New(cfg config.Config, pool *pgxpool.Pool, rc *redisx.Client, am *auth.Manager, host *plugin.Host, logger *slog.Logger) *Server {
 	return &Server{cfg: cfg, pool: pool, redis: rc, auth: am, host: host, logger: logger, metrics: newServerMetrics()}
+}
+
+// InstallLogTee routes the process logger through a Postgres-backed slog handler and returns
+// the logger to use from here on. Every existing logger.Warn/Error call site becomes durable
+// without being touched — including s.fail, which already logs each 500 with its route.
+//
+// Returns the original logger unchanged if the tee cannot be built, because losing stdout
+// logging to gain database logging would be a bad trade.
+func (s *Server) InstallLogTee(ctx context.Context, base slog.Handler, minLevel slog.Level, release string) *slog.Logger {
+	h := applog.NewHandler(ctx, base, pgLogWriter{pool: s.pool}, applog.HandlerOptions{
+		MinLevel: minLevel,
+		Release:  release,
+	})
+	s.applog = h
+	s.logger = slog.New(h)
+	return s.logger
+}
+
+// PruneLogs enforces the retention ceiling. Exposed so boot can schedule it.
+func (s *Server) PruneLogs(ctx context.Context, keep time.Duration) error {
+	return pruneAppLogs(ctx, s.pool, keep)
 }
 
 // Handler builds the chi router with all middleware and routes.
@@ -124,6 +161,9 @@ func (s *Server) Handler() http.Handler {
 			// admins can log in and turn it off.
 			r.Use(s.requireNotMaintenance)
 			r.Post("/auth/logout", s.handleLogout)
+			// Browser error reporting. Authenticated so the endpoint is not a free write
+			// amplifier for anyone who finds it.
+			r.Post("/logs", s.handleClientLog)
 			r.Get("/auth/me", s.handleMe)
 			r.Patch("/auth/me", s.handleUpdateMe)
 
@@ -231,6 +271,10 @@ func (s *Server) Handler() http.Handler {
 				r.Get("/admin/feedback", s.handleAdminListFeedback)
 				r.Patch("/admin/feedback/{feedbackID}", s.handleAdminUpdateFeedback)
 				// GitHub App settings (Sign in with GitHub): encrypted secrets, masked on read.
+				// Log console: query, summarize, and prune the durable diagnostic record.
+				r.Get("/admin/logs", s.handleAdminLogs)
+				r.Get("/admin/logs/stats", s.handleAdminLogStats)
+				r.Delete("/admin/logs", s.handleAdminPurgeLogs)
 				r.Get("/admin/github-settings", s.handleGetGitHubSettings)
 				r.Patch("/admin/github-settings", s.handleUpdateGitHubSettings)
 			})
@@ -248,6 +292,8 @@ func (s *Server) Handler() http.Handler {
 			r.Post("/projects/{projectID}/workspace/exec/stream", s.handleExecProjectWorkspace)
 			// Workspace-wide grep for the IDE's global search (⌘⇧F).
 			r.Post("/projects/{projectID}/workspace/search", s.handleWorkspaceSearch)
+			// Real security scan: secret detectors + whatever OSS scanners the workspace has.
+			r.Post("/projects/{projectID}/workspace/scan", s.handleWorkspaceScan)
 			r.Get("/projects/{projectID}/workspace/files", s.handleListProjectWorkspaceFiles)
 			r.Get("/projects/{projectID}/workspace/file", s.handleReadProjectWorkspaceFile)
 			r.Post("/projects/{projectID}/workspace/file", s.handleWriteProjectWorkspaceFile)
@@ -296,6 +342,11 @@ func (s *Server) Handler() http.Handler {
 			// Custom domains attached to the project's deployment (host-based routing).
 			r.Get("/projects/{projectID}/domains", s.handleListDomains)
 			r.Post("/projects/{projectID}/domains", s.handleAddDomain)
+			// Release history: versioned deploy artifacts, their build logs, and rollback.
+			r.Get("/projects/{projectID}/releases", s.handleListReleases)
+			r.Get("/projects/{projectID}/releases/{releaseID}", s.handleGetRelease)
+			r.Post("/projects/{projectID}/releases/{releaseID}/rollback", s.handleRollbackRelease)
+			r.Post("/projects/{projectID}/domains/{domainID}/verify", s.handleVerifyDomain)
 			r.Delete("/projects/{projectID}/domains/{domainID}", s.handleDeleteDomain)
 
 			// The coding agent loop: streams thought/tool/result/final steps as SSE while
@@ -414,6 +465,9 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		"apiUrl":        s.cfg.APIURL,
 		"previewDomain": s.cfg.PreviewDomain,
 		"maintenance":   map[string]any{"active": maintOn, "message": maintMsg},
+		// Co-editing is opt-in infrastructure (the torsor-collab sidecar). The IDE only
+		// attempts a Yjs connection when the sidecar is actually configured.
+		"collab": map[string]any{"enabled": strings.TrimSpace(s.cfg.CollabURL) != ""},
 		"features": map[string]string{
 			"auth":           "jwt-password",
 			"projects":       "db-backed",

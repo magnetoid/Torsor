@@ -24,6 +24,7 @@ import { cn } from '../lib/utils';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { usePlanGate } from '../hooks/usePlanGate';
+import { useActiveWorkspace, useWorkspaceStore } from '../stores/workspaceStore';
 import { UpgradeDialog } from '../components/shared/UpgradeDialog';
 import { EmptyState } from '../components/shared/EmptyState';
 import { ProjectCardSkeleton } from '../components/shared/Skeleton';
@@ -42,7 +43,9 @@ const PROJECT_TYPES = [
 
 export function ProjectsPage() {
   const navigate = useNavigate();
-  const { deleteProject, getProjectsByWorkspace, fetchProjects, createProject, isLoading, error, starredIds } = useProjectStore();
+  const { deleteProject, getProjectsByWorkspace, fetchProjects, createProject, updateProject, isLoading, error, starredIds } = useProjectStore();
+  const activeWorkspace = useActiveWorkspace();
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
 
   const { checkFeature } = usePlanGate();
   const projectGate = checkFeature('create_project');
@@ -59,7 +62,7 @@ export function ProjectsPage() {
     void fetchProjects();
   }, [fetchProjects]);
 
-  const workspaceProjects = getProjectsByWorkspace('server-default');
+  const workspaceProjects = getProjectsByWorkspace(activeWorkspace?.id || '');
 
   const filteredProjects = useMemo(() => {
     const q = searchQuery.toLowerCase();
@@ -89,7 +92,7 @@ export function ProjectsPage() {
         name: `New Project ${workspaceProjects.length + 1}`,
         description: 'Created from the projects dashboard.',
         type: 'website',
-      }, 'server-default');
+      }, activeWorkspace?.id || '');
       navigate(`/project/${projectId}`);
     } finally {
       setCreating(false);
@@ -221,6 +224,28 @@ export function ProjectsPage() {
                             <DropdownMenu.Content className="min-w-[160px] bg-elevated border border-default rounded-lg p-1 shadow-xl z-50" sideOffset={5}>
                               <DropdownMenu.Item onClick={() => void useProjectStore.getState().duplicateProject(project.id)} className="flex items-center px-2 py-1.5 text-xs text-primary outline-none hover:bg-surface rounded-md cursor-pointer">Duplicate</DropdownMenu.Item>
                               <DropdownMenu.Item onClick={() => void useProjectStore.getState().archiveProject(project.id)} className="flex items-center px-2 py-1.5 text-xs text-primary outline-none hover:bg-surface rounded-md cursor-pointer">Archive</DropdownMenu.Item>
+                              {workspaces.filter((ws) => ws.id !== project.workspaceId).length > 0 && (
+                                <DropdownMenu.Sub>
+                                  <DropdownMenu.SubTrigger className="flex items-center justify-between px-2 py-1.5 text-xs text-primary outline-none hover:bg-surface data-[state=open]:bg-surface rounded-md cursor-pointer">
+                                    Move to workspace
+                                    <ChevronDown size={12} className="-rotate-90 text-tertiary" />
+                                  </DropdownMenu.SubTrigger>
+                                  <DropdownMenu.Portal>
+                                    <DropdownMenu.SubContent className="min-w-[160px] bg-elevated border border-default rounded-lg p-1 shadow-xl z-50" sideOffset={4}>
+                                      {workspaces.filter((ws) => ws.id !== project.workspaceId).map((ws) => (
+                                        // Owner-only server-side; a 403 surfaces via the store's error toast path.
+                                        <DropdownMenu.Item
+                                          key={ws.id}
+                                          onClick={() => void updateProject(project.id, { teamId: ws.id })}
+                                          className="flex items-center px-2 py-1.5 text-xs text-primary outline-none hover:bg-surface rounded-md cursor-pointer"
+                                        >
+                                          {ws.name}
+                                        </DropdownMenu.Item>
+                                      ))}
+                                    </DropdownMenu.SubContent>
+                                  </DropdownMenu.Portal>
+                                </DropdownMenu.Sub>
+                              )}
                               <DropdownMenu.Separator className="h-px bg-default my-1" />
                               <DropdownMenu.Item onClick={() => void deleteProject(project.id)} className="flex items-center px-2 py-1.5 text-xs text-error outline-none hover:bg-error/10 rounded-md cursor-pointer">Delete</DropdownMenu.Item>
                             </DropdownMenu.Content>

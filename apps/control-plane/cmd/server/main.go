@@ -72,6 +72,7 @@ func main() {
 	retryForever(logger, "migrations", func() error { return migrations.Run(ctx, pool) })
 	retryForever(logger, "super-admin sync", func() error { return syncSuperAdmins(ctx, pool, cfg.SuperAdminEmails) })
 	retryForever(logger, "dev seed", func() error { return ensureDevSeed(ctx, pool, cfg) })
+	warnLeftoverDevSeed(ctx, logger, pool, cfg)
 
 	// Load capability plugins out-of-process (best-effort: a bad plugin must not stop
 	// the control plane from serving).
@@ -96,6 +97,18 @@ func main() {
 
 	am := auth.NewManager(pool, cfg.JWTSecret, cfg.JWTExpiry)
 	srv := server.New(cfg, pool, rc, am, host, logger)
+
+	// Route the process logger through the database tee. Every logger.Warn/Error already
+	// written across the codebase becomes durable and queryable in the admin log console
+	// without a single call site changing. Installed after migrations, since it writes to
+	// app_logs; stdout logging continues regardless of the database's health.
+	logger = srv.InstallLogTee(ctx, baseLogHandler(cfg), dbLogLevel(), os.Getenv("TORSOR_RELEASE"))
+	logger.Info("log tee installed", "min_level", dbLogLevel().String(), "retention", logRetention().String())
+
+	// Hard retention ceiling so an unattended instance cannot fill its disk with diagnostics.
+	if err := srv.PruneLogs(ctx, logRetention()); err != nil {
+		logger.Warn("log prune failed", "err", err)
+	}
 
 	// Background agent worker pool: drains the ai_tasks queue. Bound to workerCtx so
 	// in-flight runs are cancelled (and requeued as pending) on shutdown.
@@ -161,7 +174,7 @@ func healthProbe() int {
 	return 1
 }
 
-func newLogger(cfg config.Config) *slog.Logger {
+func stdoutLevel(cfg config.Config) slog.Level {
 	level := slog.LevelDebug
 	if cfg.IsProduction() {
 		level = slog.LevelInfo
@@ -169,7 +182,37 @@ func newLogger(cfg config.Config) *slog.Logger {
 	if lv := os.Getenv("LOG_LEVEL"); lv != "" {
 		_ = level.UnmarshalText([]byte(lv))
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+	return level
+}
+
+// baseLogHandler is the stdout half of logging. Kept separate from newLogger so the database
+// tee can wrap the same handler rather than building a second, subtly different one.
+func baseLogHandler(cfg config.Config) slog.Handler {
+	return slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: stdoutLevel(cfg)})
+}
+
+func newLogger(cfg config.Config) *slog.Logger { return slog.New(baseLogHandler(cfg)) }
+
+// dbLogLevel is the threshold for PERSISTING a record, independent of what stdout prints.
+// Warn by default: info-level request chatter would swamp app_logs and make it useless for
+// the thing it exists for — finding faults. LOG_DB_LEVEL=info widens it when investigating.
+func dbLogLevel() slog.Level {
+	level := slog.LevelWarn
+	if lv := os.Getenv("LOG_DB_LEVEL"); lv != "" {
+		_ = level.UnmarshalText([]byte(lv))
+	}
+	return level
+}
+
+// logRetention bounds how long diagnostics are kept. 30 days by default; LOG_RETENTION accepts
+// any Go duration.
+func logRetention() time.Duration {
+	if v := os.Getenv("LOG_RETENTION"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return 30 * 24 * time.Hour
 }
 
 func retryForever(logger *slog.Logger, label string, fn func() error) {
@@ -195,6 +238,31 @@ func syncSuperAdmins(ctx context.Context, pool *pgxpool.Pool, emails []string) e
 		`UPDATE users SET role = 'super_admin', updated_at = NOW()
 		 WHERE LOWER(email) = ANY($1::text[]) AND role <> 'super_admin'`, emails)
 	return err
+}
+
+// warnLeftoverDevSeed shouts about a dev-seed account that outlived the environment that
+// created it. ensureDevSeed is gated on NODE_ENV=development, so a production instance can
+// never *create* the demo user — but it can inherit one: run an instance in development,
+// flip it to production, and the row survives with the documented dev password, reachable
+// by anyone who has read the README. The seeder cannot clean that up (deleting a user with
+// real projects is the operator's call), so the least we can do is say so on every boot.
+func warnLeftoverDevSeed(ctx context.Context, logger *slog.Logger, pool *pgxpool.Pool, cfg config.Config) {
+	if cfg.IsDevelopment() {
+		return
+	}
+	var id string
+	err := pool.QueryRow(ctx,
+		`SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`, cfg.DevSeedEmail).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return
+	}
+	if err != nil {
+		// Best-effort: a failed advisory check must never block startup.
+		logger.Warn("dev-seed leftover check failed", "err", err)
+		return
+	}
+	logger.Warn("SECURITY: dev-seed account exists on a non-development instance — it may still carry the documented default password. Delete it or rotate its password.",
+		"email", cfg.DevSeedEmail, "user_id", id, "env", cfg.Env)
 }
 
 func ensureDevSeed(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) error {

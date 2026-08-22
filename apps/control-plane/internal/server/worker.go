@@ -126,13 +126,16 @@ func (s *Server) claimAndRun(ctx context.Context, running, cancelled *sync.Map) 
 // the run is scoped to the project's owner.
 func (s *Server) runAgentTask(parent context.Context, running, cancelled *sync.Map, id, projectID, prompt string) {
 	var uid string
+	// Deliberate: background runs resolve the project OWNER for usage attribution and
+	// BYO-key secrets, even when a teammate enqueued the task. "Who pays for a
+	// teammate's agent run" is a product decision — revisit alongside quota enforcement.
 	if err := s.pool.QueryRow(parent, `SELECT user_id FROM projects WHERE id = $1`, projectID).Scan(&uid); err != nil {
 		s.finishTaskRow(id, "failed", "", "project lookup failed: "+err.Error(), 0, "", 0, 0)
 		s.publishTaskDone(id)
 		return
 	}
 
-	provider, providerName, ok := s.pickModelProviderFor("step", "")
+	provider, providerName, ok := s.pickModelProviderFor(parent, "step", "")
 	if !ok {
 		s.finishTaskRow(id, "failed", "", "no model provider available", 0, "", 0, 0)
 		s.publishTaskDone(id)

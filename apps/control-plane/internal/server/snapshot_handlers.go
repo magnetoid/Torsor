@@ -192,9 +192,12 @@ func (s *Server) handleForkWorkspace(w http.ResponseWriter, r *http.Request) {
 // to its runtime-native handle.
 func (s *Server) resolveSnapshotHandle(r *http.Request, projectID, rowID string) (string, bool, error) {
 	var handle string
+	// No creator (user_id) filter: the calling handler already authorized project access
+	// via loadWorkspace/requireOwnedProject; creator-scoping would block teammates from
+	// restoring each other's snapshots. workspace_snapshots.user_id stays as provenance.
 	err := s.pool.QueryRow(r.Context(),
-		`SELECT snapshot_id FROM workspace_snapshots WHERE id = $1 AND project_id = $2 AND user_id = $3`,
-		rowID, projectID, userID(r)).Scan(&handle)
+		`SELECT snapshot_id FROM workspace_snapshots WHERE id = $1 AND project_id = $2`,
+		rowID, projectID).Scan(&handle)
 	if err == pgx.ErrNoRows {
 		return "", false, nil
 	}

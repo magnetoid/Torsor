@@ -323,6 +323,32 @@ func (runtime) Info(_ context.Context) (plugin.RuntimeInfo, error) {
 	}, nil
 }
 
+// notRunningPhrases are the daemon replies that mean "the container is stopped or gone"
+// rather than "the command failed". Docker has no exit code for this — the condition is
+// only ever reported in stderr prose — so matching text is the available signal. Kept in
+// one place, and translated immediately into plugin.NotRunningMarker so the phrasings
+// never leak past this file.
+var notRunningPhrases = []string{
+	"is not running",
+	"No such container",
+	"is not started",
+	"cannot exec in a stopped state",
+	"is paused",
+}
+
+// classify tags stopped-container failures so the host can answer 409 instead of 500.
+func classify(err error) error {
+	if err == nil {
+		return nil
+	}
+	for _, p := range notRunningPhrases {
+		if strings.Contains(err.Error(), p) {
+			return plugin.NotRunning(err)
+		}
+	}
+	return err
+}
+
 // run executes a docker command and returns combined stdout, or an error including stderr.
 func run(ctx context.Context, stdin []byte, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "docker", args...)
@@ -337,7 +363,7 @@ func run(ctx context.Context, stdin []byte, args ...string) (string, error) {
 		if msg == "" {
 			msg = err.Error()
 		}
-		return "", fmt.Errorf("docker %s: %s", strings.Join(args, " "), msg)
+		return "", classify(fmt.Errorf("docker %s: %s", strings.Join(args, " "), msg))
 	}
 	return stdout.String(), nil
 }

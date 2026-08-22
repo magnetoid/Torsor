@@ -13,7 +13,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { apiRequest, previewUrlFor } from './lib/api';
+import { ApiError, apiRequest, previewUrlFor } from './lib/api';
 import { useProjectStore } from './stores/projectStore';
 import type { BootStep } from './components/shared/BootSteps';
 
@@ -67,6 +67,10 @@ interface AppState {
   workspaceProjectId: string | null;
   /** Per-file persistence status, keyed by FileNode.id, driving the editor indicator. */
   saveStatus: Record<string, FileSaveStatus>;
+  /** True when the last workspace read failed *only* because the container is stopped
+   *  (409 from the control plane). An empty file tree then means "not running", not
+   *  "no files" — the UI must say which, rather than showing a silent empty tree. */
+  workspaceStopped: boolean;
   /** Populate the file tree from a project's real workspace (WorkspaceRuntime). Makes
    *  files the agent creates visible in the IDE. */
   loadWorkspaceFiles: (projectId: string) => Promise<void>;
@@ -148,6 +152,7 @@ export const useAppStore = create<AppState>()(
       files: INITIAL_FILES,
       workspaceProjectId: null,
       saveStatus: {},
+      workspaceStopped: false,
       loadWorkspaceFiles: async (projectId) => {
         // Switching projects: drop the previous project's tree immediately so a new or
         // unprovisioned project never shows another project's files (e.g. a prior WordPress
@@ -182,8 +187,13 @@ export const useAppStore = create<AppState>()(
           }
           // Mark this project's workspace as the save target and reset per-file status;
           // freshly-listed files are considered clean/saved.
-          set({ files: nodes, workspaceProjectId: projectId, saveStatus: {} });
-        } catch {
+          set({ files: nodes, workspaceProjectId: projectId, saveStatus: {}, workspaceStopped: false });
+        } catch (e) {
+          // 409 is the one failure we can explain: the workspace exists and is ours, it is
+          // just stopped. Record it so the tree can say so instead of rendering an empty
+          // panel that looks like an empty project.
+          const stopped = e instanceof ApiError && e.status === 409;
+          set({ workspaceStopped: stopped });
           // No workspace yet, or a backend without the runtime capability: show an empty tree
           // for this project rather than leaving the previous project's files visible — but
           // only when we don't already hold this project's tree, so a transient refresh

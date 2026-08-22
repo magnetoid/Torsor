@@ -203,23 +203,44 @@ and two full code audits. Four tracks, ordered; the design counterpart lives in
 open standards where Replit is proprietary, self-host-first where Replit is SaaS-only.
 
 ### Track A — Make it true (credibility & self-host readiness)
-- [ ] Honor `projects.team_id`: team-scoped project/workspace/agent access with role
-      checks (today teams grant zero access); optional SMTP invite delivery
-- [ ] Ship co-editing: frontend Yjs client (y-monaco) on the already-built
-      `/collab/ws` proxy + sidecar — free multiplayer where Replit charges
+- [x] Honor `projects.team_id`: every project-scoped route now authorizes via
+      `projectAccessSQL` (owner **or** active non-viewer team member) — one predicate
+      behind `canAccessProject`/`loadWorkspace`, plus migration `0024` (owner
+      membership rows, team backfill, team-scoped name uniqueness), `teamId` on
+      create/move, and a role allowlist. **Viewers currently get no project access**
+      (no read-only layer yet) and delete/move stay owner-only
+- [ ] Read-only enforcement so `viewer` means "can see, can't change" (today viewers
+      are excluded from project access entirely)
+- [ ] SMTP invite delivery (invite rows must be shared out-of-band today)
+- [x] Ship co-editing: frontend Yjs client (y-monaco) on the already-built
+      `/collab/ws` proxy + sidecar — free multiplayer where Replit charges.
+      Shipped: `src/lib/collab.ts` + `useCollabEditor` + a Live/peer-count status in
+      the editor; activates only when `TORSOR_COLLAB_URL` is set (`/api/v1/config`).
 - [ ] Persistent volumes (snapshot-aware design exists) + idle-stop/TTL +
       per-user workspace caps + disk quotas
 - [ ] Quota enforcement from `usage_events` (admin-set plans become meaningful) —
       prerequisite for open signups
-- [ ] Audit coverage: auth/deploy/secrets/admin/exec events (4 write sites today)
-- [ ] Custom-domain ownership verification (DNS TXT) — today any hostname can be claimed
-- [ ] SecurityScanTab → real OSS scanners in-workspace (osv-scanner, npm audit,
-      govulncheck)
+- [x] Audit coverage: login, secret create/delete, deploy stop, domain add, role change
+      and maintenance-mode toggles now write audit rows (was 4 project/team sites; exec
+      auditing still open)
+- [x] Custom-domain ownership verification (DNS TXT): attaching a hostname is now only a
+      claim — each row carries a random challenge that must appear at
+      `_torsor-challenge.<domain>` before `verified_at` is set, and the host-routing proxy
+      serves **verified rows only** (migration `0025`, `POST …/domains/{id}/verify`, DNS
+      instructions + Verify button in PublishingTab)
+- [x] SecurityScanTab → real scanners in-workspace: `POST /workspace/scan` runs the
+      deploy-gating secret detectors plus npm audit / osv-scanner / govulncheck when the
+      image has them, and reports unavailable scanners honestly (preview banner removed)
+- [x] Durable, queryable logging: a slog tee persists every backend warn/error to `app_logs`
+      (migration `0027`) with redaction, plus browser error/rejection/boundary reporting via
+      `POST /logs`, correlated by request id and read through the super-admin **Logs** console
+      (filters, stats, stack traces, request tracing, retention + purge)
 - [ ] Abuse report endpoint + admin takedown queue; Playwright E2E happy path
 
 ### Track B — Platform services, the open way (built apps become real products)
-- [ ] **Agent tool upgrade** (cheapest, highest leverage): `search_files` (grep),
-      `edit_file` (targeted patch — today write_file is full-overwrite), delete/move
+- [x] **Agent tool upgrade**: `search_files` (bounded grep), `edit_file` (exactly-once
+      find/replace — no more full-file rewrites), `delete_file`, `move_file`; prompt
+      guidance, compaction digests and mutation accounting updated, unit-tested
 - [ ] Multi-port workspaces (docker-runtime + preview proxy) — unblocks
       frontend+backend+DB apps
 - [ ] **Torsor DB**: per-project Postgres on the platform's own PG (dev/prod separation
@@ -239,8 +260,10 @@ open standards where Replit is proprietary, self-host-first where Replit is SaaS
 ### Track C — Agent leverage (the Agent-4 wave, our way)
 - [ ] Parallel missions in isolated copies (snapshot/fork substrate exists) +
       git-assisted merge
-- [ ] Honor the latent autonomy prefs (`user_agent_prefs`, `agent_engine_config.
-      default_model`) in actual runs — the autonomy dial
+- [x] Honor the latent autonomy prefs in actual runs — the agent SSE path applies
+      `preferred_model`, `max_steps`, and `planning_enabled` + `default_autonomy`
+      (approve-plan vs autonomous); the model picker consults
+      `agent_engine_config.default_model` before the env default
 - [ ] Visual element-select → targeted agent edit (sourceLocator + visual-edit overlay
       already exist)
 - [ ] Mission board UI (Kanban over existing mission/task statuses)

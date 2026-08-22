@@ -4,7 +4,10 @@ import { apiRequest } from '../lib/api';
 
 export interface Project {
   id: string;
+  /** The team (workspace) the project lives in — real backend association since
+   *  migration 0024; equals teamId. Empty string only for unmigrated legacy rows. */
   workspaceId: string;
+  teamId?: string;
   name: string;
   description: string;
   lastEdited: string;
@@ -40,7 +43,7 @@ interface ProjectState {
    *  ProjectWorkspace on mount, cleared on unmount so plain chat elsewhere isn't agentic. */
   activeProjectId: string | null;
   setActiveProject: (id: string | null) => void;
-  /** Starred project ids — a local pin list (client-side until a backend flag lands). */
+  /** Starred project ids — server-backed (projects.starred), derived on fetch. */
   starredIds: string[];
   toggleStar: (id: string) => void;
   isLoading: boolean;
@@ -63,7 +66,9 @@ interface ProjectState {
 
 const fromApiProject = (project: any): Project => ({
   id: project.id,
-  workspaceId: 'server-default',
+  // Real association since 0024: the backend returns the project's team id.
+  workspaceId: project.teamId || '',
+  teamId: project.teamId || undefined,
   name: project.name,
   description: project.description || '',
   lastEdited: new Date(project.updatedAt || project.updated_at || project.createdAt || project.created_at).toLocaleDateString(),
@@ -130,6 +135,10 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
   createProject: async (projectData, workspaceId) => {
     set({ isLoading: true, error: null });
     try {
+      // A real workspace (team) id is forwarded so the project is created in that
+      // workspace; legacy placeholder values fall back to the server's default
+      // (the caller's personal team).
+      const teamId = workspaceId && workspaceId !== 'server-default' ? workspaceId : undefined;
       const created = await apiRequest<any>('/api/v1/projects', {
         method: 'POST',
         auth: true,
@@ -139,9 +148,15 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
           vibe: projectData.vibe || projectData.type || 'builder',
           isPublic: Boolean(projectData.isPublished),
           ...(projectData.template ? { template: projectData.template } : {}),
+          ...(teamId ? { teamId } : {}),
         }),
       });
-      const project = { ...fromApiProject(created), workspaceId };
+      // Fall back to the requested workspace if the response carries no team id, so a
+      // just-created project can never drop out of the list it was created in.
+      const normalizedCreated = fromApiProject(created);
+      const project: Project = normalizedCreated.workspaceId
+        ? normalizedCreated
+        : { ...normalizedCreated, workspaceId: teamId ?? '', teamId };
       set((state) => ({ projects: [project, ...state.projects], isLoading: false, currentProject: project }));
       return project.id;
     } catch (error) {
@@ -256,8 +271,14 @@ export const useProjectStore = create<ProjectState>()((set, get) => ({
       },
     }));
   },
-  getProjectsByWorkspace: (_workspaceId) => {
-    return get().projects.filter((p) => !p.isArchived);
+  getProjectsByWorkspace: (workspaceId) => {
+    // Real per-workspace filtering (the argument used to be ignored). Projects with no
+    // team id (unmigrated legacy rows) stay visible everywhere rather than vanishing.
+    // Archived rows are included — callers decide (fixes the always-empty Archived tab,
+    // which this helper used to silently filter out).
+    return get().projects.filter(
+      (p) => !p.workspaceId || !workspaceId || p.workspaceId === workspaceId,
+    );
   },
   clearWorkspaceProjects: (_workspaceId) => {
     set({ projects: [] });

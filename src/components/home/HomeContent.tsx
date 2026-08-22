@@ -59,7 +59,7 @@ export function HomeContent() {
   const { getActiveWorkspace } = useWorkspaceStore();
   const firstName = useAuthStore((s) => s.user?.name?.split(' ')[0]);
   const activeWorkspace = getActiveWorkspace();
-  const workspaceProjects = getProjectsByWorkspace(activeWorkspace?.id || '');
+  const workspaceProjects = getProjectsByWorkspace(activeWorkspace?.id || '').filter((p) => !p.isArchived);
   
   const [prompt, setPrompt] = useState('');
   const [isPlanning, setIsPlanning] = useState(false);

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -43,10 +44,11 @@ func (s *Server) resolveWorkspaceRuntime(ctx context.Context, projectID string) 
 	return ws, rt, true
 }
 
-// handleDeploy marks a project deployed (public) and brings its app online. For a templated
-// project it runs a REAL production build + serve (see launchTemplateDeploy); otherwise it
-// best-effort ensures whatever is already running stays up. Owner-only. Exposes the app at
-// deployPath(projectID).
+// handleDeploy publishes a project. A buildable project is cut as a RELEASE — snapshot the
+// workspace, fork it into its own container, build+serve there (see launchRelease) — so the
+// live site is an immutable artifact that survives editing the workspace, and can be rolled
+// back. A project with nothing buildable keeps the legacy "publish what's already running"
+// behaviour. Owner-only. Exposes the app at deployPath(projectID).
 func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 	ws, rt, ok := s.loadWorkspace(w, r)
 	if !ok {
@@ -66,82 +68,92 @@ func (s *Server) handleDeploy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// A templated project deploys its production build. A template-less project gets
-	// zero-config detection over the workspace's real files (agent-written apps, imports)
-	// so it deploys with a real build+serve too; only when nothing is detectable do we
-	// fall back to keeping whatever is already running up.
-	var templateID *string
-	_ = s.pool.QueryRow(r.Context(), `SELECT template FROM projects WHERE id = $1`, ws.ProjectID).Scan(&templateID)
-	tmpl, templated := Template{}, false
-	if templateID != nil {
-		if t, found := templateByID(*templateID); found && t.Serve != "" {
-			tmpl, templated = t, true
-		}
-	}
-	if !templated {
-		if t, ok := detectWorkspacePlan(r.Context(), rt, ws.ProjectID); ok && t.Serve != "" {
-			tmpl, templated = t, true
-			s.logger.Info("deploy: zero-config detection", "project", ws.ProjectID, "kind", t.ID)
-		}
-	}
+	tmpl, templated := s.deployPlan(r.Context(), rt, ws.ProjectID)
 
+	pid, uid := ws.ProjectID, userID(r)
+
+	// A buildable project deploys as a RELEASE: snapshot the workspace, fork it into its own
+	// container, build+serve there. Production stops sharing a container with the editor, so
+	// the workspace can be stopped, restarted, or edited without taking the site down — and
+	// the snapshot makes rollback possible.
 	if templated {
-		// Real production deploy in the background: restart the container to free the shared
-		// app port from the dev server, then build && serve the production output. The public
-		// /d/ URL shows a self-refreshing "starting" page until the build finishes and serve
-		// binds. Detached context so it outlives this request.
-		pid := ws.ProjectID
+		// One deploy at a time per project: concurrent deploys shared a container name and a
+		// deployments row, so the release recorded as live could disagree with what was serving.
+		done, ok := s.beginDeploy(pid)
+		if !ok {
+			writeError(w, http.StatusConflict, "A deploy is already running for this project. Wait for it to finish, then try again.")
+			return
+		}
+		rel, err := s.createRelease(r.Context(), pid, uid, ws.Runtime, "Deploy")
+		if err != nil {
+			done()
+			s.fail(w, r, err)
+			return
+		}
 		go func() {
+			defer done()
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 			defer cancel()
-			if err := s.launchTemplateDeploy(ctx, rt, pid, tmpl); err != nil {
-				s.logger.Warn("deploy launch failed", "err", err, "project", pid)
-			}
+			s.launchRelease(ctx, rt, pid, uid, rel.ID, rel.Number, tmpl)
 		}()
-	} else if st, err := rt.StartWorkspace(r.Context(), ws.ProjectID); err == nil {
-		s.persistStatus(r, ws, st)
+		// 202: the artifact is not live yet. Reporting 200/"running" here is what used to make
+		// the UI claim success before the build had even started.
+		writeJSON(w, http.StatusAccepted, map[string]any{
+			"status":  "building",
+			"url":     deployPath(pid),
+			"release": rel,
+		})
+		return
 	}
 
+	// Nothing buildable was detected: keep the legacy behaviour of publishing whatever the
+	// workspace is already serving. No artifact, so no release row and no rollback.
+	//
+	// Crucially this must NOT clear an existing release_id. Detection reads the workspace over
+	// `docker exec`, so a stopped or unreachable container makes a perfectly buildable project
+	// look unbuildable — and unconditionally nulling release_id would silently demote a working
+	// release to the legacy path and repoint traffic at the dev workspace. Keep serving the
+	// release we already have; only a project that never had one falls through to legacy.
+	if st, err := rt.StartWorkspace(r.Context(), pid); err == nil {
+		s.persistStatus(r, ws, st)
+	}
 	var updatedAt time.Time
 	if err := s.pool.QueryRow(r.Context(),
-		`INSERT INTO deployments (project_id, user_id, status) VALUES ($1, $2, 'running')
+		`INSERT INTO deployments (project_id, user_id, status, release_id) VALUES ($1, $2, 'running', NULL)
 		 ON CONFLICT (project_id) DO UPDATE SET status = 'running', updated_at = NOW()
-		 RETURNING updated_at`, ws.ProjectID, userID(r)).Scan(&updatedAt); err != nil {
+		 RETURNING updated_at`, pid, uid).Scan(&updatedAt); err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	s.logDeploymentEvent(r.Context(), ws.ProjectID, userID(r), "deploy", "running", deployPath(ws.ProjectID))
-	writeJSON(w, http.StatusOK, deploymentDTO{Status: "running", URL: deployPath(ws.ProjectID), UpdatedAt: updatedAt})
+	s.logDeploymentEvent(r.Context(), pid, uid, "deploy", "running", deployPath(pid))
+	writeJSON(w, http.StatusOK, deploymentDTO{Status: "running", URL: deployPath(pid), UpdatedAt: updatedAt})
 }
 
-// launchTemplateDeploy brings a templated project's PRODUCTION build online. It restarts the
-// workspace container — docker stop/start kills the dev server holding the shared app port
-// while the container filesystem (built output, node_modules) persists — then writes and runs
-// `build && serve` detached, so the deployed app serves its production output on the preview
-// port. Returns quickly (the build runs in the background inside the container); the public
-// /d/ URL shows a "starting" page until serve binds.
-func (s *Server) launchTemplateDeploy(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string, tmpl Template) error {
-	if _, err := rt.StopWorkspace(ctx, projectID, 5); err != nil {
-		return err
+// deployPlan decides how a project is built and served. A declared template wins; otherwise
+// zero-config detection reads the workspace's real files, so agent-written apps and imports
+// deploy with a real build+serve too. Not-ok means nothing buildable was found.
+//
+// Shared by deploy and rollback: a rollback must serve its artifact the same way the original
+// deploy did, and duplicating this was how the two could silently drift apart.
+func (s *Server) deployPlan(ctx context.Context, rt plugin.WorkspaceRuntime, projectID string) (Template, bool) {
+	var templateID *string
+	_ = s.pool.QueryRow(ctx, `SELECT template FROM projects WHERE id = $1`, projectID).Scan(&templateID)
+	if templateID != nil {
+		if t, found := templateByID(*templateID); found && t.Serve != "" {
+			return t, true
+		}
 	}
-	if _, err := rt.StartWorkspace(ctx, projectID); err != nil {
-		return err
+	if t, ok := detectWorkspacePlan(ctx, rt, projectID); ok && t.Serve != "" {
+		s.logger.Info("deploy: zero-config detection", "project", projectID, "kind", t.ID)
+		return t, true
 	}
-	inner := tmpl.Serve
-	if tmpl.Build != "" {
-		inner = tmpl.Build + " && " + tmpl.Serve
-	}
-	script := "cd " + workspaceDir + " && " + inner + "\n"
-	if err := rt.WriteFile(ctx, projectID, workspaceDir+"/.torsor-deploy.sh", []byte(script), true); err != nil {
-		return err
-	}
-	launch := "nohup sh " + workspaceDir + "/.torsor-deploy.sh >/tmp/torsor-deploy.log 2>&1 & echo launched"
-	return rt.Exec(ctx, plugin.ExecSpec{
-		WorkspaceID: projectID,
-		WorkingDir:  workspaceDir,
-		Command:     []string{"sh", "-c", launch},
-	}, func(plugin.ExecChunk) error { return nil })
+	return Template{}, false
 }
+
+// (The old launchTemplateDeploy built and served inside the DEV workspace, restarting it to
+// free the shared app port. That is what made production a hostage of the editor. It is
+// replaced by launchRelease in release.go — kept out of the tree rather than left behind as a
+// second, divergent deploy path.)
 
 // logDeploymentEvent appends to the deployment history log. Best-effort: a failed insert
 // must not fail the deploy/stop it records, so the error is swallowed (the append-only log
@@ -232,8 +244,154 @@ func (s *Server) handleStopDeployment(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	// Stop the release container too — otherwise "unpublished" would leave the app running and
+	// consuming resources, reachable by anyone who learns the container's port.
+	if _, rt, ok := s.resolveWorkspaceRuntime(r.Context(), projectID); ok {
+		s.stopRelease(r.Context(), rt, projectID)
+	}
 	s.logDeploymentEvent(r.Context(), projectID, userID(r), "stop", "stopped", "")
+	s.auditFromRequest(r, "deploy_stop", "project", projectID, "", "Stopped the deployment")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "status": "stopped"})
+}
+
+// handleListReleases returns the project's release history, newest first, with the live one
+// flagged from deployments.release_id rather than from a release's own status.
+func (s *Server) handleListReleases(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := s.requireOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var liveID *string
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT release_id FROM deployments WHERE project_id = $1`, projectID).Scan(&liveID)
+
+	rows, err := s.pool.Query(r.Context(),
+		`SELECT `+releaseCols+` FROM releases WHERE project_id = $1 ORDER BY number DESC LIMIT 50`, projectID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	defer rows.Close()
+	items := []release{}
+	for rows.Next() {
+		rel, err := scanRelease(rows)
+		if err != nil {
+			s.fail(w, r, err)
+			return
+		}
+		rel.Live = liveID != nil && *liveID == rel.ID
+		items = append(items, rel)
+	}
+	if err := rows.Err(); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// handleGetRelease returns one release, re-reading the build log from the container while the
+// build is still running so the UI can follow it instead of showing a stale snapshot.
+func (s *Server) handleGetRelease(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := s.requireOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rel, err := scanRelease(s.pool.QueryRow(r.Context(),
+		`SELECT `+releaseCols+` FROM releases WHERE id = $1 AND project_id = $2`,
+		chi.URLParam(r, "releaseID"), projectID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "Release not found")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if rel.Status == "building" {
+		if live, ok := s.liveBuildLog(r.Context(), projectID, rel.Number); ok && live != "" {
+			rel.BuildLog = live
+		}
+	}
+	var liveID *string
+	_ = s.pool.QueryRow(r.Context(),
+		`SELECT release_id FROM deployments WHERE project_id = $1`, projectID).Scan(&liveID)
+	rel.Live = liveID != nil && *liveID == rel.ID
+	writeJSON(w, http.StatusOK, rel)
+}
+
+// handleRollbackRelease re-forks an earlier release's snapshot and makes it live again.
+//
+// This is a re-fork, not a rebuild: the artifact that goes live is byte-identical to what was
+// live before, which is the only thing that makes rollback trustworthy during an incident.
+func (s *Server) handleRollbackRelease(w http.ResponseWriter, r *http.Request) {
+	ws, rt, ok := s.loadWorkspace(w, r)
+	if !ok {
+		return
+	}
+	target, err := scanRelease(s.pool.QueryRow(r.Context(),
+		`SELECT `+releaseCols+` FROM releases WHERE id = $1 AND project_id = $2`,
+		chi.URLParam(r, "releaseID"), ws.ProjectID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "Release not found")
+		return
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if target.SnapshotID == "" {
+		writeError(w, http.StatusConflict, "That release has no snapshot to roll back to (its build never completed).")
+		return
+	}
+
+	tmpl, ok := s.deployPlan(r.Context(), rt, ws.ProjectID)
+	if !ok {
+		writeError(w, http.StatusConflict, "Cannot determine how to serve this project.")
+		return
+	}
+
+	// Rollback contends for the same container names and deployments row as a deploy, so it
+	// takes the same exclusive claim.
+	done, ok := s.beginDeploy(ws.ProjectID)
+	if !ok {
+		writeError(w, http.StatusConflict, "A deploy is already running for this project. Wait for it to finish, then try again.")
+		return
+	}
+
+	pid, uid, snap := ws.ProjectID, userID(r), target.SnapshotID
+	relID, relNum := target.ID, target.Number
+	relWS := releaseWorkspaceID(pid, relNum)
+	go func() {
+		defer done()
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+		defer cancel()
+		// Same discipline as a deploy: boot the target release beside the live one, prove the
+		// build and the port, and only then move traffic. A rollback that silently lands on a
+		// dead container is worse than no rollback — it is reached for during an incident.
+		if err := s.bootReleaseContainer(ctx, rt, pid, relWS, snap, tmpl); err != nil {
+			s.failRelease(ctx, rt, pid, relID, relWS, "Rollback failed: "+err.Error())
+			return
+		}
+		if err := s.awaitBuild(ctx, rt, relWS, relID); err != nil {
+			s.failRelease(ctx, rt, pid, relID, relWS, "Rollback failed: "+err.Error())
+			return
+		}
+		if err := s.awaitServing(ctx, rt, relWS); err != nil {
+			s.failRelease(ctx, rt, pid, relID, relWS, "Rollback failed: "+err.Error())
+			return
+		}
+		previous := s.liveReleaseNumber(ctx, pid)
+		if err := s.activateRelease(ctx, pid, uid, relID); err != nil {
+			s.logger.Warn("rollback activate failed", "err", err, "project", pid)
+			return
+		}
+		s.reapRelease(ctx, rt, pid, previous, relNum)
+		s.logDeploymentEventRelease(ctx, pid, uid, "rollback", "running", deployPath(pid), relID)
+	}()
+
+	s.auditFromRequest(r, "deploy_rollback", "project", ws.ProjectID, target.ID,
+		fmt.Sprintf("Rolled back to release v%d", target.Number))
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "rolling-back", "release": target})
 }
 
 // handleDeployProxy publicly reverse-proxies a deployed project's workspace app at the stable
@@ -249,8 +407,13 @@ func (s *Server) handleDeployProxy(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCustomDomainProxy(w http.ResponseWriter, r *http.Request) {
 	host := stripPort(r.Host)
 	var projectID string
+	// verified_at IS NOT NULL is the security boundary: attaching a hostname is only a claim,
+	// and an unproven claim must never make this instance answer for someone else's domain.
+	// An unverified row is indistinguishable from "no such domain" here, deliberately — it
+	// leaks nothing about which hostnames other users have attached.
 	if err := s.pool.QueryRow(r.Context(),
-		`SELECT project_id FROM custom_domains WHERE domain = $1`, host).Scan(&projectID); err != nil {
+		`SELECT project_id FROM custom_domains WHERE domain = $1 AND verified_at IS NOT NULL`,
+		host).Scan(&projectID); err != nil {
 		// Not a custom domain → the ordinary "no route matched" 404 (same shape as before).
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Not Found", "path": r.URL.Path})
 		return
@@ -262,18 +425,20 @@ func (s *Server) handleCustomDomainProxy(w http.ResponseWriter, r *http.Request)
 // the app. The proxy target comes from the runtime's live status, never from the client (no
 // SSRF). A booting app shows the self-refreshing "starting" page instead of a raw 502.
 func (s *Server) serveDeployment(w http.ResponseWriter, r *http.Request, projectID, upstreamPath string) {
-	var status string
-	if err := s.pool.QueryRow(r.Context(),
-		`SELECT status FROM deployments WHERE project_id = $1`, projectID).Scan(&status); err != nil || status != "running" {
+	// Where traffic goes is decided by the release, not by the dev workspace: a published
+	// project is served by its release container so editing or stopping the workspace cannot
+	// take the site down. Pre-0026 deployments have no release and keep the old target.
+	targetWS, _, ok := s.releaseTarget(r.Context(), projectID)
+	if !ok {
 		writeError(w, http.StatusNotFound, "Not found")
 		return
 	}
-	ws, rt, ok := s.resolveWorkspaceRuntime(r.Context(), projectID)
+	_, rt, ok := s.resolveWorkspaceRuntime(r.Context(), projectID)
 	if !ok {
 		writeError(w, http.StatusServiceUnavailable, "Deployment backend unavailable")
 		return
 	}
-	st, err := rt.StatusWorkspace(r.Context(), ws.ProjectID)
+	st, err := rt.StatusWorkspace(r.Context(), targetWS)
 	if err != nil || st.PreviewHost == "" || st.PreviewPort == 0 {
 		writeError(w, http.StatusServiceUnavailable, "Deployed app is not running (does it expose a port?)")
 		return

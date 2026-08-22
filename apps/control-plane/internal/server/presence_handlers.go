@@ -43,10 +43,9 @@ func (s *Server) handlePresenceWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	projectID := chi.URLParam(r, "projectID")
-	// This route sits outside the Bearer-auth middleware, so check ownership directly.
-	var owned string
-	if err := s.pool.QueryRow(r.Context(),
-		`SELECT id FROM projects WHERE id = $1 AND user_id = $2`, projectID, claims.UserID).Scan(&owned); err != nil {
+	// This route sits outside the Bearer-auth middleware, so check access directly
+	// (owner or active team member — same predicate as every project route).
+	if ok, err := s.canAccessProjectAs(r.Context(), projectID, claims.UserID); err != nil || !ok {
 		writeError(w, http.StatusNotFound, "Project not found")
 		return
 	}

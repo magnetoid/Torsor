@@ -117,7 +117,7 @@ func (s *Server) handlePreviewProxy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "Invalid or expired token")
 		return
 	}
-	// Attach the claims so loadWorkspace's ownership check (userID/ownsProject) works.
+	// Attach the claims so loadWorkspace's ownership check (userID/canAccessProject) works.
 	r = r.WithContext(auth.WithClaims(r.Context(), claims))
 
 	ws, rt, ok := s.loadWorkspace(w, r)
@@ -155,10 +155,9 @@ func (s *Server) handleHostPreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "Invalid or expired token")
 		return
 	}
-	// Ownership: the subdomain names the project; verify the caller owns it.
-	var one int
-	if err := s.pool.QueryRow(r.Context(),
-		`SELECT 1 FROM projects WHERE id = $1 AND user_id = $2`, projectID, claims.UserID).Scan(&one); err != nil {
+	// Access: the subdomain names the project; verify the caller owns it or is an
+	// active team member (same predicate as every other project route).
+	if ok, err := s.canAccessProjectAs(r.Context(), projectID, claims.UserID); err != nil || !ok {
 		writeError(w, http.StatusNotFound, "Project not found")
 		return
 	}

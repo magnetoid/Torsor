@@ -67,7 +67,7 @@ billing, pluggable kernel, token-pack theming.
 |---|---|---|
 | Agent w/ browser self-test | ✅ Built (`verify_app`, real headless Chromium) | Keep; local-model-first |
 | Parallel agent tasks + merge | ❌ (missions are sequential) | Parallel missions on existing snapshot/fork substrate + git-assisted merge |
-| Autonomy control | 🟡 latent (`user_agent_prefs` stored, not honored) | Wire the dial into runs |
+| Autonomy control | ✅ Honored in runs (preferred model, max steps, plan-vs-autonomous) | Wired the dial into runs |
 | Plan mode + checkpoints | ✅ Built | Add time-travel UI |
 | Scheduled automations | ❌ | Cron missions (one scheduler for deploys + agent jobs) |
 | Visual element editor | 🟡 overlay + sourceLocator exist | Wire selection → targeted agent edit |
@@ -77,9 +77,9 @@ billing, pluggable kernel, token-pack theming.
 | 30+ proprietary connectors | 🟡 MCP client built (`internal/mcpx`) | **All-in on open MCP catalog** — no walled garden |
 | Deployment types + rollback | 🟡 deploy = proxy into dev container | Versioned release images (on `docker commit` substrate), rollback; `DeployTarget` plugins: **Coolify/SSH first**, PaaS later |
 | GitHub import / repo / PRs | ❌ (OAuth login only) | `/new?repo=<url>` import, then VCSProvider plugin |
-| Multiplayer editing | 🟡 backend + sidecar built, no frontend client | Ship Yjs client — **free where Replit charges** |
-| Teams/orgs | 🟡 API exists; `projects.team_id` never read | Honor team scoping with role checks |
-| Security scanning | 🟡 mock tab | OSS scanners in-workspace (`osv-scanner`, `npm audit`, `govulncheck`) |
+| Multiplayer editing | ✅ Yjs client shipped (opt-in sidecar) | **Free where Replit charges** |
+| Teams/orgs | ✅ Team members share project access (owner or active non-viewer member); viewer read-only layer pending | Honor team scoping with role checks |
+| Security scanning | ✅ Real: secret detectors + OSS scanners in-workspace | Unavailable scanners reported honestly, never silently skipped |
 | Templates ecosystem | 🟡 3 hardcoded | `torsor.template.yaml` + git-backed community templates |
 | Mobile app, voice-to-build | ❌ | **Not copying** (see below) |
 | Domain purchasing | ❌ | **Not copying** — BYO domain + DNS-TXT verification |
