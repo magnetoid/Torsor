@@ -2,7 +2,9 @@ package plugin
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"strings"
 
 	goplugin "github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -21,6 +23,30 @@ func RuntimePluginSet(impl WorkspaceRuntime) goplugin.PluginSet {
 	return goplugin.PluginSet{
 		WorkspaceRuntimeKey: &WorkspaceRuntimePlugin{Impl: impl},
 	}
+}
+
+// NotRunningMarker tags a runtime error whose only cause is that the workspace container
+// is stopped — a state the caller can fix by starting it, not a fault.
+//
+// It is a string rather than a sentinel error because runtime errors cross a go-plugin
+// gRPC boundary, which flattens any Go error into `rpc error: code = Unknown desc = <text>`.
+// errors.Is cannot survive that; a marker embedded in the message can. Runtimes wrap with
+// NotRunning, hosts test with IsNotRunning, and neither side hardcodes a docker phrasing.
+const NotRunningMarker = "torsor:workspace-not-running"
+
+// NotRunning tags err as a stopped-workspace condition, preserving the original text for
+// logs. Runtime plugins call this when they can attribute a failure to a stopped container.
+func NotRunning(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", NotRunningMarker, err)
+}
+
+// IsNotRunning reports whether err came back tagged by NotRunning, including after the
+// round trip through gRPC that reduces it to text.
+func IsNotRunning(err error) bool {
+	return err != nil && strings.Contains(err.Error(), NotRunningMarker)
 }
 
 // RuntimeInfo is static runtime metadata.

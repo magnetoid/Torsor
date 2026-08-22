@@ -12,6 +12,7 @@ import { AdminSettingsTab } from '../components/admin/tabs/AdminSettingsTab';
 import { AdminUpdatesTab } from '../components/admin/tabs/AdminUpdatesTab';
 import AgentEngineTab from '../components/admin/tabs/AgentEngineTab';
 import { AdminGitHubTab } from '../components/admin/tabs/AdminGitHubTab';
+import AdminLogsTab from '../components/admin/tabs/AdminLogsTab';
 
 export function AdminPage() {
   const { tab = 'overview' } = useParams<{ tab: string }>();
@@ -36,6 +37,8 @@ export function AdminPage() {
         return <AdminSettingsTab />;
       case 'github':
         return <AdminGitHubTab />;
+      case 'logs':
+        return <AdminLogsTab />;
       default:
         return <Navigate to="/admin" replace />;
     }

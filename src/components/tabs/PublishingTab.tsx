@@ -56,19 +56,64 @@ export default function PublishingTab() {
     customDomains,
     fetchDomains,
     addDomain,
+    verifyDomain,
     removeDomain,
+    releases,
+    fetchReleases,
+    rollbackTo,
+    fetchHistory,
     rollback
   } = useDeployStore();
 
   const [logsOpen, setLogsOpen] = useState(true);
   const [newDomain, setNewDomain] = useState('');
   const [domainError, setDomainError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [verifyResult, setVerifyResult] = useState<{ id: string; ok: boolean; message: string } | null>(null);
+  const [openLog, setOpenLog] = useState<string | null>(null);
+  const [rollingBack, setRollingBack] = useState<string | null>(null);
 
-  // Sync the real deployment state + custom domains for the active project on mount.
+  // Sync the real deployment state + releases + custom domains for the active project.
   useEffect(() => {
     void fetchDeployment();
     void fetchDomains();
-  }, [fetchDeployment, fetchDomains]);
+    void fetchReleases();
+  }, [fetchDeployment, fetchDomains, fetchReleases]);
+
+  // A build runs in the background for minutes, so poll while one is in flight. Stops as soon
+  // as nothing is building — no reason to keep hitting the API on an idle tab.
+  const building = releases.some((r) => r.status === 'building');
+  useEffect(() => {
+    if (!building) return;
+    const id = setInterval(() => {
+      void fetchReleases();
+      // Also refresh the deployment row: the deploy request returns 202 before the artifact
+      // exists, so without this the "Current deployment" card would sit on 'deploying' forever
+      // — including when the build fails.
+      void fetchDeployment();
+    }, 4000);
+    return () => clearInterval(id);
+  }, [building, fetchReleases, fetchDeployment]);
+
+  // When the last build settles, reconcile the deployment card once more so it lands on the
+  // real outcome rather than the optimistic state the deploy action left behind.
+  const wasBuilding = React.useRef(false);
+  useEffect(() => {
+    if (wasBuilding.current && !building) {
+      void fetchDeployment();
+      void fetchHistory();
+    }
+    wasBuilding.current = building;
+  }, [building, fetchDeployment, fetchHistory]);
+
+  const handleRollback = async (releaseID: string) => {
+    setRollingBack(releaseID);
+    try {
+      await rollbackTo(releaseID);
+    } finally {
+      setRollingBack(null);
+    }
+  };
 
   const handleDeploy = (target: DeployTarget) => {
     deploy(target);
@@ -83,6 +128,31 @@ export default function PublishingTab() {
       setNewDomain('');
     } catch (err) {
       setDomainError(err instanceof Error ? err.message : 'Could not add domain');
+    }
+  };
+
+  // A failed check is an expected state (DNS propagation), so it is reported inline rather
+  // than thrown — only a transport failure counts as an error.
+  const handleVerify = async (id: string) => {
+    setVerifying(id);
+    setVerifyResult(null);
+    try {
+      const res = await verifyDomain(id);
+      setVerifyResult({
+        id,
+        ok: res.verified,
+        message: res.verified
+          ? 'Verified — this domain now serves your deployment.'
+          : res.reason ?? 'Not verified yet.',
+      });
+    } catch (err) {
+      setVerifyResult({
+        id,
+        ok: false,
+        message: err instanceof Error ? err.message : 'Verification failed',
+      });
+    } finally {
+      setVerifying(null);
     }
   };
 
@@ -294,6 +364,79 @@ export default function PublishingTab() {
             </div>
           </section>
 
+          {/* Releases — versioned artifacts, not "whatever the container is running" */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Releases</h3>
+            <div className="bg-surface border border-default rounded-xl p-5 space-y-3">
+              {releases.length === 0 ? (
+                <p className="text-xs text-tertiary">
+                  No releases yet. Publishing snapshots your workspace and runs the build in its own
+                  container, so the live site keeps serving while you keep editing.
+                </p>
+              ) : (
+                releases.map((rel) => (
+                  <div key={rel.id} className="p-3 bg-page border border-default rounded-lg space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold text-primary">v{rel.number}</span>
+                        {rel.live ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success bg-success/10 px-1.5 py-0.5 rounded">
+                            <CheckCircle2 size={10} /> Live
+                          </span>
+                        ) : rel.status === 'building' ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-info bg-info/10 px-1.5 py-0.5 rounded">
+                            <Loader2 size={10} className="animate-spin" /> Building
+                          </span>
+                        ) : rel.status === 'failed' ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-error bg-error/10 px-1.5 py-0.5 rounded">
+                            <XCircle size={10} /> Failed
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-tertiary bg-elevated px-1.5 py-0.5 rounded">
+                            Superseded
+                          </span>
+                        )}
+                        <span className="text-[11px] text-tertiary truncate">
+                          {new Date(rel.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {rel.buildLog && (
+                          <button
+                            onClick={() => setOpenLog(openLog === rel.id ? null : rel.id)}
+                            className="px-2.5 py-1 rounded-lg border border-default text-[11px] font-bold text-secondary hover:text-primary hover:border-accent transition-colors focus-ring"
+                          >
+                            {openLog === rel.id ? 'Hide log' : 'Build log'}
+                          </button>
+                        )}
+                        {/* Only a completed artifact can be rolled back to — a build that never
+                            produced a snapshot has nothing to restore. */}
+                        {!rel.live && rel.snapshotId && rel.status !== 'building' && (
+                          <button
+                            onClick={() => void handleRollback(rel.id)}
+                            disabled={rollingBack === rel.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/10 text-accent text-[11px] font-bold hover:bg-accent hover:text-white transition-colors disabled:opacity-60 focus-ring"
+                          >
+                            {rollingBack === rel.id ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
+                            Roll back
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {rel.message && rel.status === 'failed' && (
+                      <p className="text-[11px] text-error">{rel.message}</p>
+                    )}
+                    {openLog === rel.id && (
+                      <pre className="text-[11px] font-mono bg-elevated border border-default rounded-md p-2 max-h-64 overflow-auto whitespace-pre-wrap break-all text-secondary">
+                        {rel.buildLog}
+                      </pre>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
           {/* Custom Domains */}
           <section className="space-y-4">
             <h3 className="text-xs font-bold text-primary uppercase tracking-wider">Custom Domains</h3>
@@ -315,18 +458,77 @@ export default function PublishingTab() {
 
               <div className="space-y-2">
                 {customDomains.map((domain) => (
-                  <div key={domain.id} className="flex items-center justify-between p-3 bg-page border border-default rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Globe size={14} className="text-secondary" />
-                      <span className="text-xs font-medium text-primary">{domain.domain}</span>
+                  <div key={domain.id} className="p-3 bg-page border border-default rounded-lg space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Globe size={14} className="text-secondary shrink-0" />
+                        <span className="text-xs font-medium text-primary truncate">{domain.domain}</span>
+                        {/* The badge is the honest bit: an attached domain is only a claim
+                            until the TXT record proves it, and it is not served until then. */}
+                        {domain.verified ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-success bg-success/10 px-1.5 py-0.5 rounded shrink-0">
+                            <CheckCircle2 size={10} />
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-warning bg-warning/10 px-1.5 py-0.5 rounded shrink-0">
+                            <AlertCircle size={10} />
+                            Unverified
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => void removeDomain(domain.id)}
+                        title="Remove domain"
+                        className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all shrink-0 focus-ring"
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </div>
-                    <button
-                      onClick={() => void removeDomain(domain.id)}
-                      title="Remove domain"
-                      className="p-1.5 text-secondary hover:text-error hover:bg-error/10 rounded-md transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+
+                    {!domain.verified && (
+                      <div className="space-y-2 pl-7">
+                        <p className="text-xs text-secondary leading-relaxed">
+                          Add this DNS record to prove you own <span className="font-medium">{domain.domain}</span>.
+                          Until it resolves, this instance will not serve the domain.
+                        </p>
+                        <dl className="text-[11px] font-mono bg-surface border border-default rounded-md p-2 space-y-1 overflow-x-auto">
+                          <div className="flex gap-2">
+                            <dt className="text-tertiary w-12 shrink-0">Type</dt>
+                            <dd className="text-primary">{domain.recordType}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="text-tertiary w-12 shrink-0">Name</dt>
+                            <dd className="text-primary break-all">{domain.recordName}</dd>
+                          </div>
+                          <div className="flex gap-2">
+                            <dt className="text-tertiary w-12 shrink-0">Value</dt>
+                            <dd className="text-primary break-all">{domain.recordValue}</dd>
+                          </div>
+                        </dl>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => void handleVerify(domain.id)}
+                            disabled={verifying === domain.id}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-bold hover:bg-accent hover:text-white transition-colors disabled:opacity-60 focus-ring"
+                          >
+                            {verifying === domain.id ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+                            {verifying === domain.id ? 'Checking DNS…' : 'Verify'}
+                          </button>
+                          <button
+                            onClick={() => void navigator.clipboard?.writeText(domain.recordValue)}
+                            className="px-2.5 py-1.5 rounded-lg border border-default text-xs font-bold text-secondary hover:text-primary hover:border-accent transition-colors focus-ring"
+                          >
+                            Copy value
+                          </button>
+                        </div>
+                        {verifyResult?.id === domain.id && (
+                          <p className={cn('text-xs', verifyResult.ok ? 'text-success' : 'text-warning')}>
+                            {verifyResult.message}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {customDomains.length === 0 && (
@@ -340,9 +542,10 @@ export default function PublishingTab() {
                   <span className="text-xs font-bold uppercase tracking-wider">Setup Instructions</span>
                 </div>
                 <p className="text-xs text-secondary leading-relaxed">
-                  Attach a domain here, then point its DNS (A/CNAME) at this Torsor instance and route
-                  it to the app in your reverse proxy. Once it resolves here, the domain serves this
-                  project's deployment. DNS &amp; TLS are managed at your hosting layer.
+                  Attach a domain, publish the TXT record shown above, then click Verify — this proves
+                  the domain is yours, so nobody else can point it at their project. After it verifies,
+                  aim the domain's DNS (A/CNAME) at this Torsor instance and route it to the app in your
+                  reverse proxy. DNS &amp; TLS are managed at your hosting layer.
                 </p>
               </div>
             </div>

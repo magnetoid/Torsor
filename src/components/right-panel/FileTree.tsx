@@ -26,14 +26,34 @@ import { useLayoutStore } from '../../stores/layoutStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { cn } from '../../lib/utils';
 import { EmptyState } from '../shared/EmptyState';
-import { Folder as FolderIcon } from 'lucide-react';
+import { Folder as FolderIcon, Power as PowerIcon } from 'lucide-react';
+import { apiRequest } from '../../lib/api';
+import { toast } from 'sonner';
 
 export default function FileTree() {
   const { files, createFile, deleteFile, renameFile, duplicateFile, loadFileContent } = useAppStore();
+  const workspaceStopped = useAppStore((s) => s.workspaceStopped);
+  const loadWorkspaceFiles = useAppStore((s) => s.loadWorkspaceFiles);
   const { openFile } = useEditorStore();
   const { openTab } = useLayoutStore();
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
+  const [starting, setStarting] = useState(false);
+
+  // Recovery for a stopped workspace, offered where the problem shows up. Reloading the
+  // tree on success is what clears workspaceStopped, so the panel corrects itself.
+  const startWorkspace = async () => {
+    if (!activeProjectId) return;
+    setStarting(true);
+    try {
+      await apiRequest(`/api/v1/projects/${activeProjectId}/workspace/start`, { method: 'POST', auth: true });
+      await loadWorkspaceFiles(activeProjectId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not start the workspace');
+    } finally {
+      setStarting(false);
+    }
+  };
 
   const toggleFolder = (id: string) => {
     setExpandedFolders(prev => 
@@ -199,11 +219,23 @@ export default function FileTree() {
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         {files.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-4">
-            <EmptyState 
-              icon={FolderIcon}
-              title="No files yet"
-              description="Ask the agent to start building your application."
-            />
+            {/* An empty tree has two very different causes. Saying "No files yet" when the
+                container is merely stopped sends people looking for files that exist. */}
+            {workspaceStopped ? (
+              <EmptyState
+                icon={PowerIcon}
+                title="Workspace stopped"
+                description="Your files are still here — the container that serves them isn't running."
+                actionLabel={starting ? 'Starting…' : 'Start workspace'}
+                onAction={starting ? undefined : startWorkspace}
+              />
+            ) : (
+              <EmptyState
+                icon={FolderIcon}
+                title="No files yet"
+                description="Ask the agent to start building your application."
+              />
+            )}
           </div>
         ) : (
           renderTree()
