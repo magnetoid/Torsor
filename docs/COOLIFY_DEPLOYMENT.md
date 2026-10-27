@@ -1,60 +1,107 @@
 # Coolify Deployment Guide
 
-This document outlines the steps to deploy the Torsor application using Coolify.
+How to deploy Torsor on Coolify (Docker Compose build pack). The app domain is
+**`app.torsor.dev`**; leave the `torsor.dev` landing site untouched.
 
-## Architecture Adjustments Made
-The codebase has been updated to be fully compatible with Coolify's Docker Compose deployment model:
-1. **Production Dockerfiles:**
-   - Frontend (`Dockerfile`): Uses a multi-stage build. First stage builds the Vite SPA, second stage serves it via `nginx:alpine`.
-   - API (`apps/api/Dockerfile`): Multi-stage build that omits `devDependencies` in the final image and starts using `npm start`.
-   - Worker (`apps/worker/Dockerfile`): Similar multi-stage build, omitting dev dependencies.
-2. **Docker Compose (`docker-compose.yml`):**
-   - Cleaned up for production deployment. Local volume mounts (e.g., `./apps/api:/app`) and dev commands (`npm run dev`) have been removed from this file.
-   - `expose` is used instead of `ports` to ensure internal services don't conflict on the host and rely on Traefik for ingress.
-   - Environment variables are mapped appropriately.
-3. **Local Development Override (`docker-compose.override.yml`):**
-   - Contains all the local dev overrides (hot-reloading volumes, `target: development` build stages, and host port mappings).
-   - Coolify ignores this file by default, keeping production isolated from dev setups.
+> **Read this first — the #1 cause of a dead domain.** The Go control plane **fails
+> closed**: under `NODE_ENV=production` (the compose default) it refuses to boot and
+> exits unless `JWT_SECRET` is set to a strong value (≥32 chars). If it can't boot it
+> never becomes healthy, and the deploy has no backend. Set the required env vars below
+> **before** the first deploy.
 
-## Deployment Steps in Coolify
+## Architecture (what actually runs)
 
-1. **Create a New Resource:**
-   - In your Coolify dashboard, select your target Server and Environment.
-   - Click **+ New** -> **Public Repository** (or Private if it's private).
-   - Enter the repository URL and branch (e.g., `main`).
-   - Select **Docker Compose** as the build pack.
+The default `docker-compose.yml` stack, after the `api → control-plane` cutover
+(ADR 0009):
 
-2. **Configure Docker Compose Settings:**
-   - **Docker Compose Location:** `/docker-compose.yml`
-   - Coolify will parse the file and detect the services: `frontend`, `api`, `worker`, `postgres`, `redis`, `adminer`.
+- **`frontend`** — the Vite SPA served by nginx. Its nginx **also reverse-proxies
+  `/api` and `/ready` to `control-plane:3001` on the internal network**, so the API is
+  same-origin. **This is the only service that needs a public domain.**
+- **`control-plane`** — the Go backend (auth, projects, files, agent loop, workspace
+  runtime, model providers). Internal only (`expose: 3001`); reached via the frontend's
+  `/api` proxy. Applies DB migrations on startup.
+- **`postgres`**, **`redis`** — internal datastores (`expose` only).
+- **`ollama`** — optional local model server, behind `--profile ai`.
+- **`adminer`** — optional DB UI, behind `--profile tools`.
 
-3. **Set Environment Variables:**
-   Navigate to the **Environment Variables** tab in Coolify and configure the following:
+> The legacy `apps/api` (Express) and `apps/worker` are **not** in the default stack —
+> they're retained for rollback only. Ignore older docs that mention them, a separate
+> `api.yourdomain.com` domain, or `GEMINI_API_KEY` (the bundled Gemini SDK was removed;
+> model access is now BYO-key through the backend).
 
-   *Global / Application Env Vars:*
-   - `NODE_ENV=production`
-   - `APP_ENV=production`
-   - `JWT_SECRET=<generate-a-secure-secret>`
-   - `POSTGRES_DB=torsor_prod`
-   - `POSTGRES_USER=torsor`
-   - `POSTGRES_PASSWORD=<secure-db-password>`
-   - `VITE_API_URL=https://api.yourdomain.com` *(Must be the public URL for the API)*
-   - `CORS_ORIGIN=https://app.yourdomain.com` *(Must match the frontend URL)*
-   - `GEMINI_API_KEY=<your-google-gemini-key>`
+## Deployment steps
 
-4. **Configure Domains (Traefik Ingress):**
-   In the **Services** tab (or main configuration), assign domains to the services that need public access:
-   - **frontend:** Set Domain to `https://app.yourdomain.com`. Coolify will automatically configure Traefik and provision SSL via Let's Encrypt.
-   - **api:** Set Domain to `https://api.yourdomain.com`.
-   - Leave `worker`, `postgres`, `redis`, and `adminer` without public domains unless you specifically need external access. They will communicate internally via the Docker network.
+1. **Create the resource:** Coolify → **+ New** → **Public/Private Repository** →
+   enter the repo + branch (`main`) → build pack **Docker Compose**.
+2. **Compose location:** `/docker-compose.yml`. Coolify detects: `frontend`,
+   `control-plane`, `postgres`, `redis` (plus `ollama`/`adminer` only if you enable
+   their profiles).
+3. **Set environment variables** (see the preflight below) in Coolify's
+   **Environment Variables** tab.
+4. **Assign the domain:** on the **`frontend`** service only, set Domain to
+   `https://app.torsor.dev` (include `https://` so Coolify provisions Let's Encrypt).
+   Leave every other service **without** a public domain — the control plane is reached
+   through the frontend's `/api` proxy, not its own hostname.
+5. **DNS:** point `app.torsor.dev` (A/AAAA) at the Coolify host, and make sure Coolify's
+   Traefik — not another proxy — owns ports 80/443 on that host.
+6. **Deploy.**
 
-5. **Health Checks:**
-   - Health checks are already defined in `docker-compose.yml` using `CMD-SHELL`. Coolify will respect these during deployment to ensure zero-downtime rollouts.
-   - API exposes `/health` and `/ready` endpoints, which can also be configured in Coolify's custom health check UI if needed.
+## Required env preflight
 
-6. **Deploy:**
-   - Click **Deploy**.
-   - Coolify will build the multi-stage Dockerfiles, provision the internal network, start the database and cache, wait for them to be healthy, and then start the API, Worker, and Frontend.
+Set these **before** the first deploy. Missing `JWT_SECRET` is the classic "domain
+returns nothing" cause.
 
-## Rollback Mechanism
-Coolify supports rollback by redeploying previous successful image tags. Since we use Docker Compose builds directly, ensure you maintain persistent volumes (already defined as `postgres_data` and `redis_data` in the compose file) to prevent data loss across deployments.
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `NODE_ENV` | ✅ | `production` (the compose default; keep it). |
+| `JWT_SECRET` | ✅ | **≥32 chars.** `openssl rand -hex 32`. Control plane exits without it. |
+| `TORSOR_SECRET_KEY` | ✅ | 32-byte key that encrypts users' BYO API keys at rest. `openssl rand -hex 32`. |
+| `POSTGRES_PASSWORD` | ✅ | Real DB password (default `postgres` is dev-only). |
+| `POSTGRES_DB` / `POSTGRES_USER` | ✅ | e.g. `torsor_prod` / `torsor`. Must match what the control plane's `DATABASE_URL` is built from (compose derives it from these). |
+| `APP_URL` | ✅ | `https://app.torsor.dev`. |
+| `CORS_ORIGIN` | ◻️ | `https://app.torsor.dev`. Not strictly needed while the SPA calls same-origin `/api`, but set it for safety / any cross-origin client. |
+| `SUPER_ADMIN_EMAILS` | ◻️ | Comma-separated; auto-promoted to `super_admin` on boot. |
+| `TORSOR_DEFAULT_RUNTIME` | ⚠️ | Defaults to `docker` (mounts `/var/run/docker.sock`). **On a shared/multi-tenant host set `mock`** and remove the socket mount — the socket is root-equivalent host access. |
+| `OLLAMA_HOST` / `OLLAMA_MODEL` | ◻️ | Point at your Ollama for the free local model (or enable the `ollama` profile and `ollama pull` the model). Hosted providers (Anthropic/OpenAI/Gemini/…) are BYO-key per user in Settings → API Keys — not env vars. |
+| `VITE_API_URL` | ◻️ | **Leave empty.** The SPA calls same-origin `/api` (nginx proxies to the control plane). Set only for a genuinely cross-origin API. |
+| `FRONTEND_HOST_PORT` | ◻️ | Only for the Plesk/host-reverse-proxy pattern (binds `127.0.0.1:<port>:80`). Pure Coolify/Traefik deploys don't need it. |
+
+Generate secrets:
+```bash
+openssl rand -hex 32   # JWT_SECRET
+openssl rand -hex 32   # TORSOR_SECRET_KEY
+```
+
+## Troubleshooting
+
+**`app.torsor.dev` returns nothing / 404 / 502, or the deploy never goes healthy.**
+Almost always the control plane can't boot, which (by design) blocks the frontend too.
+Check its logs first:
+```bash
+docker compose logs control-plane | tail -50
+```
+- `JWT_SECRET must be set to a strong value (>=32 chars)` → set `JWT_SECRET` (and the
+  other required vars above) and redeploy. **This is the most common cause.**
+- Docker-socket / `torsor-ws` network errors (e.g. "network … has incorrect labels") →
+  the host won't allow the Docker socket. Set `TORSOR_DEFAULT_RUNTIME=mock` and drop the
+  `/var/run/docker.sock` mount for this deployment.
+- DB connection errors → `POSTGRES_PASSWORD`/`POSTGRES_DB`/`POSTGRES_USER` don't match
+  what `DATABASE_URL` is derived from.
+
+Then confirm the ingress:
+```bash
+docker compose ps                      # is `frontend` running? is `control-plane` healthy?
+dig +short app.torsor.dev              # resolves to the Coolify host?
+ss -ltnp | grep -E ':(80|443)\b'       # Traefik owns 80/443 (no competing proxy)?
+```
+
+> As of the frontend health-gate fix, the SPA serves even while the control plane is
+> unhealthy (API calls just fail until it recovers) — so a blank page with failing
+> `/api` calls points at the backend/env, not the frontend.
+
+## Rollback
+
+Coolify redeploys previous successful builds. Keep the `postgres_data` and `redis_data`
+volumes across deploys to avoid data loss. The `api → control-plane` cutover is itself
+reversible (flip `nginx.conf` + `docker-compose.yml` back to `apps/api`) if ever needed.
+</content>
