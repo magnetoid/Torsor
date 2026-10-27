@@ -195,7 +195,12 @@ services:
       - "127.0.0.1:${FRONTEND_HOST_PORT:-18080}:80"
     depends_on:
       control-plane:
-        condition: service_healthy
+        # service_started (NOT service_healthy): keep start-ordering so nginx can resolve
+        # the `control-plane` upstream at boot, but do NOT gate the SPA on backend health.
+        # A backend boot failure (e.g. a missing/weak JWT_SECRET making the control plane
+        # fail closed) must not black out the whole domain — the static app still serves and
+        # /api calls degrade gracefully until the backend recovers.
+        condition: service_started
     networks:
       - torsor_network
     healthcheck:
